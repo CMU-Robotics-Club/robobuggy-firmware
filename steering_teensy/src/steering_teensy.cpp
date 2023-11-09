@@ -161,8 +161,8 @@ ros::Publisher debug("TeensyStateIn_T", &rosLogger);
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
-int LEFT_DYNAMIXEL_LIMIT = 1516;
-int RIGHT_DYNAMIXEL_LIMIT = 829;
+int LEFT_DYNAMIXEL_LIMIT = 3030;
+int RIGHT_DYNAMIXEL_LIMIT = 2030;
 
 /**
  * @brief
@@ -393,19 +393,31 @@ void setup()
   motor->jointMode(1, 0xFFF);
   motor->enableTorque();
 
-  calibrateSteering();
+  //calibrateSteering();
   Serial.print("Left limit is ");
   Serial.println(LEFT_DYNAMIXEL_LIMIT);
   Serial.print("Right limit is ");
   Serial.println(RIGHT_DYNAMIXEL_LIMIT);
 
   motor->enableTorque(false);
-  // motor->jointMode(RIGHT_DYNAMIXEL_LIMIT, LEFT_DYNAMIXEL_LIMIT); // Set the angular limits of the servo. Set to [min, max] by default
+  motor->jointMode(RIGHT_DYNAMIXEL_LIMIT, LEFT_DYNAMIXEL_LIMIT); // Set the angular limits of the servo. Set to [min, max] by default
   motor->enableTorque();
 }
 
 void loop()
 {
+  /*
+  while (1) {
+  uint16_t pos;
+  motor->enableTorque(false);
+  motor->currentPosition(pos);
+
+  Serial.println(pos);
+
+  delay(200);
+  }
+  */
+
   int rcSteeringWidth = v_rcSteeringWidth;
   int rcThrottleWidth = v_rcThrottleWidth;
 

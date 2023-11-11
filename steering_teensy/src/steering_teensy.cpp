@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include "ArduinoCRSF.h"
+
 #include "Dynamixel.h"
 #include "DynamixelInterface.h"
 #include "DynamixelMotor.h"
@@ -26,14 +28,30 @@
 
 DynamixelMotor *motor;
 
+
 // Teensy Pins
-#define VOLTAGE_PIN 24
-#define BRAKE_RELAY_PIN 25
+#define VOLTAGE_PIN 27
+#define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
 
 // RC Controller PWM Pins
-#define STEERING_PIN 26
-#define THROTTLE_PIN 27
+#define RC_SERIAL Serial6
+#define RC_BAUDRATE 115200
+
+#define CHANNEL_LEFT_X  4
+#define CHANNEL_LEFT_Y  3
+#define CHANNEL_RIGHT_X 1
+#define CHANNEL_RIGHT_Y 2
+#define CHANNEL_SWITCH_E 5
+#define CHANNEL_SWITCH_F 6
+#define CHANNEL_SWITCH_B 7
+#define CHANNEL_SWITCH_C 8
+#define CHANNEL_BUTTON_A 9
+#define CHANNEL_BUTTON_D 10
+
+ArduinoCRSF rc_controller;
+//#define STEERING_PIN 26
+//#define THROTTLE_PIN 27
 
 // Width of RC steering and brake pulses.
 volatile int v_rcSteeringWidth = 0;
@@ -63,6 +81,8 @@ int rcSteeringSamples[RC_SAMPLING_WINDOW] = {0};
 int rcSteeringSampleIndex = 0;
 
 // TODO make sure i implemented these interrupt handlers correctly lol
+
+#if 0
 
 /**
  * @brief This method gets called every time STEERING_PIN switches from low to high or from high to low.
@@ -96,6 +116,7 @@ void steeringInterruptHandler()
   }
 }
 
+
 /**
  * @brief See description for the steeringInterrupHandler method.
  */
@@ -123,6 +144,8 @@ void throttleInterruptHandler()
     }
   }
 }
+
+#endif
 
 volatile float rosSteeringAngle = 0.0;
 volatile float rosBrake = 1.0;
@@ -161,8 +184,8 @@ ros::Publisher debug("TeensyStateIn_T", &rosLogger);
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
-int LEFT_DYNAMIXEL_LIMIT = 3030;
-int RIGHT_DYNAMIXEL_LIMIT = 2030;
+int LEFT_DYNAMIXEL_LIMIT = 2340;
+int RIGHT_DYNAMIXEL_LIMIT = 1640;
 
 /**
  * @brief
@@ -187,6 +210,7 @@ int RC_STEERING_CENTER = 1420;
 int RC_THROTTLE_CENTER = 1475;
 int RC_THROTTLE_DEADZONE = 200;
 
+#if 0
 /**
  * @brief scales and skews the pulse width to input to the dynamixel
  *
@@ -217,6 +241,20 @@ int rcToDynamixelWidth(int pulseWidth)
 
   return (int)round(displacement);
 }
+#endif
+
+int rcToDynamixelWidth(int pulseWidth) {
+  // Scales it to -0.5 to 0.5
+  float displacement = (pulseWidth - 1500.0) / 1000.0;
+
+  displacement *= -1.0;
+
+  displacement = getDynamixelCenter() + displacement * getDynamixelRange();
+
+  return (int)round(displacement);
+}
+
+#if 0
 
 /**
  * @brief scales and skews the pulse width to input to the dynamixel
@@ -244,6 +282,20 @@ float rcToPercent(int pulseWidth)
 
   return displacement * 100;
 }
+
+#endif
+
+/**
+ * @brief scales and skews the pulse width to input to the dynamixel
+ *
+ * @param pulseWidth width of pulse from steering RC pin in milliseconds
+ * @return Steering percentage, signed.  may sometimes go over 100 if you yoink on the steering hard enough.
+ */
+float rcToPercent(int pulseWidth)
+{
+  return 100.0 * ((pulseWidth - 1500.0) / 500.0);
+}
+
 
 /**
  * @brief scales, skews, and caps the angle offset to input to the dynamixel
@@ -279,7 +331,7 @@ float dynamixelLoadToPercent(uint16_t load)
   return value;
 }
 
-float dynamixelCurrentToMilliAmps(uint16_t current)
+float dynamixelCurrentToMilliAmps(int16_t current)
 {
   float value = current - 2048;
   value *= 4.5f;
@@ -341,11 +393,17 @@ void setup()
 {
   Serial.begin(115200);
 
-  pinMode(STEERING_PIN, INPUT);
+  RC_SERIAL.begin(RC_BAUDRATE);
+  if (!RC_SERIAL) {
+    while (1) Serial.println("CRSF serial initialization failed");
+  }
+  rc_controller.begin(RC_SERIAL);
+
+  /*pinMode(STEERING_PIN, INPUT);
   pinMode(THROTTLE_PIN, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(STEERING_PIN), steeringInterruptHandler, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(THROTTLE_PIN), throttleInterruptHandler, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(THROTTLE_PIN), throttleInterruptHandler, CHANGE);*/
 
   nh.getHardware()->setBaud(ROS_BAUD);
   nh.initNode();
@@ -406,18 +464,39 @@ void setup()
 
 void loop()
 {
-  /*
-  while (1) {
-  uint16_t pos;
+
+#if 0
   motor->enableTorque(false);
-  motor->currentPosition(pos);
 
-  Serial.println(pos);
+  int last_time = millis();
+  while (1) {
+    rc_controller.update();
 
-  delay(200);
+    int time = millis();
+    if (time - last_time > 100) {
+      last_time = time;
+      for (int i = 1; i <= 16; ++i) {
+        Serial.print(rc_controller.getChannel(i));
+        Serial.print(", ");
+      }
+      Serial.println();
+    }
   }
-  */
+#endif
 
+#if 0
+  while (1) {
+    uint16_t pos;
+    motor->enableTorque(false);
+    motor->currentPosition(pos);
+
+    Serial.println(pos);
+
+    delay(200);
+  }
+#endif
+
+#if 0
   int rcSteeringWidth = v_rcSteeringWidth;
   int rcThrottleWidth = v_rcThrottleWidth;
 
@@ -442,20 +521,51 @@ void loop()
   bool autoMode = rcThrottleWidth < (RC_THROTTLE_CENTER - RC_THROTTLE_DEADZONE);
   bool teleMode = (RC_THROTTLE_CENTER + RC_THROTTLE_DEADZONE) < rcThrottleWidth;
   bool brakeMode = !autoMode && !teleMode;
+#endif
+
+  rc_controller.update();
+
+  auto link_stats = rc_controller.getLinkStatistics();
+
+  bool rcTimeout = !rc_controller.isLinkUp();
+  bool buggyEnabled = (rc_controller.getChannel(CHANNEL_BUTTON_A) > 1500) || (rc_controller.getChannel(CHANNEL_BUTTON_D) > 1500);
+  bool autoMode = (rc_controller.getChannel(CHANNEL_SWITCH_E) > 1750) && buggyEnabled;
+
+  int rcSteeringAvg = rc_controller.getChannel(CHANNEL_RIGHT_X);
 
   // Controlling hardware thru RC.
   float steeringCommand = rcTimeout ? getDynamixelCenter() : rcToDynamixelWidth(rcSteeringAvg);
-  bool brakeCommand = rcTimeout ? true : brakeMode;
+  bool brakeCommand = (buggyEnabled && !rcTimeout);
 
   // If auton is enabled, it will set inputs to ROS inputs.
   if (autoMode && !rcTimeout)
   {
     steeringCommand = rosAngleToDynamixelWidth(rosSteeringAngle);
-    brakeCommand = 0.5 < rosBrake;
+    //brakeCommand = 0.5 < rosBrake;
   }
 
+  static bool dynamixel_shutdown = false;
+
   motor->goalPosition(steeringCommand);
-  digitalWrite(BRAKE_RELAY_PIN, !brakeCommand);
+
+  DynamixelStatus dynamixel_status = motor->ping();
+
+  if (dynamixel_status & DYN_STATUS_COM_ERROR) {
+    // Communication error, we no longer have steering control
+    // Should we fail in this case?
+  } else if (dynamixel_status & DYN_STATUS_OVERLOAD_ERROR) {
+    // Overload can only be fixed by a physical reset
+    dynamixel_shutdown = true;
+  } else if (dynamixel_status & DYN_STATUS_OVERHEATING_ERROR) {
+    // Overheat (maybe) can only be fixed by a physical reset
+    dynamixel_shutdown = true;
+  }
+
+  if (dynamixel_shutdown) {
+    brakeCommand = false;
+  }
+
+  digitalWrite(BRAKE_RELAY_PIN, brakeCommand);
 
   // Logging data to ROS
   if (rosLogCounter == 0)
@@ -480,7 +590,9 @@ void loop()
     uint16_t current;
     a = motor->currentMilliAmps(current);
     char c_current[32];
-    String(String(dynamixelCurrentToMilliAmps(current)) + " mA").toCharArray(c_current, 32);
+    //String(String(dynamixelCurrentToMilliAmps(current)) + " mA").toCharArray(c_current, 32);
+    //snprintf(c_current, 32, "%hu", current);
+    snprintf(c_current, 32, "%f", dynamixelCurrentToMilliAmps(current));
 
     char c_leftSteeringLimit[32];
     String(String(dynamixelAngleToDegrees(LEFT_DYNAMIXEL_LIMIT)) + " deg").toCharArray(c_leftSteeringLimit, 32);
@@ -491,8 +603,15 @@ void loop()
     char c_rcSteeringInput[32];
     String(String(rcToPercent(rcSteeringAvg)) + "%").toCharArray(c_rcSteeringInput, 32);
 
+    char c_uplinkQuality[32];
+    String(link_stats->uplink_Link_quality).toCharArray(c_uplinkQuality, 32);
+
+    char c_autoMode[32];
+    String(autoMode).toCharArray(c_autoMode, 32);
+
     char c_rcSteeringWidth[32];
-    String(rcSteeringWidth).toCharArray(c_rcSteeringWidth, 32);
+    //String(rcSteeringWidth).toCharArray(c_rcSteeringWidth, 32);
+    String(rcSteeringAvg).toCharArray(c_rcSteeringWidth, 32);
 
     rosLogValues[0].key = "steeringAngleCommand";
     rosLogValues[0].value = c_steeringCommand;
@@ -502,10 +621,14 @@ void loop()
     rosLogValues[2].value = c_presentLoad;
     rosLogValues[3].key = "current milliamps";
     rosLogValues[3].value = c_current;
-    rosLogValues[4].key = "left dynamixel limit";
+    /*rosLogValues[4].key = "left dynamixel limit";
     rosLogValues[4].value = c_leftSteeringLimit;
     rosLogValues[5].key = "right dynamixel limit";
-    rosLogValues[5].value = c_rightSteeringLimit;
+    rosLogValues[5].value = c_rightSteeringLimit;*/
+    rosLogValues[4].key = "uplink quality";
+    rosLogValues[4].value = c_uplinkQuality;
+    rosLogValues[5].key = "auto mode";
+    rosLogValues[5].value = c_autoMode;
     rosLogValues[6].key = "rc steering input percent";
     rosLogValues[6].value = c_rcSteeringInput;
     rosLogValues[7].key = "rc steering input width";

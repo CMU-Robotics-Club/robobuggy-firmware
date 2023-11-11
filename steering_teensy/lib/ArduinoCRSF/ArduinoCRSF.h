@@ -45,7 +45,10 @@ private:
     uint32_t _lastReceive;
     uint32_t _lastChannelsPacket;
     bool _linkIsUp;
+
+public:
     int _channels[CRSF_NUM_CHANNELS];
+private:
 
     void handleSerialIn();
     void handleByteReceived();

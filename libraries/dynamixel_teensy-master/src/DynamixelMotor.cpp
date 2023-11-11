@@ -200,5 +200,5 @@ DynamixelStatus DynamixelMotor::presentLoad(uint16_t &aLoad)
 DynamixelStatus DynamixelMotor::currentMilliAmps(uint16_t &aCurrent)
 {
 	aCurrent = UINT16_MAX;
-	return read(40, aCurrent);
+	return read(DYN_ADDRESS_PRESENT_CURRENT, aCurrent);
 }

@@ -284,19 +284,23 @@ uint64_t positivePow(uint64_t base, uint64_t power)
 
 // converts day:hour:minute:second:nanosecond to absolute time in nanoseconds
 // warning: will break if you run the buggy at midNight on the end of a month;
-uint64_t getTimeNanoSeconds()
+uint64_t getTimeHundredths()
 {
 
-  /*uint64_t nSec = myGPS.getNanosecond();
-  uint64_t sec = myGPS.getSecond();
-  uint64_t minute = myGPS.getMinute();
-  uint64_t hour = myGPS.getHour();
-  uint64_t day = myGPS.getDay();
+  uint64_t n_hun  = nmea.getHundredths();
+  uint64_t n_sec  = nmea.getSecond();
+  uint64_t n_min  = nmea.getMinute();
+  uint64_t n_hour = nmea.getHour();
+  uint64_t n_day  = nmea.getDay(); 
 
-  uint64_t totalTime = nSec + sec * positivePow(10ull, 9ull) + minute * positivePow(10ull, 9ull) * 60;
-  totalTime += hour * 60 * positivePow(10ull, 9ull) * 60 + day * 24 * 60 * positivePow(10ull, 9ull) * 60;
-  return totalTime;*/
-  return 0;
+  uint64_t total_time =
+    n_hun +
+    n_sec * 100ull +
+    n_min * (100ull * 60ull) +
+    n_hour * (100ull * 60ull * 60ull) +
+    n_day * (100ull * 60ull * 60ull * 24ull);
+
+  return total_time;
 }
 
 void setReports(void) {
@@ -399,7 +403,7 @@ void loop()
         if (nmea.isValid()) {
           /*long latitude_mdeg = myGPS.getLatitude();
           long longitude_mdeg = myGPS.getLongitude();*/
-
+          
           long latitude_mdeg = nmea.getLatitude();
           long longitude_mdeg = nmea.getLongitude();
 
@@ -414,10 +418,10 @@ void loop()
 
           UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
 
-          uint64_t currTimeNanoSecond = getTimeNanoSeconds();
-          last_gps_time = currTimeNanoSecond / 1000;
+          uint64_t currTimeHundredths = getTimeHundredths();
+          last_gps_time = currTimeHundredths;
 
-          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeNanoSecond / 1000);
+          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeHundredths);
 
           digitalWrite(LED_BUILTIN, led_state);
           led_state = !led_state;

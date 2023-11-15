@@ -34,8 +34,10 @@
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
 
-#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
-SFE_UBLOX_GPS myGPS;
+//#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
+//SFE_UBLOX_GPS myGPS;
+
+HardwareSerial& gpsSerial = Serial4;
 
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 char nmeaBuffer[100];
@@ -285,7 +287,7 @@ uint64_t positivePow(uint64_t base, uint64_t power)
 uint64_t getTimeNanoSeconds()
 {
 
-  uint64_t nSec = myGPS.getNanosecond();
+  /*uint64_t nSec = myGPS.getNanosecond();
   uint64_t sec = myGPS.getSecond();
   uint64_t minute = myGPS.getMinute();
   uint64_t hour = myGPS.getHour();
@@ -293,7 +295,8 @@ uint64_t getTimeNanoSeconds()
 
   uint64_t totalTime = nSec + sec * positivePow(10ull, 9ull) + minute * positivePow(10ull, 9ull) * 60;
   totalTime += hour * 60 * positivePow(10ull, 9ull) * 60 + day * 24 * 60 * positivePow(10ull, 9ull) * 60;
-  return totalTime;
+  return totalTime;*/
+  return 0;
 }
 
 void setReports(void) {
@@ -339,6 +342,8 @@ void setup()
   Serial.begin(115200);
   Serial.println("SparkFun Ublox Example");
 
+  gpsSerial.begin(38400);
+
   Wire.begin();
 
   if (!bno08x.begin_I2C()) {
@@ -346,11 +351,11 @@ void setup()
       Serial.println("BNO085 not detected over I2C. Freezing");
   }
 
-  if (!myGPS.begin())
+  /*if (!myGPS.begin())
   {
     while (1)
       Serial.println(F("Ublox GPS not detected at default I2C address. Please check wiring. Freezing."));
-  }
+  }*/
 
   if (!SD.begin(BUILTIN_SDCARD)) {
     while (1)
@@ -388,36 +393,41 @@ void loop()
   f.printf("------- BEGIN NEW LOG --------\n");
 
   while (1) {
-    myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
+    //myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
+    while (gpsSerial.available()) {
+      if (nmea.process(gpsSerial.read())) {
+        if (nmea.isValid()) {
+          /*long latitude_mdeg = myGPS.getLatitude();
+          long longitude_mdeg = myGPS.getLongitude();*/
 
-    if (nmea.isValid() == true)
-    {
-      long latitude_mdeg = myGPS.getLatitude();
-      long longitude_mdeg = myGPS.getLongitude();
+          long latitude_mdeg = nmea.getLatitude();
+          long longitude_mdeg = nmea.getLongitude();
 
+          Serial.print("Latitude (deg): ");
+          Serial.println(latitude_mdeg / 1000000., 6);
+          Serial.print("Longitude (deg): ");
+          Serial.println(longitude_mdeg / 1000000., 6);
 
-      /*Serial.print("Latitude (deg): ");
-      Serial.println(latitude_mdeg / 1000000., 6);
-      Serial.print("Longitude (deg): ");
-      Serial.println(longitude_mdeg / 1000000., 6);*/
+          double x = 0;
+          double y = 0;
+          char r[] = "T";
 
-      double x = 0;
-      double y = 0;
-      char r[] = "T";
+          UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
 
-      UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
+          uint64_t currTimeNanoSecond = getTimeNanoSeconds();
+          last_gps_time = currTimeNanoSecond / 1000;
 
-      uint64_t currTimeNanoSecond = getTimeNanoSeconds();
-      last_gps_time = currTimeNanoSecond / 1000;
+          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeNanoSecond / 1000);
 
-      f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeNanoSecond / 1000);
-
-      digitalWrite(LED_BUILTIN, led_state);
-      led_state = !led_state;
-    }
-    else
-    {
-      f.printf("No fix - Num. Satellites: %hhu\n", nmea.getNumSatellites());
+          digitalWrite(LED_BUILTIN, led_state);
+          led_state = !led_state;
+        }
+        else
+        {
+          Serial.printf("No fix - Num. Satellites: %hhu Time: %d\n", nmea.getNumSatellites(), millis());
+          f.printf("No fix - Num. Satellites: %hhu\n", nmea.getNumSatellites());
+        }
+      }
     }
 
     if (bno08x.wasReset()) {
@@ -527,10 +537,15 @@ void loop()
       }
     }
 
-    f.flush();
+    static int flush_cnt = 0;
 
-    delay(50); // Don't pound too hard on the I2C bus
+    if (++flush_cnt >= 100) {
+      flush_cnt = 0;
+      f.flush();
+    }
 
+
+    delay(5); // Don't pound too hard on the I2C bus
   }
 }
 
@@ -538,9 +553,12 @@ void loop()
 // As each NMEA character comes in you can specify what to do with it
 // Useful for passing to other libraries like tinyGPS, MicroNMEA, or even
 // a buffer, radio, etc.
+
+/*
 void SFE_UBLOX_GPS::processNMEA(char incoming)
 {
   // Take the incoming char from the Ublox I2C port and pass it on to the MicroNMEA lib
   // for sentence cracking
   nmea.process(incoming);
 }
+*/

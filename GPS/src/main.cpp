@@ -284,7 +284,7 @@ uint64_t positivePow(uint64_t base, uint64_t power)
 
 // converts day:hour:minute:second:nanosecond to absolute time in nanoseconds
 // warning: will break if you run the buggy at midNight on the end of a month;
-uint64_t getTimeHundredths()
+uint64_t getTimeMillis()
 {
 
   uint64_t n_hun  = nmea.getHundredths();
@@ -300,7 +300,7 @@ uint64_t getTimeHundredths()
     n_hour * (100ull * 60ull * 60ull) +
     n_day * (100ull * 60ull * 60ull * 24ull);
 
-  return total_time;
+  return 10ull * total_time;
 }
 
 void setReports(void) {
@@ -371,8 +371,8 @@ void setup()
 
 bool led_state = false;
 
-uint64_t last_gps_time = micros();
-uint64_t last_local_time = micros();
+uint64_t last_gps_time = 0;
+uint64_t last_local_time = millis();
 
 void loop()
 {
@@ -406,11 +406,16 @@ void loop()
           
           long latitude_mdeg = nmea.getLatitude();
           long longitude_mdeg = nmea.getLongitude();
+          uint64_t currTimeMillis = getTimeMillis();
+          last_gps_time = currTimeMillis;
+          last_local_time = millis();
 
-          Serial.print("Latitude (deg): ");
-          Serial.println(latitude_mdeg / 1000000., 6);
-          Serial.print("Longitude (deg): ");
-          Serial.println(longitude_mdeg / 1000000., 6);
+          // Serial.print("Latitude (deg): ");
+          // Serial.println(latitude_mdeg / 1000000., 6);
+          // Serial.print("Longitude (deg): ");
+          // Serial.println(longitude_mdeg / 1000000., 6);
+          // Serial.println("Time: ");
+          Serial.println(currTimeMillis);
 
           double x = 0;
           double y = 0;
@@ -418,10 +423,9 @@ void loop()
 
           UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
 
-          uint64_t currTimeHundredths = getTimeHundredths();
-          last_gps_time = currTimeHundredths;
+          
 
-          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeHundredths);
+          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeMillis);
 
           digitalWrite(LED_BUILTIN, led_state);
           led_state = !led_state;
@@ -442,7 +446,7 @@ void loop()
     if (bno08x.getSensorEvent(&sensorValue)) {
       Serial.println("Logging IMU event");
 
-      f.printf("IMU %u ", micros() - last_local_time + last_gps_time);
+      f.printf("IMU %u ", millis() - last_local_time + last_gps_time);
       switch (sensorValue.sensorId) {
 
       case SH2_ACCELEROMETER:

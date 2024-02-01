@@ -56,7 +56,16 @@ void calib_steer(){
     gPos-=1;
   }
   right_limit = gPos;
-  gPos = (right_limit+left_limit)/2;
+
+  int offset = (right_limit + left_limit) / 2;
+
+  gPos -= offset;
+  cPos -= offset;
+  left_limit -= offset;
+  right_limit -= offset;
+
+  // Center the steering again
+  gPos = 0;
 }
 
 void setup() {
@@ -77,4 +86,6 @@ void setup() {
 }
 
 void loop() {
+  Serial.println(digitalRead(LIMIT_SWITCH_LEFT));
+  Serial.println(digitalRead(LIMIT_SWITCH_RIGHT));
 } //need to make a loop that takes the remote control data and change gPos

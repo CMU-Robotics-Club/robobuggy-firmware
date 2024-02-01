@@ -2,10 +2,6 @@
 
 #include "ArduinoCRSF.h"
 
-#include "Dynamixel.h"
-#include "DynamixelInterface.h"
-#include "DynamixelMotor.h"
-
 #define USE_TEENSY_HW_SERIAL // Must be before <ros.h>
 #define ROS_BAUD 1000000
 
@@ -21,18 +17,17 @@
 /* Board Config  */
 /* ============= */
 
-// Dynamixel Pins
-#define DYNAMIXEL_SERIAL Serial5
-#define DYNAMIXEL_RXEN 14
-#define DYNAMIXEL_TXEN 15
-
-DynamixelMotor *motor;
-
-
 // Teensy Pins
 #define VOLTAGE_PIN 27
 #define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
+
+#define STEPS_PER_REV 1000 // steps per rotation
+#define PUL 27 // pin for stepper pulse
+#define DIR 38 // pin for stepper direction
+
+#define LIMIT_SWITCH_RIGHT 7
+#define LIMIT_SWITCH_LEFT 8
 
 // RC Controller PWM Pins
 #define RC_SERIAL Serial6
@@ -147,6 +142,69 @@ void throttleInterruptHandler()
 
 #endif
 
+/** inturrupt function for steering*/
+
+volatile int cPos = 0;
+volatile int gPos = 0;
+
+// gPos++ turns left, gPos-- turns right
+void pulse(){ 
+  if(cPos < gPos){
+    if(!digitalRead(LIMIT_SWITCH_LEFT)){
+      return;
+    }
+    digitalWrite(DIR, LOW);
+    delayMicroseconds(5);
+    digitalWrite(PUL, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(PUL, LOW);
+    cPos++;
+  } else if(cPos > gPos){
+    if(!digitalRead(LIMIT_SWITCH_RIGHT)){
+      return;
+    }
+    digitalWrite(DIR, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(PUL, HIGH);
+    delayMicroseconds(5);
+    digitalWrite(PUL,LOW);
+    cPos--;
+  } else {
+    return;
+  }
+}
+
+IntervalTimer step;
+
+// Positive direction -> going left
+int LEFT_STEPPER_LIMIT = 0;
+int RIGHT_STEPPER_LIMIT = 0;
+
+// Adjust the left and right steering limits
+void calibrate_steering() {
+  while (digitalRead(LIMIT_SWITCH_LEFT)) {
+    delay(1);
+    ++gPos;
+    Serial.printf("gPos: %d\n",gPos);
+  }
+  LEFT_STEPPER_LIMIT = gPos;
+  while (digitalRead(LIMIT_SWITCH_RIGHT)) {
+    delay(1);
+    --gPos;
+  }
+  RIGHT_STEPPER_LIMIT = gPos;
+
+  int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2;
+
+  gPos -= offset;
+  cPos -= offset;
+  LEFT_STEPPER_LIMIT -= offset;
+  RIGHT_STEPPER_LIMIT -= offset;
+
+  // Center the steering again
+  gPos = 0;
+}
+
 volatile float rosSteeringAngle = 0.0;
 volatile float rosBrake = 1.0;
 
@@ -184,209 +242,38 @@ ros::Publisher debug("TeensyStateIn_T", &rosLogger);
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
-int LEFT_DYNAMIXEL_LIMIT = 2340;
-int RIGHT_DYNAMIXEL_LIMIT = 1640;
-
 /**
  * @brief
  */
-inline int getDynamixelCenter()
+inline int getCenter()
 {
-  return (LEFT_DYNAMIXEL_LIMIT + RIGHT_DYNAMIXEL_LIMIT) / 2.0;
+  return 0;
 }
 
 /**
  * @brief
  */
-inline int getDynamixelRange()
+inline int getStepperRange()
 {
-  return LEFT_DYNAMIXEL_LIMIT - RIGHT_DYNAMIXEL_LIMIT;
+  return LEFT_STEPPER_LIMIT - RIGHT_STEPPER_LIMIT;
 }
 
-int LEFT_RC_STEERING_LIMIT = 995;
-int RIGHT_RC_STEERING_LIMIT = 1750;
-int RC_STEERING_CENTER = 1420;
+const float RC_STEERING_DEGREES = 30.0;
 
-int RC_THROTTLE_CENTER = 1475;
-int RC_THROTTLE_DEADZONE = 200;
+float rcToDegrees(int pulse_width) {
+  // Scales it to -1.0 to 1.0
+  float displacement = -2.0 * (pulse_width - 1500.0) / 1000.0;
 
-#if 0
-/**
- * @brief scales and skews the pulse width to input to the dynamixel
- *
- * @param pulseWidth width of pulse from steering RC pin in milliseconds
- * @return signal to send directly to the dynamixel
- */
-int rcToDynamixelWidth(int pulseWidth)
-{
-  float displacement = abs(pulseWidth - RC_STEERING_CENTER); // Displacement of the wheel from center.
+  // Scale to the range of +/-RC_STEERING_DEGREES
+  displacement = displacement * RC_STEERING_DEGREES;
 
-  // Skewing and scaling based on if the RC pulse is right from center or left from center
-  if (pulseWidth < RC_STEERING_CENTER)
-  { // Left: (0, 1]
-    displacement /= RC_STEERING_CENTER - LEFT_RC_STEERING_LIMIT;
-  }
-  else if (pulseWidth > RC_STEERING_CENTER)
-  { // Right: [-1, 0)
-    displacement /= RC_STEERING_CENTER - RIGHT_RC_STEERING_LIMIT;
-  }
-
-  // Quadratic steering scale
-  // (known to the programmers of Saints Robotics as "odd square")
-  displacement *= abs(displacement);
-
-  // Translating [-1, 1] to Dynamixel units
-
-  displacement = getDynamixelCenter() + displacement * getDynamixelRange() * 0.5;
-
-  return (int)round(displacement);
-}
-#endif
-
-int rcToDynamixelWidth(int pulseWidth) {
-  // Scales it to -0.5 to 0.5
-  float displacement = (pulseWidth - 1500.0) / 1000.0;
-
-  displacement *= -1.0;
-
-  displacement = getDynamixelCenter() + displacement * getDynamixelRange();
-
-  return (int)round(displacement);
+  return displacement;
 }
 
-#if 0
+const float DEGREES_TO_STEPS = (1000 / 360.0) * (34.0 / 18.0) * 10.0;
 
-/**
- * @brief scales and skews the pulse width to input to the dynamixel
- *
- * @param pulseWidth width of pulse from steering RC pin in milliseconds
- * @return Steering percentage, signed.  may sometimes go over 100 if you yoink on the steering hard enough.
- */
-float rcToPercent(int pulseWidth)
-{
-  float displacement = abs(pulseWidth - RC_STEERING_CENTER); // Displacement of the wheel from center.
-
-  // Skewing and scaling based on if the RC pulse is right from center or left from center
-  if (pulseWidth < RC_STEERING_CENTER)
-  { // Left: (0, 1]
-    displacement /= RC_STEERING_CENTER - LEFT_RC_STEERING_LIMIT;
-  }
-  else if (pulseWidth > RC_STEERING_CENTER)
-  { // Right: [-1, 0)
-    displacement /= RC_STEERING_CENTER - RIGHT_RC_STEERING_LIMIT;
-  }
-
-  // Quadratic steering scale
-  // (known to the programmers of Saints Robotics as "odd square")
-  displacement *= abs(displacement);
-
-  return displacement * 100;
-}
-
-#endif
-
-/**
- * @brief scales and skews the pulse width to input to the dynamixel
- *
- * @param pulseWidth width of pulse from steering RC pin in milliseconds
- * @return Steering percentage, signed.  may sometimes go over 100 if you yoink on the steering hard enough.
- */
-float rcToPercent(int pulseWidth)
-{
-  return 100.0 * ((pulseWidth - 1500.0) / 500.0);
-}
-
-
-/**
- * @brief scales, skews, and caps the angle offset to input to the dynamixel
- *
- * @param angleDegrees displacement of wheel from center
- * @return signal to send directly to the dynamixel
- */
-int rosAngleToDynamixelWidth(float angleDegrees)
-{
-  int output = getDynamixelCenter() + (angleDegrees / 0.088);
-
-  if (output > LEFT_DYNAMIXEL_LIMIT)
-  {
-    return LEFT_DYNAMIXEL_LIMIT;
-  }
-  if (output < RIGHT_DYNAMIXEL_LIMIT)
-  {
-    return RIGHT_DYNAMIXEL_LIMIT;
-  }
-  return output;
-}
-
-float dynamixelAngleToDegrees(int dynamixelWidth)
-{
-  return (dynamixelWidth - getDynamixelCenter()) * 0.088;
-}
-
-float dynamixelLoadToPercent(uint16_t load)
-{
-  float value = load - 1023;
-  value /= 1023.5f;
-  value *= 100.0f;
-  return value;
-}
-
-float dynamixelCurrentToMilliAmps(int16_t current)
-{
-  float value = current - 2048;
-  value *= 4.5f;
-  return value;
-}
-
-/**
- * @brief TODO this should be cleaned up eventually
- */
-void calibrateSteering()
-{
-  int a = 0;
-
-  uint16_t startPos = -1;
-  a = motor->currentPosition(startPos);
-  if (startPos == -1)
-  {
-    return;
-  }
-
-  int targetPos = startPos;
-  uint16_t currentPos = startPos;
-
-  // Calibrate right limit
-  while (currentPos - targetPos < 100)
-  {
-    Serial.print("right ");
-    a = motor->goalPosition(targetPos);
-
-    a = motor->currentPosition(currentPos);
-
-    targetPos -= 5;
-    delay(50);
-  }
-  RIGHT_DYNAMIXEL_LIMIT = currentPos + 100;
-
-  targetPos = startPos;
-  currentPos = startPos;
-  Serial.println();
-
-  a = motor->goalPosition(targetPos);
-  delay(2000);
-
-  // Calibrate left limit
-  while (targetPos - currentPos < 100)
-  {
-    Serial.print("left ");
-    a = motor->goalPosition(targetPos);
-
-    a = motor->currentPosition(currentPos);
-
-    targetPos += 5;
-    delay(50);
-  }
-  LEFT_DYNAMIXEL_LIMIT = currentPos - 100;
+void setGoalSteeringAngle(float degrees) {
+  gPos = (int)(DEGREES_TO_STEPS * degrees);
 }
 
 void setup()
@@ -435,66 +322,27 @@ void setup()
   pinMode(INTERRUPT_PIN, OUTPUT);
   pinMode(VOLTAGE_PIN, INPUT);
 
-  DynamixelInterface *dInterface = new DynamixelInterface(DYNAMIXEL_SERIAL, DYNAMIXEL_RXEN, DYNAMIXEL_TXEN, DirPinMode::ReadHiWriteLo); // Stream
-  dInterface->begin(1000000, 50);                                                                                                       // baudrate, timeout (ms)
-  motor = new DynamixelMotor(*dInterface, 5);                                                                                           // Interface , ID
+  pinMode(PUL, OUTPUT);
+  pinMode(DIR, OUTPUT);
 
-  motor->init(); // This will get the returnStatusLevel of the servo
-  Serial.printf("Status return level = %u\n", motor->statusReturnLevel());
-  motor->statusReturnLevel(1); // Enabling read commands
-  Serial.printf("new return level = %u\n", motor->statusReturnLevel());
-  // Status packet delay = 20us
-  motor->write(5, (byte)250);
+  pinMode(LIMIT_SWITCH_LEFT,INPUT_PULLUP);
+  pinMode(LIMIT_SWITCH_RIGHT,INPUT_PULLUP);
 
-  // Disable torque, enable full range of dynamixel motion, and re-enable torque
-  motor->enableTorque(false);
-  motor->jointMode(1, 0xFFF);
-  motor->enableTorque();
+  step.begin(pulse, 50);
+  step.priority(255);
 
-  //calibrateSteering();
-  Serial.print("Left limit is ");
-  Serial.println(LEFT_DYNAMIXEL_LIMIT);
+  Serial.println("starting calibrate_steering");
+  calibrate_steering();
+  Serial.println("finished with calibrate steering");
+
+  /*Serial.print("Left limit is ");
+  Serial.println(LEFT_STEPPER_LIMIT);
   Serial.print("Right limit is ");
-  Serial.println(RIGHT_DYNAMIXEL_LIMIT);
-
-  motor->enableTorque(false);
-  motor->jointMode(RIGHT_DYNAMIXEL_LIMIT, LEFT_DYNAMIXEL_LIMIT); // Set the angular limits of the servo. Set to [min, max] by default
-  motor->enableTorque();
+  Serial.println(RIGHT_STEPPER_LIMIT);*/
 }
 
 void loop()
 {
-
-#if 0
-  motor->enableTorque(false);
-
-  int last_time = millis();
-  while (1) {
-    rc_controller.update();
-
-    int time = millis();
-    if (time - last_time > 100) {
-      last_time = time;
-      for (int i = 1; i <= 16; ++i) {
-        Serial.print(rc_controller.getChannel(i));
-        Serial.print(", ");
-      }
-      Serial.println();
-    }
-  }
-#endif
-
-#if 0
-  while (1) {
-    uint16_t pos;
-    motor->enableTorque(false);
-    motor->currentPosition(pos);
-
-    Serial.println(pos);
-
-    delay(200);
-  }
-#endif
 
 #if 0
   int rcSteeringWidth = v_rcSteeringWidth;
@@ -534,32 +382,21 @@ void loop()
   int rcSteeringAvg = rc_controller.getChannel(CHANNEL_RIGHT_X);
 
   // Controlling hardware thru RC.
-  float steeringCommand = rcTimeout ? getDynamixelCenter() : rcToDynamixelWidth(rcSteeringAvg);
+  float steeringCommand = rcTimeout ? getCenter() : rcToDegrees(rcSteeringAvg);
   bool brakeCommand = (buggyEnabled && !rcTimeout);
 
   // If auton is enabled, it will set inputs to ROS inputs.
   if (autoMode && !rcTimeout)
   {
-    steeringCommand = rosAngleToDynamixelWidth(rosSteeringAngle);
+    steeringCommand = rosSteeringAngle;
     //brakeCommand = 0.5 < rosBrake;
   }
 
   static bool dynamixel_shutdown = false;
 
-  motor->goalPosition(steeringCommand);
+  setGoalSteeringAngle(steeringCommand);
 
-  DynamixelStatus dynamixel_status = motor->ping();
-
-  if (dynamixel_status & DYN_STATUS_COM_ERROR) {
-    // Communication error, we no longer have steering control
-    // Should we fail in this case?
-  } else if (dynamixel_status & DYN_STATUS_OVERLOAD_ERROR) {
-    // Overload can only be fixed by a physical reset
-    dynamixel_shutdown = true;
-  } else if (dynamixel_status & DYN_STATUS_OVERHEATING_ERROR) {
-    // Overheat (maybe) can only be fixed by a physical reset
-    dynamixel_shutdown = true;
-  }
+  // TODO: CHECK ALARM PIN
 
   if (dynamixel_shutdown) {
     brakeCommand = false;
@@ -577,31 +414,27 @@ void loop()
     rosLogger.values_length = sizeof(rosLogValues) / sizeof(diagnostic_msgs::KeyValue);
 
     char c_steeringCommand[32];
-    String(String(dynamixelAngleToDegrees(steeringCommand)) + " deg").toCharArray(c_steeringCommand, 32);
+    String(String(steeringCommand) + " deg").toCharArray(c_steeringCommand, 32);
 
     char c_brakeCommand[32];
     String(brakeCommand).toCharArray(c_brakeCommand, 32);
 
-    uint16_t presentLoad;
-    bool a = motor->presentLoad(presentLoad);
     char c_presentLoad[32];
-    String(String(dynamixelLoadToPercent(presentLoad)) + "%").toCharArray(c_presentLoad, 32);
+    String("xxx").toCharArray(c_presentLoad, 32);
 
-    uint16_t current;
-    a = motor->currentMilliAmps(current);
     char c_current[32];
     //String(String(dynamixelCurrentToMilliAmps(current)) + " mA").toCharArray(c_current, 32);
     //snprintf(c_current, 32, "%hu", current);
-    snprintf(c_current, 32, "%f", dynamixelCurrentToMilliAmps(current));
+    snprintf(c_current, 32, "xxx");
 
     char c_leftSteeringLimit[32];
-    String(String(dynamixelAngleToDegrees(LEFT_DYNAMIXEL_LIMIT)) + " deg").toCharArray(c_leftSteeringLimit, 32);
+    String(String(LEFT_STEPPER_LIMIT) + " steps").toCharArray(c_leftSteeringLimit, 32);
 
     char c_rightSteeringLimit[32];
-    String(String(dynamixelAngleToDegrees(RIGHT_DYNAMIXEL_LIMIT)) + " deg").toCharArray(c_rightSteeringLimit, 32);
+    String(String(RIGHT_STEPPER_LIMIT) + " steps").toCharArray(c_rightSteeringLimit, 32);
 
     char c_rcSteeringInput[32];
-    String(String(rcToPercent(rcSteeringAvg)) + "%").toCharArray(c_rcSteeringInput, 32);
+    String(String(rcSteeringAvg)).toCharArray(c_rcSteeringInput, 32);
 
     char c_uplinkQuality[32];
     String(link_stats->uplink_Link_quality).toCharArray(c_uplinkQuality, 32);

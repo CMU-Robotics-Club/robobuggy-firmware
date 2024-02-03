@@ -23,6 +23,7 @@
   Open the serial monitor at 115200 baud to see the output
   Go outside! Wait ~25 seconds and you should see your lat/long
 */
+#include <stdstrings.h>
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
 #include <SD.h>
@@ -400,7 +401,9 @@ void loop()
     //myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
     while (gpsSerial.available()) {
       if (nmea.process(gpsSerial.read())) {
-        if (nmea.isValid()) {
+        bool isGGA = std::strcmp(nmea.getMessageType(),"GGA")==0;
+        bool isRMC = std::strcmp(nmea.getMessageType(),"RMC")==0
+        if (nmea.isValid() && (isGGA || isRMC)) {
           /*long latitude_mdeg = myGPS.getLatitude();
           long longitude_mdeg = myGPS.getLongitude();*/
           

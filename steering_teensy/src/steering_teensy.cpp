@@ -325,7 +325,7 @@ void setup()
 
   pinMode(PUL, OUTPUT);
   pinMode(DIR, OUTPUT);
-  pinMode(ALARM_PIN, INPUT);
+  pinMode(ALARM_PIN, INPUT_PULLUP);
 
   pinMode(LIMIT_SWITCH_LEFT,INPUT_PULLUP);
   pinMode(LIMIT_SWITCH_RIGHT,INPUT_PULLUP);
@@ -402,7 +402,7 @@ void loop()
 
   Serial.println(rcSteeringAvg);
 
-  if (digitalRead(ALARM_PIN)) {
+  if (!digitalRead(ALARM_PIN)) {
     brakeCommand = false;
   }
 

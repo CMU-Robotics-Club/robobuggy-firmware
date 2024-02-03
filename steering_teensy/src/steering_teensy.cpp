@@ -21,6 +21,7 @@
 #define VOLTAGE_PIN 27
 #define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
+#define ALARM_PIN 39
 
 #define STEPS_PER_REV 1000 // steps per rotation
 #define PUL 27 // pin for stepper pulse
@@ -324,12 +325,15 @@ void setup()
 
   pinMode(PUL, OUTPUT);
   pinMode(DIR, OUTPUT);
+  pinMode(ALARM_PIN, INPUT);
 
   pinMode(LIMIT_SWITCH_LEFT,INPUT_PULLUP);
   pinMode(LIMIT_SWITCH_RIGHT,INPUT_PULLUP);
 
   step.begin(pulse, 50);
   step.priority(255);
+
+  delay(2000);
 
   Serial.println("starting calibrate_steering");
   calibrate_steering();
@@ -396,9 +400,9 @@ void loop()
 
   setGoalSteeringAngle(steeringCommand);
 
-  // TODO: CHECK ALARM PIN
+  Serial.println(rcSteeringAvg);
 
-  if (dynamixel_shutdown) {
+  if (digitalRead(ALARM_PIN)) {
     brakeCommand = false;
   }
 

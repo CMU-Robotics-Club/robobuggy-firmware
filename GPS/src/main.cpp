@@ -23,7 +23,7 @@
   Open the serial monitor at 115200 baud to see the output
   Go outside! Wait ~25 seconds and you should see your lat/long
 */
-#include <stdstrings.h>
+#include <cstring>
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
 #include <SD.h>
@@ -397,166 +397,169 @@ void loop()
 
   f.printf("------- BEGIN NEW LOG --------\n");
 
+  unsigned long last_imu_update = millis();
+
   while (1) {
     //myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
     while (gpsSerial.available()) {
       if (nmea.process(gpsSerial.read())) {
-        bool isGGA = std::strcmp(nmea.getMessageType(),"GGA")==0;
-        bool isRMC = std::strcmp(nmea.getMessageType(),"RMC")==0
-        if (nmea.isValid() && (isGGA || isRMC)) {
-          /*long latitude_mdeg = myGPS.getLatitude();
-          long longitude_mdeg = myGPS.getLongitude();*/
-          
-          long latitude_mdeg = nmea.getLatitude();
-          long longitude_mdeg = nmea.getLongitude();
-          uint64_t currTimeMillis = getTimeMillis();
-          last_gps_time = currTimeMillis;
-          last_local_time = millis();
+        if (nmea.isValid()) {
+          bool isGGA = std::strcmp(nmea.getMessageID(), "GGA") == 0;
+          bool isRMC = std::strcmp(nmea.getMessageID(), "RMC") == 0;
+          if (isGGA || isRMC) {
+            /*long latitude_mdeg = myGPS.getLatitude();
+            long longitude_mdeg = myGPS.getLongitude();*/
+            
+            long latitude_mdeg = nmea.getLatitude();
+            long longitude_mdeg = nmea.getLongitude();
+            uint64_t currTimeMillis = getTimeMillis();
+            last_gps_time = currTimeMillis;
+            last_local_time = millis();
 
-          // Serial.print("Latitude (deg): ");
-          // Serial.println(latitude_mdeg / 1000000., 6);
-          // Serial.print("Longitude (deg): ");
-          // Serial.println(longitude_mdeg / 1000000., 6);
-          // Serial.println("Time: ");
-          Serial.println(currTimeMillis);
+            // Serial.print("Latitude (deg): ");
+            // Serial.println(latitude_mdeg / 1000000., 6);
+            // Serial.print("Longitude (deg): ");
+            // Serial.println(longitude_mdeg / 1000000., 6);
+            // Serial.println("Time: ");
+            Serial.println(currTimeMillis);
 
-          double x = 0;
-          double y = 0;
-          char r[] = "T";
+            double x = 0;
+            double y = 0;
+            char r[] = "T";
 
-          UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
+            UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
 
-          
+            f.printf("t: %lu, x: %f, y: %f, time: %llu\n", millis(), x, y, getTimeMillis());
 
-          f.printf("x: %f, y: %f, time: %llu\n", x, y, currTimeMillis);
-
-          digitalWrite(LED_BUILTIN, led_state);
-          led_state = !led_state;
+            digitalWrite(LED_BUILTIN, led_state);
+            led_state = !led_state;
+          }
         }
         else
         {
-          Serial.printf("No fix - Num. Satellites: %hhu Time: %d\n", nmea.getNumSatellites(), millis());
-          f.printf("No fix - Num. Satellites: %hhu\n", nmea.getNumSatellites());
+          Serial.printf("t: %lu, No fix - Num. Satellites: %hhu\n", millis(), nmea.getNumSatellites());
+          f.printf("t: %lu, No fix - Num. Satellites: %hhu\n", millis(), nmea.getNumSatellites());
         }
       }
     }
 
-    if (bno08x.wasReset()) {
-      Serial.print("sensor was reset ");
-      setReports();
-    }
+    if (millis() - last_imu_update > 5) {
+      last_imu_update = millis();
 
-    if (bno08x.getSensorEvent(&sensorValue)) {
-      Serial.println("Logging IMU event");
+      if (bno08x.wasReset()) {
+        Serial.print("sensor was reset ");
+        setReports();
+      }
 
-      f.printf("IMU %u ", millis() - last_local_time + last_gps_time);
-      switch (sensorValue.sensorId) {
+      if (bno08x.getSensorEvent(&sensorValue)) {
+        Serial.println("Logging IMU event");
 
-      case SH2_ACCELEROMETER:
-        f.printf(
-          "Accelerometer - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.accelerometer.x,
-          (double)sensorValue.un.accelerometer.y,
-          (double)sensorValue.un.accelerometer.z
-        );
-        break;
-      case SH2_GYROSCOPE_CALIBRATED:
-        f.printf(
-          "Gyro - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.gyroscope.x,
-          (double)sensorValue.un.gyroscope.y,
-          (double)sensorValue.un.gyroscope.z
-        );
-        break;
-      case SH2_MAGNETIC_FIELD_CALIBRATED:
-        f.printf(
-          "Magnetic Field - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.magneticField.x,
-          (double)sensorValue.un.magneticField.y,
-          (double)sensorValue.un.magneticField.z
-        );
-        break;
-      case SH2_LINEAR_ACCELERATION:
-        f.printf(
-          "Linear Acceleration - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.linearAcceleration.x,
-          (double)sensorValue.un.linearAcceleration.y,
-          (double)sensorValue.un.linearAcceleration.z
-        );
-        break;
-      case SH2_GRAVITY:
-        f.printf(
-          "Gravity - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.gravity.x,
-          (double)sensorValue.un.gravity.y,
-          (double)sensorValue.un.gravity.z
-        );
-        break;
-      case SH2_ROTATION_VECTOR:
-        f.printf(
-          "Rotation Vector - r: %f i: %f j: %f k: %f\n",
-          (double)sensorValue.un.rotationVector.real,
-          (double)sensorValue.un.rotationVector.i,
-          (double)sensorValue.un.rotationVector.j,
-          (double)sensorValue.un.rotationVector.k
-        );
-        break;
-      case SH2_GEOMAGNETIC_ROTATION_VECTOR:
-        f.printf(
-          "Geo-Magnetic Rotation Vector - r: %f i: %f j: %f k: %f\n",
-          (double)sensorValue.un.geoMagRotationVector.real,
-          (double)sensorValue.un.geoMagRotationVector.i,
-          (double)sensorValue.un.geoMagRotationVector.j,
-          (double)sensorValue.un.geoMagRotationVector.k
-        );
-        break;
-      case SH2_GAME_ROTATION_VECTOR:
-        f.printf(
-          "Game Rotation Vector - r: %f i: %f j: %f k: %f\n",
-          (double)sensorValue.un.gameRotationVector.real,
-          (double)sensorValue.un.gameRotationVector.i,
-          (double)sensorValue.un.gameRotationVector.j,
-          (double)sensorValue.un.gameRotationVector.k
-        );
-        break;
-      case SH2_RAW_ACCELEROMETER:
-        f.printf(
-          "Raw Accelerometer - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.rawAccelerometer.x,
-          (double)sensorValue.un.rawAccelerometer.y,
-          (double)sensorValue.un.rawAccelerometer.z
-        );
-        break;
-      case SH2_RAW_GYROSCOPE:
-        f.printf(
-          "Raw Gyro - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.rawGyroscope.x,
-          (double)sensorValue.un.rawGyroscope.y,
-          (double)sensorValue.un.rawGyroscope.z
-        );
-        break;
-      case SH2_RAW_MAGNETOMETER:
-        f.printf(
-          "Raw Magnetic Field - x: %f y: %f z: %f\n",
-          (double)sensorValue.un.rawMagnetometer.x,
-          (double)sensorValue.un.rawMagnetometer.y,
-          (double)sensorValue.un.rawMagnetometer.z
-        );
-        break;
-      default:
-        break;
+        f.printf("t: %lu, IMU ", millis());
+        switch (sensorValue.sensorId) {
+
+        case SH2_ACCELEROMETER:
+          f.printf(
+            "Accelerometer - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.accelerometer.x,
+            (double)sensorValue.un.accelerometer.y,
+            (double)sensorValue.un.accelerometer.z
+          );
+          break;
+        case SH2_GYROSCOPE_CALIBRATED:
+          f.printf(
+            "Gyro - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.gyroscope.x,
+            (double)sensorValue.un.gyroscope.y,
+            (double)sensorValue.un.gyroscope.z
+          );
+          break;
+        case SH2_MAGNETIC_FIELD_CALIBRATED:
+          f.printf(
+            "Magnetic Field - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.magneticField.x,
+            (double)sensorValue.un.magneticField.y,
+            (double)sensorValue.un.magneticField.z
+          );
+          break;
+        case SH2_LINEAR_ACCELERATION:
+          f.printf(
+            "Linear Acceleration - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.linearAcceleration.x,
+            (double)sensorValue.un.linearAcceleration.y,
+            (double)sensorValue.un.linearAcceleration.z
+          );
+          break;
+        case SH2_GRAVITY:
+          f.printf(
+            "Gravity - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.gravity.x,
+            (double)sensorValue.un.gravity.y,
+            (double)sensorValue.un.gravity.z
+          );
+          break;
+        case SH2_ROTATION_VECTOR:
+          f.printf(
+            "Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            (double)sensorValue.un.rotationVector.real,
+            (double)sensorValue.un.rotationVector.i,
+            (double)sensorValue.un.rotationVector.j,
+            (double)sensorValue.un.rotationVector.k
+          );
+          break;
+        case SH2_GEOMAGNETIC_ROTATION_VECTOR:
+          f.printf(
+            "Geo-Magnetic Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            (double)sensorValue.un.geoMagRotationVector.real,
+            (double)sensorValue.un.geoMagRotationVector.i,
+            (double)sensorValue.un.geoMagRotationVector.j,
+            (double)sensorValue.un.geoMagRotationVector.k
+          );
+          break;
+        case SH2_GAME_ROTATION_VECTOR:
+          f.printf(
+            "Game Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            (double)sensorValue.un.gameRotationVector.real,
+            (double)sensorValue.un.gameRotationVector.i,
+            (double)sensorValue.un.gameRotationVector.j,
+            (double)sensorValue.un.gameRotationVector.k
+          );
+          break;
+        case SH2_RAW_ACCELEROMETER:
+          f.printf(
+            "Raw Accelerometer - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.rawAccelerometer.x,
+            (double)sensorValue.un.rawAccelerometer.y,
+            (double)sensorValue.un.rawAccelerometer.z
+          );
+          break;
+        case SH2_RAW_GYROSCOPE:
+          f.printf(
+            "Raw Gyro - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.rawGyroscope.x,
+            (double)sensorValue.un.rawGyroscope.y,
+            (double)sensorValue.un.rawGyroscope.z
+          );
+          break;
+        case SH2_RAW_MAGNETOMETER:
+          f.printf(
+            "Raw Magnetic Field - x: %f y: %f z: %f\n",
+            (double)sensorValue.un.rawMagnetometer.x,
+            (double)sensorValue.un.rawMagnetometer.y,
+            (double)sensorValue.un.rawMagnetometer.z
+          );
+          break;
+        default:
+          break;
+        }
+      }
+
+      static int flush_cnt = 0;
+
+      if (++flush_cnt >= 100) {
+        flush_cnt = 0;
+        f.flush();
       }
     }
-
-    static int flush_cnt = 0;
-
-    if (++flush_cnt >= 100) {
-      flush_cnt = 0;
-      f.flush();
-    }
-
-
-    delay(5); // Don't pound too hard on the I2C bus
   }
 }
 

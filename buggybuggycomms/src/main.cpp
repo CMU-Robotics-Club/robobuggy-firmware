@@ -90,7 +90,6 @@ void loop() {
   } else{
     transmit_steering_angle();
   }
-  packetNum++;
   #else
 
   // Now wait for a reply

@@ -168,8 +168,8 @@ void loop()
 
     if (auto gps_coord = gps_update()) {
       // TODO: send GPS coord over the radio
-      const uint8_t buf[] = "hello, world\n";
-      radio_transmit(buf, 14);
+      // const uint8_t buf[] = "hello, world\n";
+      radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time);
     }
 
     if (millis() - last_imu_update > 5) {

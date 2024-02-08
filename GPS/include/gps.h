@@ -7,6 +7,8 @@ struct GpsUpdate {
     double x;
     double y;
     uint64_t gps_time;
+    uint8_t fix;
+    uint8_t _pad[7];
 };
 
 using std::uint64_t;

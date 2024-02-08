@@ -44,6 +44,7 @@ std::optional<GpsUpdate> gps_update() {
                     update.x = x;
                     update.y = y;
                     update.gps_time = gps_time_millis();
+                    update.fix = nmea.getFixQuality();
 
                     static bool led_state;
                     digitalWrite(LED_BUILTIN, led_state);

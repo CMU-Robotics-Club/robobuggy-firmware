@@ -5,18 +5,6 @@
 #include <SPI.h>
 #include <RH_RF69.h>
 
-enum PacketType : uint32_t {
-    GPS_X_Y,
-    STEER_ANGLE
-};
-
-struct Packet {
-    PacketType tag;
-    union {
-        struct { float x; float y; float time; } gps_x_y;
-        struct { float degrees; } steer_angle;
-    };
-};
 
 /************ Radio Setup ***************/
 
@@ -74,12 +62,13 @@ void radio_transmit(const uint8_t *data, size_t size) {
 	rf69->send(data, size);
 }
 
-void radio_send_gps(double x, double y, uint64_t gps_time) {
+void radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix) {
     Packet p{};
     p.tag = GPS_X_Y;
     p.gps_x_y.x = x;
     p.gps_x_y.y = y;
     p.gps_x_y.time = gps_time;
+    p.gps_x_y.fix = fix;
     radio_transmit((uint8_t*)&p, sizeof(p));
 }
 
@@ -91,7 +80,7 @@ void radio_send_steering(double angle) {
 }
 
 std::optional<uint8_t> radio_receive(uint8_t *data) {
-	uint8_t len = 0;
+	uint8_t len = 255;
 	if (rf69->recv(data, &len)) {
 		return { len };
 	} else {

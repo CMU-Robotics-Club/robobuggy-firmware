@@ -1,8 +1,9 @@
 #include <Arduino.h>
 
-#define RFM69_CS 2
-#define RFM69_INT 3
-#define RFM69_RST 4
+#define RFM69_CS 10
+#define RFM69_INT 36
+#define RFM69_RST 37
+
 
 #include "ArduinoCRSF.h"
 #include "buggyradio.h"
@@ -407,8 +408,6 @@ void loop()
 
   setGoalSteeringAngle(steeringCommand);
 
-  Serial.println(rcSteeringAvg);
-
   if (!digitalRead(ALARM_PIN)) {
     brakeCommand = false;
   }
@@ -417,9 +416,12 @@ void loop()
 
   if (radio_available()) {
     uint8_t buf[256] = { 0 };
-    radio_receive(buf, 256);
-
-    Serial.write(buf, 256);
+    if (auto length = radio_receive(buf)) {
+      Packet *p = (Packet *)buf;
+      if (p->tag == GPS_X_Y) {
+        Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
+      }
+    }
   }
 
   // Logging data to ROS

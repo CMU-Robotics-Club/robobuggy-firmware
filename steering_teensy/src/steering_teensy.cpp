@@ -286,7 +286,7 @@ void setup()
 {
   Serial.begin(115200);
 
-  radio_init();
+  radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   RC_SERIAL.begin(RC_BAUDRATE);
   if (!RC_SERIAL) {
@@ -419,7 +419,7 @@ void loop()
     uint8_t buf[256] = { 0 };
     radio_receive(buf, 256);
 
-    Serial.println(buf);
+    Serial.write(buf, 256);
   }
 
   // Logging data to ROS

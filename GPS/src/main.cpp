@@ -129,7 +129,7 @@ void setup()
 
   gps_init();
 
-  radio_init();
+  radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   setReports();
 }

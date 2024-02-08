@@ -1,6 +1,11 @@
 #include <Arduino.h>
 
+#define RFM69_CS 2
+#define RFM69_INT 3
+#define RFM69_RST 4
+
 #include "ArduinoCRSF.h"
+#include "buggyradio.h"
 
 #define USE_TEENSY_HW_SERIAL // Must be before <ros.h>
 #define ROS_BAUD 1000000
@@ -281,6 +286,8 @@ void setup()
 {
   Serial.begin(115200);
 
+  radio_init();
+
   RC_SERIAL.begin(RC_BAUDRATE);
   if (!RC_SERIAL) {
     while (1) Serial.println("CRSF serial initialization failed");
@@ -407,6 +414,13 @@ void loop()
   }
 
   digitalWrite(BRAKE_RELAY_PIN, brakeCommand);
+
+  if (radio_available()) {
+    uint8_t buf[256] = { 0 };
+    radio_receive(buf, 256);
+
+    Serial.println(buf);
+  }
 
   // Logging data to ROS
   if (rosLogCounter == 0)

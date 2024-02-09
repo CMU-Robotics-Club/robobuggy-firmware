@@ -18,6 +18,7 @@
 #include <diagnostic_msgs/DiagnosticStatus.h>
 #include <diagnostic_msgs/KeyValue.h>
 #include <sensor_msgs/BatteryState.h>
+#include <nav_msgs/Odometry.h>
 
 /* ============= */
 /* Board Config  */
@@ -246,6 +247,11 @@ diagnostic_msgs::DiagnosticStatus rosLogger;
 diagnostic_msgs::KeyValue rosLogValues[10];
 ros::Publisher debug("TeensyStateIn_T", &rosLogger);
 
+nav_msgs::Odometry odometryMessage;
+ros::Publisher nand_nav("/NAND/nav/odom", &odometryMessage);
+
+uint8_t nand_fix = 0xFF;
+
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
@@ -307,6 +313,7 @@ void setup()
   nh.subscribe(brake);
   nh.advertise(debug);
   nh.advertise(battery);
+  nh.advertise(nand_nav);
 
   // The charging status as reported
   battery_msg.power_supply_status = sensor_msgs::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;
@@ -420,6 +427,26 @@ void loop()
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
         Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
+
+        odometryMessage.pose.pose.position.x = p->gps_x_y.x;
+        odometryMessage.pose.pose.position.y = p->gps_x_y.y;
+        odometryMessage.pose.pose.position.z = 0.0;
+
+        memset(odometryMessage.pose.covariance, 0, sizeof(odometryMessage.pose.covariance));
+        
+        odometryMessage.twist.twist.angular.x = 0.0;
+        odometryMessage.twist.twist.angular.y = 0.0;
+        odometryMessage.twist.twist.angular.z = 0.0;
+
+        odometryMessage.twist.twist.linear.x = 0.0;
+        odometryMessage.twist.twist.linear.y = 0.0;
+        odometryMessage.twist.twist.linear.z = 0.0;
+
+        memset(odometryMessage.twist.covariance, 0, sizeof(odometryMessage.twist.covariance));
+
+        nand_nav.publish(&odometryMessage);
+
+        nand_fix = p->gps_x_y.fix;
       }
     }
   }
@@ -466,6 +493,9 @@ void loop()
     //String(rcSteeringWidth).toCharArray(c_rcSteeringWidth, 32);
     String(rcSteeringAvg).toCharArray(c_rcSteeringWidth, 32);
 
+    char c_nandFix[32];
+    String(nand_fix).toCharArray(c_nandFix, 32);
+
     rosLogValues[0].key = "steeringAngleCommand";
     rosLogValues[0].value = c_steeringCommand;
     rosLogValues[1].key = "brakeCommand";
@@ -486,6 +516,8 @@ void loop()
     rosLogValues[6].value = c_rcSteeringInput;
     rosLogValues[7].key = "rc steering input width";
     rosLogValues[7].value = c_rcSteeringWidth;
+    rosLogValues[8].key = "nand fix type";
+    rosLogValues[8].value = c_nandFix;
 
     debug.publish(&rosLogger);
 

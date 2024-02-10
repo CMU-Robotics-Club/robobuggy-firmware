@@ -7,6 +7,7 @@
 
 #include "ArduinoCRSF.h"
 #include "buggyradio.h"
+#include "steering.h"
 
 #define USE_TEENSY_HW_SERIAL // Must be before <ros.h>
 #define ROS_BAUD 1000000
@@ -28,14 +29,6 @@
 #define VOLTAGE_PIN 27
 #define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
-#define ALARM_PIN 39
-
-#define STEPS_PER_REV 1000 // steps per rotation
-#define PUL 27 // pin for stepper pulse
-#define DIR 38 // pin for stepper direction
-
-#define LIMIT_SWITCH_RIGHT 7
-#define LIMIT_SWITCH_LEFT 8
 
 // RC Controller PWM Pins
 #define RC_SERIAL Serial6
@@ -150,68 +143,6 @@ void throttleInterruptHandler()
 
 #endif
 
-/** inturrupt function for steering*/
-
-volatile int cPos = 0;
-volatile int gPos = 0;
-
-// gPos++ turns left, gPos-- turns right
-void pulse(){ 
-  if(cPos < gPos){
-    if(!digitalRead(LIMIT_SWITCH_LEFT)){
-      return;
-    }
-    digitalWrite(DIR, LOW);
-    delayMicroseconds(5);
-    digitalWrite(PUL, HIGH);
-    delayMicroseconds(5);
-    digitalWrite(PUL, LOW);
-    cPos++;
-  } else if(cPos > gPos){
-    if(!digitalRead(LIMIT_SWITCH_RIGHT)){
-      return;
-    }
-    digitalWrite(DIR, HIGH);
-    delayMicroseconds(5);
-    digitalWrite(PUL, HIGH);
-    delayMicroseconds(5);
-    digitalWrite(PUL,LOW);
-    cPos--;
-  } else {
-    return;
-  }
-}
-
-IntervalTimer step;
-
-// Positive direction -> going left
-int LEFT_STEPPER_LIMIT = 0;
-int RIGHT_STEPPER_LIMIT = 0;
-
-// Adjust the left and right steering limits
-void calibrate_steering() {
-  while (digitalRead(LIMIT_SWITCH_LEFT)) {
-    delay(1);
-    ++gPos;
-    Serial.printf("gPos: %d\n",gPos);
-  }
-  LEFT_STEPPER_LIMIT = gPos;
-  while (digitalRead(LIMIT_SWITCH_RIGHT)) {
-    delay(1);
-    --gPos;
-  }
-  RIGHT_STEPPER_LIMIT = gPos;
-
-  int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2;
-
-  gPos -= offset;
-  cPos -= offset;
-  LEFT_STEPPER_LIMIT -= offset;
-  RIGHT_STEPPER_LIMIT -= offset;
-
-  // Center the steering again
-  gPos = 0;
-}
 
 volatile float rosSteeringAngle = 0.0;
 volatile float rosBrake = 1.0;
@@ -255,22 +186,6 @@ uint8_t nand_fix = 0xFF;
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
-/**
- * @brief
- */
-inline int getCenter()
-{
-  return 0;
-}
-
-/**
- * @brief
- */
-inline int getStepperRange()
-{
-  return LEFT_STEPPER_LIMIT - RIGHT_STEPPER_LIMIT;
-}
-
 const float RC_STEERING_DEGREES = 30.0;
 
 float rcToDegrees(int pulse_width) {
@@ -281,12 +196,6 @@ float rcToDegrees(int pulse_width) {
   displacement = displacement * RC_STEERING_DEGREES;
 
   return displacement;
-}
-
-const float DEGREES_TO_STEPS = (1000 / 360.0) * (34.0 / 18.0) * 10.0;
-
-void setGoalSteeringAngle(float degrees) {
-  gPos = (int)(DEGREES_TO_STEPS * degrees);
 }
 
 void setup()
@@ -338,26 +247,9 @@ void setup()
   pinMode(INTERRUPT_PIN, OUTPUT);
   pinMode(VOLTAGE_PIN, INPUT);
 
-  pinMode(PUL, OUTPUT);
-  pinMode(DIR, OUTPUT);
-  pinMode(ALARM_PIN, INPUT_PULLUP);
-
-  pinMode(LIMIT_SWITCH_LEFT,INPUT_PULLUP);
-  pinMode(LIMIT_SWITCH_RIGHT,INPUT_PULLUP);
-
-  step.begin(pulse, 50);
-  step.priority(255);
-
+  steering::init();
   delay(2000);
-
-  Serial.println("starting calibrate_steering");
-  calibrate_steering();
-  Serial.println("finished with calibrate steering");
-
-  /*Serial.print("Left limit is ");
-  Serial.println(LEFT_STEPPER_LIMIT);
-  Serial.print("Right limit is ");
-  Serial.println(RIGHT_STEPPER_LIMIT);*/
+  steering::calibrate();
 }
 
 void loop()
@@ -401,7 +293,7 @@ void loop()
   int rcSteeringAvg = rc_controller.getChannel(CHANNEL_RIGHT_X);
 
   // Controlling hardware thru RC.
-  float steeringCommand = rcTimeout ? getCenter() : rcToDegrees(rcSteeringAvg);
+  float steeringCommand = rcTimeout ? 0.0 : rcToDegrees(rcSteeringAvg);
   bool brakeCommand = (buggyEnabled && !rcTimeout);
 
   // If auton is enabled, it will set inputs to ROS inputs.
@@ -413,9 +305,9 @@ void loop()
 
   static bool dynamixel_shutdown = false;
 
-  setGoalSteeringAngle(steeringCommand);
+  steering::set_goal_angle(steeringCommand);
 
-  if (!digitalRead(ALARM_PIN)) {
+  if (steering::alarm_triggered()) {
     brakeCommand = false;
   }
 
@@ -475,10 +367,10 @@ void loop()
     snprintf(c_current, 32, "xxx");
 
     char c_leftSteeringLimit[32];
-    String(String(LEFT_STEPPER_LIMIT) + " steps").toCharArray(c_leftSteeringLimit, 32);
+    String(String(steering::left_step_limit()) + " steps").toCharArray(c_leftSteeringLimit, 32);
 
     char c_rightSteeringLimit[32];
-    String(String(RIGHT_STEPPER_LIMIT) + " steps").toCharArray(c_rightSteeringLimit, 32);
+    String(String(steering::right_step_limit()) + " steps").toCharArray(c_rightSteeringLimit, 32);
 
     char c_rcSteeringInput[32];
     String(String(rcSteeringAvg)).toCharArray(c_rcSteeringInput, 32);

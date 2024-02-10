@@ -3,7 +3,6 @@
 #include <ArduinoCRSF.h>
 
 namespace rc {
-	// Returns true on success
 	void init();
 
 	void update();

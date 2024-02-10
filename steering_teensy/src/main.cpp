@@ -9,6 +9,7 @@
 #include "buggyradio.h"
 #include "steering.h"
 #include "rc.h"
+#include "brake.h"
 
 #define USE_TEENSY_HW_SERIAL // Must be before <ros.h>
 #define ROS_BAUD 1000000
@@ -28,7 +29,6 @@
 
 // Teensy Pins
 #define VOLTAGE_PIN 27
-#define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
 
 // Width of RC steering and brake pulses.
@@ -202,10 +202,10 @@ void setup()
   battery_msg.location = "Buggy";    // The location into which the battery is inserted. (slot number or plug)
   battery_msg.serial_number = "";    // The best approximation of the battery serial number
 
-  pinMode(BRAKE_RELAY_PIN, OUTPUT);
-  digitalWrite(BRAKE_RELAY_PIN, LOW);
   pinMode(INTERRUPT_PIN, OUTPUT);
   pinMode(VOLTAGE_PIN, INPUT);
+
+  brake::init();
 
   steering::init();
   delay(2000);
@@ -242,20 +242,28 @@ void loop()
   bool brakeMode = !autoMode && !teleMode;
 #endif
 
+  /* ================================================ */
+  /* Handle RC/autonomous control of steering/braking */
+  /* ================================================ */
+
   rc::update();
+
+  float steering_command = rc::use_autonomous_steering() ? rosSteeringAngle : rc::steering_angle();
+  brake::Status brake_command = rc::operator_ready() ? brake::Status::Rolling : brake::Status::Stopped;
+
+  steering::set_goal_angle(steering_command);
+  if (steering::alarm_triggered()) {
+    // Stop the buggy immediately if we lose steering
+    brake_command = brake::Status::Stopped;
+  }
+
+  brake::set(brake_command);
 
   auto link_stats = rc::link_statistics();
 
-  float steering_command = rc::use_autonomous_steering() ? rosSteeringAngle : rc::steering_angle();
-  bool brake_command = rc::operator_ready();
-
-  steering::set_goal_angle(steering_command);
-
-  if (steering::alarm_triggered()) {
-    brake_command = false;
-  }
-
-  digitalWrite(BRAKE_RELAY_PIN, brake_command);
+  /* ========================== */
+  /* Publish NAND odometry data */
+  /* ========================== */
 
   if (radio_available()) {
     uint8_t buf[256] = { 0 };
@@ -299,8 +307,12 @@ void loop()
     char c_steeringCommand[32];
     String(String(steering_command) + " deg").toCharArray(c_steeringCommand, 32);
 
-    char c_brakeCommand[32];
-    String(brake_command).toCharArray(c_brakeCommand, 32);
+    char c_brakeCommand[32] = { 0 };
+    if (brake_command == brake::Status::Rolling) {
+      strcpy(c_brakeCommand, "rolling");
+    } else {
+      strcpy(c_brakeCommand, "stopped");
+    }
 
     char c_presentLoad[32];
     String("xxx").toCharArray(c_presentLoad, 32);

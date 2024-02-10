@@ -97,6 +97,8 @@ void loop()
       link_stats.uplink_Link_quality,
       nand_fix,
     };
+
+    ros_comms::publish_debug_info(debug);
   }
 
   ros_comms::spin_once();

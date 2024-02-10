@@ -8,6 +8,7 @@
 #include "ArduinoCRSF.h"
 #include "buggyradio.h"
 #include "steering.h"
+#include "rc.h"
 
 #define USE_TEENSY_HW_SERIAL // Must be before <ros.h>
 #define ROS_BAUD 1000000
@@ -29,25 +30,6 @@
 #define VOLTAGE_PIN 27
 #define BRAKE_RELAY_PIN 26
 #define INTERRUPT_PIN 41
-
-// RC Controller PWM Pins
-#define RC_SERIAL Serial6
-#define RC_BAUDRATE 115200
-
-#define CHANNEL_LEFT_X  4
-#define CHANNEL_LEFT_Y  3
-#define CHANNEL_RIGHT_X 1
-#define CHANNEL_RIGHT_Y 2
-#define CHANNEL_SWITCH_E 5
-#define CHANNEL_SWITCH_F 6
-#define CHANNEL_SWITCH_B 7
-#define CHANNEL_SWITCH_C 8
-#define CHANNEL_BUTTON_A 9
-#define CHANNEL_BUTTON_D 10
-
-ArduinoCRSF rc_controller;
-//#define STEERING_PIN 26
-//#define THROTTLE_PIN 27
 
 // Width of RC steering and brake pulses.
 volatile int v_rcSteeringWidth = 0;
@@ -186,35 +168,13 @@ uint8_t nand_fix = 0xFF;
 // Every 100 cycles, publish debug data to ROS
 int rosLogCounter = 0;
 
-const float RC_STEERING_DEGREES = 30.0;
-
-float rcToDegrees(int pulse_width) {
-  // Scales it to -1.0 to 1.0
-  float displacement = -2.0 * (pulse_width - 1500.0) / 1000.0;
-
-  // Scale to the range of +/-RC_STEERING_DEGREES
-  displacement = displacement * RC_STEERING_DEGREES;
-
-  return displacement;
-}
-
 void setup()
 {
   Serial.begin(115200);
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
-  RC_SERIAL.begin(RC_BAUDRATE);
-  if (!RC_SERIAL) {
-    while (1) Serial.println("CRSF serial initialization failed");
-  }
-  rc_controller.begin(RC_SERIAL);
-
-  /*pinMode(STEERING_PIN, INPUT);
-  pinMode(THROTTLE_PIN, INPUT);
-
-  attachInterrupt(digitalPinToInterrupt(STEERING_PIN), steeringInterruptHandler, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(THROTTLE_PIN), throttleInterruptHandler, CHANGE);*/
+  rc::init();
 
   nh.getHardware()->setBaud(ROS_BAUD);
   nh.initNode();
@@ -282,36 +242,20 @@ void loop()
   bool brakeMode = !autoMode && !teleMode;
 #endif
 
-  rc_controller.update();
+  rc::update();
 
-  auto link_stats = rc_controller.getLinkStatistics();
+  auto link_stats = rc::link_statistics();
 
-  bool rcTimeout = !rc_controller.isLinkUp();
-  bool buggyEnabled = (rc_controller.getChannel(CHANNEL_BUTTON_A) > 1500) || (rc_controller.getChannel(CHANNEL_BUTTON_D) > 1500);
-  bool autoMode = (rc_controller.getChannel(CHANNEL_SWITCH_E) > 1750) && buggyEnabled;
+  float steering_command = rc::use_autonomous_steering() ? rosSteeringAngle : rc::steering_angle();
+  bool brake_command = rc::operator_ready();
 
-  int rcSteeringAvg = rc_controller.getChannel(CHANNEL_RIGHT_X);
-
-  // Controlling hardware thru RC.
-  float steeringCommand = rcTimeout ? 0.0 : rcToDegrees(rcSteeringAvg);
-  bool brakeCommand = (buggyEnabled && !rcTimeout);
-
-  // If auton is enabled, it will set inputs to ROS inputs.
-  if (autoMode && !rcTimeout)
-  {
-    steeringCommand = rosSteeringAngle;
-    //brakeCommand = 0.5 < rosBrake;
-  }
-
-  static bool dynamixel_shutdown = false;
-
-  steering::set_goal_angle(steeringCommand);
+  steering::set_goal_angle(steering_command);
 
   if (steering::alarm_triggered()) {
-    brakeCommand = false;
+    brake_command = false;
   }
 
-  digitalWrite(BRAKE_RELAY_PIN, brakeCommand);
+  digitalWrite(BRAKE_RELAY_PIN, brake_command);
 
   if (radio_available()) {
     uint8_t buf[256] = { 0 };
@@ -353,10 +297,10 @@ void loop()
     rosLogger.values_length = sizeof(rosLogValues) / sizeof(diagnostic_msgs::KeyValue);
 
     char c_steeringCommand[32];
-    String(String(steeringCommand) + " deg").toCharArray(c_steeringCommand, 32);
+    String(String(steering_command) + " deg").toCharArray(c_steeringCommand, 32);
 
     char c_brakeCommand[32];
-    String(brakeCommand).toCharArray(c_brakeCommand, 32);
+    String(brake_command).toCharArray(c_brakeCommand, 32);
 
     char c_presentLoad[32];
     String("xxx").toCharArray(c_presentLoad, 32);
@@ -373,17 +317,17 @@ void loop()
     String(String(steering::right_step_limit()) + " steps").toCharArray(c_rightSteeringLimit, 32);
 
     char c_rcSteeringInput[32];
-    String(String(rcSteeringAvg)).toCharArray(c_rcSteeringInput, 32);
+    String(String(rc::steering_angle())).toCharArray(c_rcSteeringInput, 32);
 
     char c_uplinkQuality[32];
-    String(link_stats->uplink_Link_quality).toCharArray(c_uplinkQuality, 32);
+    String(link_stats.uplink_Link_quality).toCharArray(c_uplinkQuality, 32);
 
     char c_autoMode[32];
-    String(autoMode).toCharArray(c_autoMode, 32);
+    String(rc::use_autonomous_steering()).toCharArray(c_autoMode, 32);
 
     char c_rcSteeringWidth[32];
     //String(rcSteeringWidth).toCharArray(c_rcSteeringWidth, 32);
-    String(rcSteeringAvg).toCharArray(c_rcSteeringWidth, 32);
+    String(rc::steering_angle()).toCharArray(c_rcSteeringWidth, 32);
 
     char c_nandFix[32];
     String(nand_fix).toCharArray(c_nandFix, 32);

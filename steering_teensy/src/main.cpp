@@ -29,6 +29,7 @@ void setup()
   rc::init();
   brake::init();
   steering::init();
+  ros_comms::init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 

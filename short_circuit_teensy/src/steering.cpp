@@ -3,23 +3,23 @@
 
 namespace steering
 {
+    static int pulse_pin = -1;
+    static int dir_pin   = -1;
+    static int alarm_pin = -1;
+    static int left_stepper_switch_pin = -1;
+    static int right_stepper_switch_pin = -1;
 
 #define STEPS_PER_REV 1000 // steps per rotation
-#define PUL 27             // pin for stepper pulse
-#define DIR 38             // pin for stepper direction
-#define ALARM_PIN 39
 
-#define LIMIT_SWITCH_RIGHT 7
-#define LIMIT_SWITCH_LEFT 8
 
     inline bool at_left_limit()
     {
-        return !digitalRead(LIMIT_SWITCH_LEFT);
+        return !digitalRead(left_stepper_switch_pin);
     }
 
     inline bool at_right_limit()
     {
-        return !digitalRead(LIMIT_SWITCH_RIGHT);
+        return !digitalRead(right_stepper_switch_pin);
     }
 
     volatile int current_position = 0;
@@ -39,11 +39,11 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(DIR, LOW);
+            digitalWrite(dir_pin, LOW);
             delayMicroseconds(5);
-            digitalWrite(PUL, HIGH);
+            digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
-            digitalWrite(PUL, LOW);
+            digitalWrite(pulse_pin, LOW);
             ++current_position;
         }
         else if (current_position > goal_position)
@@ -52,11 +52,11 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(DIR, HIGH);
+            digitalWrite(dir_pin, HIGH);
             delayMicroseconds(5);
-            digitalWrite(PUL, HIGH);
+            digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
-            digitalWrite(PUL, LOW);
+            digitalWrite(pulse_pin, LOW);
             --current_position;
         }
         else
@@ -73,19 +73,27 @@ namespace steering
     /**
      * @brief Initializes hardware.  Should be called in the main setup() function.
      */
-    void init()
+    void init(int pulse_pin_, int dir_pin_, int alarm_pin_, int left_stepper_switch_pin_, int right_stepper_switch_pin_)
     {
-        pinMode(LIMIT_SWITCH_LEFT, INPUT_PULLUP);
-        pinMode(LIMIT_SWITCH_RIGHT, INPUT_PULLUP);
+        pulse_pin = pulse_pin_;
+        dir_pin = dir_pin_;
+        alarm_pin = alarm_pin_;
+        left_stepper_switch_pin = left_stepper_switch_pin_;
+        right_stepper_switch_pin = right_stepper_switch_pin_;
 
-        pinMode(ALARM_PIN, INPUT_PULLUP);
+        pinMode(left_stepper_switch_pin, INPUT_PULLUP);
+        pinMode(right_stepper_switch_pin, INPUT_PULLUP);
 
-        pinMode(PUL, OUTPUT);
-        pinMode(DIR, OUTPUT);
+        pinMode(alarm_pin, INPUT_PULLUP);
+
+        pinMode(pulse_pin, OUTPUT);
+        pinMode(dir_pin, OUTPUT);
 
         pulse_timer.begin(pulse_interrupt_handler, 50);
         pulse_timer.priority(255);
     }
+
+#define CENTER_STEP_OFFSET 0
 
     /**
      * @brief The steering motor performs the calibration sequence by rotating to both of the limit switches,
@@ -111,7 +119,7 @@ namespace steering
         RIGHT_STEPPER_LIMIT = goal_position;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
-        int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2;
+        int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + CENTER_STEP_OFFSET;
         goal_position -= offset;
         current_position -= offset;
         LEFT_STEPPER_LIMIT -= offset;
@@ -143,7 +151,7 @@ namespace steering
         // static to make sure it persists between calls
         static bool fault = false;
 
-        if (!digitalRead(ALARM_PIN))
+        if (!digitalRead(alarm_pin))
         {
             fault = true;
         }

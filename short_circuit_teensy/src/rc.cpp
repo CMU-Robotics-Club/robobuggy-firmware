@@ -11,7 +11,6 @@
 namespace rc
 {
 
-#define RC_SERIAL Serial6
 #define RC_BAUDRATE 115200
 
 #define CHANNEL_LEFT_X 4
@@ -30,10 +29,10 @@ namespace rc
 	/**
 	 * @brief Initializes hardware.  Should be called in the main setup() function.
 	 */
-	void init()
+	void init(HardwareSerial &serial)
 	{
-		RC_SERIAL.begin(115200);
-		if (!RC_SERIAL)
+		serial.begin(RC_BAUDRATE);
+		if (!serial)
 		{
 			while (1)
 			{
@@ -41,7 +40,7 @@ namespace rc
 				delay(1000);
 			}
 		}
-		rc_controller.begin(RC_SERIAL);
+		rc_controller.begin(serial);
 	}
 
 	/**
@@ -71,8 +70,6 @@ namespace rc
 		return rc_controller.isLinkUp();
 	}
 
-#define RC_STEERING_DEGREES 30.0
-
 	/**
 	 * @brief Effectively, this serves to check that the human holding the rc controller is ready for the buggy to be moving.
 	 * This function checks that the A or D button on the controller is held down.
@@ -92,6 +89,8 @@ namespace rc
 		}
 	}
 
+#define MAX_RC_STEERING_DEGREES 30.0
+
 	/**
 	 * @brief Returns the angle that the steering wheel is pointing to.
 	 * Defaults to zero if there is no connection to the controller.
@@ -109,7 +108,7 @@ namespace rc
 			// Scaled to -1.0 to 1.0, left positive
 			float analog = -1.0 * (raw_width - 1500.0) / 500.0;
 
-			return analog * RC_STEERING_DEGREES;
+			return analog * MAX_RC_STEERING_DEGREES;
 		}
 		else
 		{

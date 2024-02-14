@@ -18,7 +18,7 @@ namespace
     volatile float ROS_STEERING_ANGLE = 0.0;
     void update_steering(const std_msgs::Float64 &cmd_msg) { ROS_STEERING_ANGLE = cmd_msg.data; }
 
-    volatile float ROS_BRAKE = 1.0;
+    volatile float ROS_BRAKE = 0.0;
     void update_brake(const std_msgs::Float64 &cmd_msg) { ROS_BRAKE = cmd_msg.data; }
 
 } // anonymous namespace
@@ -31,13 +31,14 @@ namespace ros_comms
     ros::Subscriber<std_msgs::Float64> brake("buggy/input/brake", update_brake);
 
     sensor_msgs::BatteryState battery_msg;
+    // Leading slashes TODO: ???
     ros::Publisher battery("buggy/battery", &battery_msg);
 
     diagnostic_msgs::DiagnosticStatus dbg_msg;
     ros::Publisher debug("TeensyStateIn_T", &dbg_msg);
 
     nav_msgs::Odometry odometry_msg;
-    ros::Publisher nand_nav("/NAND/nav/odom", &odometry_msg);
+    ros::Publisher nand_nav("NAND/nav/odom", &odometry_msg);
 
     void init()
     {
@@ -83,11 +84,10 @@ namespace ros_comms
      */
     brake::Status brake_status()
     {
-        // TODO: check polarity of ROS_BRAKE so we can use it here
-        return brake::Status::Rolling;
+        return (ROS_BRAKE > 0.5) ? brake::Status::Stopped : brake::Status::Rolling;
     }
 
-    void publish_debug_info(Debug info)
+    void publish_debug_info(DebugInfo info)
     {
         diagnostic_msgs::KeyValue dbg_values[10];
 
@@ -123,9 +123,9 @@ namespace ros_comms
         snprintf(c_auto_steering, 32, "%d", (int)info.use_autonomous_steering);
         add_value("Autonomous Steering Enabled", c_auto_steering);
 
-        char c_uplink_link_quality[32];
-        snprintf(c_uplink_link_quality, 32, "%d", (int)info.uplink_link_quality);
-        add_value("RC Uplink Quality", c_uplink_link_quality);
+        char c_rc_uplink_quality[32];
+        snprintf(c_rc_uplink_quality, 32, "%d", (int)info.rc_uplink_quality);
+        add_value("RC Uplink Quality", c_rc_uplink_quality);
 
         char c_nand_fix[32];
         snprintf(c_nand_fix, 32, "%d", (int)info.nand_fix);

@@ -20,15 +20,24 @@
 
 #define ROS_DEBUG_INTERVAL_MILLIS 100
 
+#define RC_SERIAL Serial6
+
+#define STEERING_PULSE_PIN 27             // pin for stepper pulse
+#define STEERING_DIR_PIN 38             // pin for stepper direction
+#define STEERING_ALARM_PIN 39
+#define LIMIT_SWITCH_RIGHT_PIN 7
+#define LIMIT_SWITCH_LEFT_PIN 8
+
+#define BRAKE_RELAY_PIN 26
 
 void setup()
 {
   Serial.begin(115200);
   pinMode(VOLTAGE_PIN, INPUT);
 
-  rc::init();
-  brake::init();
-  steering::init();
+  rc::init(RC_SERIAL);
+  brake::init(BRAKE_RELAY_PIN);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
   ros_comms::init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
@@ -46,12 +55,14 @@ void loop()
   rc::update();
 
   float steering_command = rc::use_autonomous_steering() ? ros_comms::steering_angle() : rc::steering_angle();
-  brake::Status brake_command = rc::operator_ready() ? brake::Status::Rolling : brake::Status::Stopped;
-
   steering::set_goal_angle(steering_command);
-  if (steering::alarm_triggered()) {
-    // Stop the buggy immediately if we lose steering
-    brake_command = brake::Status::Stopped;
+
+  brake::Status brake_command = brake::Status::Stopped;
+  if (rc::operator_ready() && !steering::alarm_triggered()) {
+    // Only roll if:
+    // 1. The person holding the controller is holding down the buttons actively
+    // 2. The steering servo is still working
+    brake_command = brake::Status::Rolling;
   }
 
   brake::set(brake_command);
@@ -63,7 +74,8 @@ void loop()
   static uint8_t nand_fix = 0xFF;
   if (radio_available()) {
     uint8_t buf[256] = { 0 };
-    if (auto length = radio_receive(buf)) {
+    // todo: comments
+    if (std::optional<uint8_t> length = radio_receive(buf)) {
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
         Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
@@ -87,7 +99,7 @@ void loop()
 
     float battery_voltage = analogRead(VOLTAGE_PIN) / 1024.0 * 50.0;
 
-    ros_comms::Debug debug {
+    ros_comms::DebugInfo info {
       rc::steering_angle(),
       steering_command,
       battery_voltage,
@@ -99,7 +111,7 @@ void loop()
       nand_fix,
     };
 
-    ros_comms::publish_debug_info(debug);
+    ros_comms::publish_debug_info(info);
   }
 
   ros_comms::spin_once();

@@ -6,7 +6,7 @@ namespace brake {
 		Rolling,
 	};
 
-	void init();
+	void init(int brake_pin);
 
 	void set(Status status);
 }

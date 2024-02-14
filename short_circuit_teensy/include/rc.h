@@ -3,7 +3,7 @@
 #include <ArduinoCRSF.h>
 
 namespace rc {
-	void init();
+	void init(HardwareSerial &serial);
 
 	void update();
 

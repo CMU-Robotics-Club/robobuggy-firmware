@@ -1,0 +1,10 @@
+{
+	"files.associations": {
+		"iosfwd": "cpp",
+		"limits": "cpp",
+		"streambuf": "cpp"
+	},
+
+	"editor.indentSize": 4,
+	"editor.insertSpaces": true
+}

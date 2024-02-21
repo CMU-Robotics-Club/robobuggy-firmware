@@ -3,6 +3,12 @@
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 #include <cstring>
 
+#include <SparkFun_u-blox_GNSS_v3.h>
+#include <Wire.h>
+
+#define myWire Wire2
+#define gnssAddress 0x42
+
 namespace UTM {
     static inline void LLtoUTM(const double Lat, const double Long,
                                double &UTMNorthing, double &UTMEasting,
@@ -14,53 +20,57 @@ MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
 
 HardwareSerial& gps_serial = Serial4;
 
+SFE_UBLOX_GNSS myGNSS;
+
 void gps_init() {
-	gps_serial.begin(38400);
+  myWire.begin();
+
+  while (myGNSS.begin(myWire, gnssAddress) == false)
+  {
+    Serial.println(F("u-blox GNSS not detected. Retrying..."));
+    delay (1000);
+  }
+  myGNSS.setI2COutput(COM_TYPE_UBX);
 }
 
 std::optional<GpsUpdate> gps_update() {
+
     bool got_update = false;
     GpsUpdate update {};
 
-    while (gps_serial.available()) {
-        if (nmea.process(gps_serial.read())) {
-            if (nmea.isValid()) {
-                bool is_gga = std::strcmp(nmea.getMessageID(), "GGA") == 0;
-                bool is_rmc = std::strcmp(nmea.getMessageID(), "RMC") == 0;
-                if (is_gga || is_rmc) {
-                    /*long latitude_mdeg = myGPS.getLatitude();
-                    long longitude_mdeg = myGPS.getLongitude();*/
+    //while (gps_serial.available()) {
+    if (myGNSS.getPVT() == true) {
+        /*long latitude_mdeg = myGPS.getLatitude();
+        long longitude_mdeg = myGPS.getLongitude();*/
 
-                    long latitude_mdeg = nmea.getLatitude();
-                    long longitude_mdeg = nmea.getLongitude();
+        long latitude_mdeg = myGNSS.getLatitude() * pow(10,4); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
+        long longitude_mdeg = myGNSS.getLongitude() * pow(10,4); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
 
-                    double x = 0;
-                    double y = 0;
-                    char r[] = "T";
+        double x = 0;
+        double y = 0;
+        char r[] = "T";
 
-                    UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
+        UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
 
-                    got_update = true;
-                    update.x = x;
-                    update.y = y;
-                    update.gps_time = gps_time_millis();
-                    update.fix = nmea.getFixQuality();
+        got_update = true;
+        update.x = x;
+        update.y = y;
+        /*update.gps_time = gps_time_millis();
+        update.fix = nmea.getFixQuality();*/
+        update.gps_time = 0;
+        update.fix = 0;
 
-                    static bool led_state;
-                    digitalWrite(LED_BUILTIN, led_state);
-                    led_state = !led_state;
-                }
-            }
-        }
-    }
-
+        static bool led_state;
+        digitalWrite(LED_BUILTIN, led_state);
+        led_state = !led_state;
+      }
+    //}
     if (got_update) {
         return { update };
     } else {
         return std::nullopt;
-    }
+  }
 }
-
 // converts day:hour:minute:second:nanosecond to absolute time in nanoseconds
 // warning: will break if you run the buggy at midNight on the end of a month;
 uint64_t gps_time_millis()

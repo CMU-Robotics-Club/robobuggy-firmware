@@ -167,6 +167,11 @@ void loop()
     //myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
 
     if (auto gps_coord = gps_update()) {
+      Serial.print("x: ");
+      Serial.println(gps_coord->x);
+      Serial.print("y: ");
+      Serial.println(gps_coord->y);
+      Serial.println("time: " + gps_coord->gps_time);
       radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
     }
 
@@ -179,7 +184,7 @@ void loop()
       }
 
       if (bno08x.getSensorEvent(&sensorValue)) {
-        Serial.println("Logging IMU event");
+        //Serial.println("Logging IMU event");
 
         f.printf("t: %lu, IMU ", millis());
         switch (sensorValue.sensorId) {

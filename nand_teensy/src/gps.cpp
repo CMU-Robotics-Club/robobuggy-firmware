@@ -31,40 +31,55 @@ void gps_init() {
     delay (1000);
   }
   myGNSS.setI2COutput(COM_TYPE_UBX);
+
+  byte rate;
+  if (myGNSS.getNavigationFrequency(&rate)) {
+    Serial.printf("Navigation rate is %d\n", (int)rate);
+  } else {
+    Serial.println("Failed to get navigation rate?");
+  }
 }
 
 std::optional<GpsUpdate> gps_update() {
-
     bool got_update = false;
     GpsUpdate update {};
 
-    //while (gps_serial.available()) {
-    if (myGNSS.getPVT() == true) {
+    static int last_update = millis();
+
+    if (millis() - last_update > 100) {
+      last_update = millis();
+
+      //while (gps_serial.available()) {
+      if (myGNSS.getHPPOSLLH()) {
         /*long latitude_mdeg = myGPS.getLatitude();
         long longitude_mdeg = myGPS.getLongitude();*/
 
-        long latitude_mdeg = myGNSS.getLatitude() * pow(10,4); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
-        long longitude_mdeg = myGNSS.getLongitude() * pow(10,4); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
+        double latitude = (myGNSS.getHighResLatitude() / 1e7) + (myGNSS.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
+        double longitude = (myGNSS.getHighResLongitude() / 1e7) + (myGNSS.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
+
+        double accuracy = (myGNSS.getHorizontalAccuracy() / 10.0);
 
         double x = 0;
         double y = 0;
         char r[] = "T";
 
-        UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
+        UTM::LLtoUTM(latitude, longitude, x, y, r);
 
         got_update = true;
         update.x = x;
         update.y = y;
+        update.accuracy = accuracy;
         /*update.gps_time = gps_time_millis();
         update.fix = nmea.getFixQuality();*/
         update.gps_time = 0;
-        update.fix = 0;
+        update.fix = myGNSS.getFixType();
 
         static bool led_state;
         digitalWrite(LED_BUILTIN, led_state);
         led_state = !led_state;
       }
-    //}
+    }
+
     if (got_update) {
         return { update };
     } else {

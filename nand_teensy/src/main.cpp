@@ -171,8 +171,14 @@ void loop()
       Serial.println(gps_coord->x);
       Serial.print("y: ");
       Serial.println(gps_coord->y);
-      Serial.println("time: " + gps_coord->gps_time);
+      Serial.print("accuracy: ");
+      Serial.println(gps_coord->accuracy);
+      Serial.print("time: ");
+      Serial.println(gps_coord->gps_time);
+      Serial.print("fix type: ");
+      Serial.println(gps_coord->fix);
       radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
+      Serial.println(millis());
     }
 
     if (millis() - last_imu_update > 5) {

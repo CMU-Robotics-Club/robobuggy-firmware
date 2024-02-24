@@ -15,11 +15,6 @@ namespace UTM {
                                char *UTMZone);
 }
 
-char nmeaBuffer[100];
-MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
-
-HardwareSerial& gps_serial = Serial4;
-
 SFE_UBLOX_GNSS myGNSS;
 
 void gps_init() {
@@ -91,11 +86,11 @@ std::optional<GpsUpdate> gps_update() {
 uint64_t gps_time_millis()
 {
 
-  uint64_t n_hun  = nmea.getHundredths();
-  uint64_t n_sec  = nmea.getSecond();
-  uint64_t n_min  = nmea.getMinute();
-  uint64_t n_hour = nmea.getHour();
-  uint64_t n_day  = nmea.getDay(); 
+  uint64_t n_hun  = myGNSS.getNanosecond();
+  uint64_t n_sec  = myGNSS.getSecond();
+  uint64_t n_min  = myGNSS.getMinute();
+  uint64_t n_hour = myGNSS.getHour();
+  uint64_t n_day  = myGNSS.getDay(); 
 
   uint64_t total_time =
     n_hun +

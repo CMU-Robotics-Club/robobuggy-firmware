@@ -10,6 +10,7 @@
 #include "rc.h"
 #include "brake.h"
 #include "ros_comms.h"
+#include "host_comms.h"
 
 /* ============= */
 /* Board Config  */
@@ -33,6 +34,18 @@
 void setup()
 {
   Serial.begin(115200);
+  if (CrashReport) {
+    Serial.print(CrashReport);
+  }
+
+  host_comms::init();
+
+  while (1) {
+    host_comms::poll();
+    host_comms::send_nand_odometry(42.0, 17.5);
+    delay(100);
+  }
+
   pinMode(VOLTAGE_PIN, INPUT);
 
   rc::init(RC_SERIAL);
@@ -79,6 +92,7 @@ void loop()
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
         Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
+        ros_comms::publish_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
         ros_comms::publish_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
         nand_fix = p->gps_x_y.fix;
       }

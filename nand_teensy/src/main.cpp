@@ -153,7 +153,8 @@ void loop()
     ++fileNum;
   }
   File f = SD.open(fileName, FILE_WRITE);
-
+  File gps_f = SD.open("gps-log.csv", FILE_WRITE);
+  
   if (!f) {
     while (1)
       Serial.println("File not created. Freezing");
@@ -168,6 +169,7 @@ void loop()
 
     if (auto gps_coord = gps_update()) {
       radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
+      gps_f.printf("%f,%f,%f,%f\n",gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
     if (millis() - last_imu_update > 5) {

@@ -144,7 +144,7 @@ void loop()
   int fileNum = 0;
   char fileName[100];
   while (true) {
-    snprintf(fileName, 100, "log%d.txt", fileNum);
+    snprintf(fileName, 100, "log%d.csv", fileNum);
 
     if (!SD.exists(fileName)) {
       break;
@@ -182,11 +182,10 @@ void loop()
         Serial.println("Logging IMU event");
 
         f.printf("t: %lu, IMU ", millis());
-        switch (sensorValue.sensorId) {
-
+        switch (sensorValue.sensorId) { 
         case SH2_ACCELEROMETER:
           f.printf(
-            "Accelerometer - x: %f y: %f z: %f\n",
+            "Accelerometer,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.accelerometer.x,
             (double)sensorValue.un.accelerometer.y,
             (double)sensorValue.un.accelerometer.z
@@ -194,7 +193,7 @@ void loop()
           break;
         case SH2_GYROSCOPE_CALIBRATED:
           f.printf(
-            "Gyro - x: %f y: %f z: %f\n",
+            "Gyro,%f,%f,%f\n",  //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.gyroscope.x,
             (double)sensorValue.un.gyroscope.y,
             (double)sensorValue.un.gyroscope.z
@@ -202,7 +201,7 @@ void loop()
           break;
         case SH2_MAGNETIC_FIELD_CALIBRATED:
           f.printf(
-            "Magnetic Field - x: %f y: %f z: %f\n",
+            "Magnetic Field,%f,%f,%f\n",  //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.magneticField.x,
             (double)sensorValue.un.magneticField.y,
             (double)sensorValue.un.magneticField.z
@@ -210,7 +209,7 @@ void loop()
           break;
         case SH2_LINEAR_ACCELERATION:
           f.printf(
-            "Linear Acceleration - x: %f y: %f z: %f\n",
+            "Linear Acceleration,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.linearAcceleration.x,
             (double)sensorValue.un.linearAcceleration.y,
             (double)sensorValue.un.linearAcceleration.z
@@ -218,7 +217,7 @@ void loop()
           break;
         case SH2_GRAVITY:
           f.printf(
-            "Gravity - x: %f y: %f z: %f\n",
+            "Gravity,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.gravity.x,
             (double)sensorValue.un.gravity.y,
             (double)sensorValue.un.gravity.z
@@ -226,7 +225,7 @@ void loop()
           break;
         case SH2_ROTATION_VECTOR:
           f.printf(
-            "Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            "Rotation Vector,%f,%f,%f,%f\n", //CSV formatting: [TYPE],[R],[I],[J],[K]
             (double)sensorValue.un.rotationVector.real,
             (double)sensorValue.un.rotationVector.i,
             (double)sensorValue.un.rotationVector.j,
@@ -235,7 +234,7 @@ void loop()
           break;
         case SH2_GEOMAGNETIC_ROTATION_VECTOR:
           f.printf(
-            "Geo-Magnetic Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            "Geo-Magnetic Rotation Vector,%f,%f,%f,%f\n",  //CSV formatting: [TYPE],[R],[I],[J],[K]
             (double)sensorValue.un.geoMagRotationVector.real,
             (double)sensorValue.un.geoMagRotationVector.i,
             (double)sensorValue.un.geoMagRotationVector.j,
@@ -244,7 +243,7 @@ void loop()
           break;
         case SH2_GAME_ROTATION_VECTOR:
           f.printf(
-            "Game Rotation Vector - r: %f i: %f j: %f k: %f\n",
+            "Game Rotation Vector,%f,%f,%f,%f\n", //CSV formatting: [TYPE],[R],[I],[J],[K]
             (double)sensorValue.un.gameRotationVector.real,
             (double)sensorValue.un.gameRotationVector.i,
             (double)sensorValue.un.gameRotationVector.j,
@@ -253,7 +252,7 @@ void loop()
           break;
         case SH2_RAW_ACCELEROMETER:
           f.printf(
-            "Raw Accelerometer - x: %f y: %f z: %f\n",
+            "Raw Accelerometer,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.rawAccelerometer.x,
             (double)sensorValue.un.rawAccelerometer.y,
             (double)sensorValue.un.rawAccelerometer.z
@@ -261,7 +260,7 @@ void loop()
           break;
         case SH2_RAW_GYROSCOPE:
           f.printf(
-            "Raw Gyro - x: %f y: %f z: %f\n",
+            "Raw Gyro,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.rawGyroscope.x,
             (double)sensorValue.un.rawGyroscope.y,
             (double)sensorValue.un.rawGyroscope.z
@@ -269,7 +268,7 @@ void loop()
           break;
         case SH2_RAW_MAGNETOMETER:
           f.printf(
-            "Raw Magnetic Field - x: %f y: %f z: %f\n",
+            "Raw Magnetic Field,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
             (double)sensorValue.un.rawMagnetometer.x,
             (double)sensorValue.un.rawMagnetometer.y,
             (double)sensorValue.un.rawMagnetometer.z

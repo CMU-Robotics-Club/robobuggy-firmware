@@ -153,7 +153,6 @@ void loop()
     ++fileNum;
   }
   File f = SD.open(fileName, FILE_WRITE);
-  File gps_f = SD.open("gps-log.csv", FILE_WRITE);
   
   if (!f) {
     while (1)
@@ -164,12 +163,13 @@ void loop()
 
   unsigned long last_imu_update = millis();
 
-  while (1) {
-    //myGPS.checkUblox(); // See if new data is available. Process bytes as they come in.
+  /*             CSV Format                  */
+  /* timestamp, type of data, <rest of data> */
 
+  while (1) {
     if (auto gps_coord = gps_update()) {
       radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
-      gps_f.printf("%f,%f,%f,%f\n",gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
+      f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
     if (millis() - last_imu_update > 5) {
@@ -183,7 +183,7 @@ void loop()
       if (bno08x.getSensorEvent(&sensorValue)) {
         Serial.println("Logging IMU event");
 
-        f.printf("t: %lu, IMU ", millis());
+        f.printf("%lu,IMU ", millis());
         switch (sensorValue.sensorId) { 
         case SH2_ACCELEROMETER:
           f.printf(
@@ -277,6 +277,7 @@ void loop()
           );
           break;
         default:
+          f.printf("Unknown\n");
           break;
         }
       }
@@ -286,7 +287,8 @@ void loop()
       if (++flush_cnt >= 100) {
         flush_cnt = 0;
         f.flush();
-        gps_f.flush();
+
+        digitalToggle(LED_BUILTIN);
       }
     }
   }

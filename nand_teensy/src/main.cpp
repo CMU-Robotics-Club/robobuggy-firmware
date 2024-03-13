@@ -286,6 +286,7 @@ void loop()
       if (++flush_cnt >= 100) {
         flush_cnt = 0;
         f.flush();
+        gps_f.flush();
       }
     }
   }

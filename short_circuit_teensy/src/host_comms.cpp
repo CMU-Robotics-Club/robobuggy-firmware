@@ -150,21 +150,34 @@ void init() {
     COMM_SERIAL.setTimeout(0);
 }
 
+static uint32_t LAST_MESSAGE = 0;
+
+static double STEERING_ANGLE = 0.0;
+
 void poll() {
     static Parser parser = {};
 
     while (parser.update()) {
         // We got a new packet
         if (parser.msg_type == MessageType::Steering) {
-            double angle;
-            memcpy(&angle, parser.msg_buf, sizeof(angle));
-            Serial.printf("Steering angle: %lf\n", angle);
+            memcpy(&STEERING_ANGLE, parser.msg_buf, sizeof(STEERING_ANGLE));
+            LAST_MESSAGE = millis();
         } else if (parser.msg_type == MessageType::Brake) {
             Serial.println("Brake packet");
+            // TODO: decide on a format
+            LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
         }
     }
+}
+
+uint32_t message_age() {
+    return millis() - LAST_MESSAGE;
+}
+
+double steering_angle() {
+    return STEERING_ANGLE;
 }
 
 

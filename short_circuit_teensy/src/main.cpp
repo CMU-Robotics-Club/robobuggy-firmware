@@ -40,12 +40,6 @@ void setup()
 
   host_comms::init();
 
-  while (1) {
-    host_comms::poll();
-    host_comms::send_nand_odometry(42.0, 17.5);
-    delay(100);
-  }
-
   pinMode(VOLTAGE_PIN, INPUT);
 
   rc::init(RC_SERIAL);
@@ -67,7 +61,9 @@ void loop()
 
   rc::update();
 
-  float steering_command = rc::use_autonomous_steering() ? ros_comms::steering_angle() : rc::steering_angle();
+  host_comms::poll();
+
+  float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
   steering::set_goal_angle(steering_command);
 
   brake::Status brake_command = brake::Status::Stopped;
@@ -92,8 +88,7 @@ void loop()
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
         Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
-        ros_comms::publish_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
-        ros_comms::publish_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
+        host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
         nand_fix = p->gps_x_y.fix;
       }
     }
@@ -125,9 +120,8 @@ void loop()
       nand_fix,
     };
 
-    ros_comms::publish_debug_info(info);
+    host_comms::send_debug_info(info);
   }
 
-  ros_comms::spin_once();
   delay(1);
 }

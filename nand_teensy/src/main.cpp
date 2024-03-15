@@ -131,6 +131,7 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
 
+  #if 0
   Wire.begin();
 
   while (!bno08x.begin_I2C()) {
@@ -148,6 +149,7 @@ void setup()
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   setReports();
+  #endif
 
   delay(1000);
 
@@ -207,6 +209,7 @@ void loop()
 
     brake::set(brake_command);
 
+    #if 0
     if (auto gps_coord = gps_update()) {
       Serial.print("x: ");
       Serial.println(gps_coord->x);
@@ -343,6 +346,7 @@ void loop()
         digitalToggle(LED_BUILTIN);
       }
     }
+    #endif
   }
 }
 

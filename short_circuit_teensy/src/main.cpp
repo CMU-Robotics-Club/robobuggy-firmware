@@ -45,7 +45,6 @@ void setup()
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
-  ros_comms::init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 

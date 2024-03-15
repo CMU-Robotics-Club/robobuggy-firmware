@@ -73,6 +73,7 @@ public:
                     state = State::Sync1;
                     break;
                 } else if (c != -1) {
+                    Serial.printf("Invalid 1st byte of sync %x\n", (unsigned)c);
                     state = State::Sync0;
                     return false;
                 }
@@ -83,6 +84,7 @@ public:
                     state = State::Sync2;
                     break;
                 } else if (c != -1) {
+                    Serial.printf("Invalid 2nd byte of sync %x\n", (unsigned)c);
                     state = State::Sync0;
                     return false;
                 }
@@ -92,7 +94,8 @@ public:
                 if (c == SYNC_WORD[2]) {
                     state = State::Sync3;
                     break;
-                } else if (c != 1) {
+                } else if (c != -1) {
+                    Serial.printf("Invalid 3rd byte of sync %x\n", (unsigned)c);
                     state = State::Sync0;
                     return false;
                 }
@@ -102,7 +105,8 @@ public:
                 if (c == SYNC_WORD[3]) {
                     state = State::Header;
                     break;
-                } else {
+                } else if (c != -1) {
+                    Serial.println("Invalid 4th byte of sync");
                     state = State::Sync0;
                     return false;
                 }
@@ -114,6 +118,7 @@ public:
                     read_and_checksum((uint8_t *)&msg_len,  sizeof(msg_len),  checksum);
                     if (msg_len > MAX_PAYLOAD_SIZE) {
                         // Yikes
+                        Serial.println("Invalid length");
                         state = State::Sync0;
                         return false;
                     }
@@ -134,6 +139,8 @@ public:
                     if (rx_checksum == checksum.accum) {
                         return true;
                     }
+
+                    Serial.println("Invalid checksum byte");
                 }
                 return false;
             }

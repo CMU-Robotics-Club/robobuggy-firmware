@@ -142,6 +142,11 @@ namespace steering
         goal_position = (int)(STEPS_PER_DEGREE * degrees);
     }
 
+    float current_angle_degrees()
+    {
+        return current_position / STEPS_PER_DEGREE;
+    }
+
     /**
      * @brief Checks whether or not the "alarm pin" has been triggered.
      * The pin triggers once the stepper goes into overcurrent protection and is then unresponsive to any movement commands.

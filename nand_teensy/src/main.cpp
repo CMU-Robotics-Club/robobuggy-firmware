@@ -24,18 +24,30 @@
   Go outside! Wait ~25 seconds and you should see your lat/long
 */
 
-#define RFM69_CS 2
-#define RFM69_INT 3
-#define RFM69_RST 4
-
 #include "gps.h"
 #include "buggyradio.h"
+#include "steering.h"
+#include "rc.h"
+#include "brake.h"
 
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
 #include <SD.h>
 
 #include <Adafruit_BNO08x.h>
+
+#define RFM69_CS 10
+#define RFM69_INT 36
+#define RFM69_RST 37
+
+#define RC_SERIAL Serial6
+#define BRAKE_RELAY_PIN 26
+
+#define STEERING_PULSE_PIN 27             // pin for stepper pulse
+#define STEERING_DIR_PIN 38             // pin for stepper direction
+#define STEERING_ALARM_PIN 39
+#define LIMIT_SWITCH_RIGHT_PIN 7
+#define LIMIT_SWITCH_LEFT_PIN 8
 
 #define BNO_085_INT 20
 
@@ -115,11 +127,15 @@ void setup()
   Serial.begin(115200);
   Serial.println("SparkFun Ublox Example");
 
+  rc::init(RC_SERIAL);
+  brake::init(BRAKE_RELAY_PIN);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
+
   Wire.begin();
 
-  if (!bno08x.begin_I2C()) {
-    while (1)
-      Serial.println("BNO085 not detected over I2C. Freezing");
+  while (!bno08x.begin_I2C()) {
+    Serial.println("BNO085 not detected over I2C. Retrying...");
+    delay(1000);
   }
 
   if (!SD.begin(BUILTIN_SDCARD)) {
@@ -132,6 +148,10 @@ void setup()
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   setReports();
+
+  delay(1000);
+
+  steering::calibrate();
 }
 
 bool led_state = false;
@@ -167,6 +187,26 @@ void loop()
   /* timestamp, type of data, <rest of data> */
 
   while (1) {
+    /* ================================================ */
+    /* Handle RC/autonomous control of steering/braking */
+    /* ================================================ */
+
+    rc::update();
+
+    //float steering_command = rc::use_autonomous_steering() ? ros_comms::steering_angle() : rc::steering_angle();
+    float steering_command = rc::steering_angle();
+    steering::set_goal_angle(steering_command);
+
+    brake::Status brake_command = brake::Status::Stopped;
+    if (rc::operator_ready() && !steering::alarm_triggered()) {
+      // Only roll if:
+      // 1. The person holding the controller is holding down the buttons actively
+      // 2. The steering servo is still working
+      brake_command = brake::Status::Rolling;
+    }
+
+    brake::set(brake_command);
+
     if (auto gps_coord = gps_update()) {
       Serial.print("x: ");
       Serial.println(gps_coord->x);
@@ -185,13 +225,15 @@ void loop()
     if (millis() - last_imu_update > 5) {
       last_imu_update = millis();
 
+      f.printf("%lu,steering,%f\n", millis(), steering::current_angle_degrees());
+
       if (bno08x.wasReset()) {
         Serial.print("sensor was reset ");
         setReports();
       }
 
       if (bno08x.getSensorEvent(&sensorValue)) {
-        //Serial.println("Logging IMU event");
+        Serial.println("Logging IMU event");
 
         f.printf("%lu,IMU ", millis());
         switch (sensorValue.sensorId) { 

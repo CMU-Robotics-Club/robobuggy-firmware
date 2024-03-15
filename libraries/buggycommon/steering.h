@@ -12,6 +12,8 @@ namespace steering {
 	// Set the position (in degrees from center, left-positive) that the stepper will try to achieve.
 	void set_goal_angle(float degrees);
 
+	float current_angle_degrees();
+
 	// Returns true if the alarm pin has been triggered,
 	// meaning that the stepper driver is no longer responding and we have lost steering control.
 	// A full power cycle of both the Teensy and driver is required to clear this condition.

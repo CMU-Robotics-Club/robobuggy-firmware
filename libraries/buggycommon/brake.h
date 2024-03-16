@@ -1,7 +1,7 @@
 #pragma once
 
 namespace brake {
-	enum class Status {
+	enum class Status : unsigned char {
 		Stopped,
 		Rolling,
 	};

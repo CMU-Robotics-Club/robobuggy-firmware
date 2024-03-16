@@ -168,6 +168,16 @@ void loop()
 
   while (1) {
     if (auto gps_coord = gps_update()) {
+      Serial.print("x: ");
+      Serial.println(gps_coord->x);
+      Serial.print("y: ");
+      Serial.println(gps_coord->y);
+      Serial.print("accuracy: ");
+      Serial.println(gps_coord->accuracy);
+      Serial.print("time: ");
+      Serial.println(gps_coord->gps_time);
+      Serial.print("fix type: ");
+      Serial.println(gps_coord->fix);
       radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
       f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
@@ -181,7 +191,7 @@ void loop()
       }
 
       if (bno08x.getSensorEvent(&sensorValue)) {
-        Serial.println("Logging IMU event");
+        //Serial.println("Logging IMU event");
 
         f.printf("%lu,IMU ", millis());
         switch (sensorValue.sensorId) { 

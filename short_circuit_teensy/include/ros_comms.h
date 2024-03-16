@@ -21,6 +21,7 @@ namespace ros_comms {
         bool use_autonomous_steering;
         std::uint8_t rc_uplink_quality;
         std::uint8_t nand_fix;
+        uint8_t padding[2];
     };
 
     void publish_debug_info(DebugInfo info);

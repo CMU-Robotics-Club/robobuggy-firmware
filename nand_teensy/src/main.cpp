@@ -51,6 +51,8 @@
 
 #define BNO_085_INT 20
 
+#define RADIO_TX_PERIOD_MS 100
+
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
 
@@ -127,29 +129,33 @@ void setup()
   Serial.begin(115200);
   Serial.println("SparkFun Ublox Example");
 
+  if (CrashReport) {
+    Serial.print(CrashReport);
+  }
+
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
 
-  #if 0
   Wire.begin();
 
+  #if 0
   while (!bno08x.begin_I2C()) {
     Serial.println("BNO085 not detected over I2C. Retrying...");
     delay(1000);
   }
 
+  setReports();
+
   if (!SD.begin(BUILTIN_SDCARD)) {
     while (1)
       Serial.println("SD card not detected. Freezing");
   }
+  #endif
 
   gps_init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
-
-  setReports();
-  #endif
 
   delay(1000);
 
@@ -161,8 +167,33 @@ bool led_state = false;
 uint64_t last_gps_time = 0;
 uint64_t last_local_time = millis();
 
+class RateLimit {
+public:
+  int period;
+
+  RateLimit(int _period) : period(_period), last_time(millis()) {}
+
+  bool ready() {
+    int cur_time = millis();
+    if (cur_time - last_time > period) {
+      last_time = cur_time;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
+  void reset() {
+    last_time = millis();
+  }
+
+private:
+  int last_time = millis();
+};
+
 void loop()
 {
+  #if 0
   int fileNum = 0;
   char fileName[100];
   while (true) {
@@ -183,10 +214,18 @@ void loop()
 
   f.printf("------- BEGIN NEW LOG --------\n");
 
+  #endif
+
   unsigned long last_imu_update = millis();
 
   /*             CSV Format                  */
   /* timestamp, type of data, <rest of data> */
+
+  RateLimit radio_tx_limit { 100 };
+
+  GpsUpdate last_gps_data;
+  bool fresh_gps_data = false;
+  int gps_sequence_number = 0;
 
   while (1) {
     /* ================================================ */
@@ -209,8 +248,8 @@ void loop()
 
     brake::set(brake_command);
 
-    #if 0
     if (auto gps_coord = gps_update()) {
+      static int i = 0;
       Serial.print("x: ");
       Serial.println(gps_coord->x);
       Serial.print("y: ");
@@ -221,10 +260,20 @@ void loop()
       Serial.println(gps_coord->gps_time);
       Serial.print("fix type: ");
       Serial.println(gps_coord->fix);
-      radio_send_gps(gps_coord->x, gps_coord->y, gps_coord->gps_time, gps_coord->fix);
-      f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
+
+      last_gps_data = *gps_coord;
+      fresh_gps_data = true;
+      ++gps_sequence_number;
+
+      //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
+    if (radio_tx_limit.ready() || fresh_gps_data) {
+      radio_tx_limit.reset();
+      radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix);
+    }
+
+    #if 0
     if (millis() - last_imu_update > 5) {
       last_imu_update = millis();
 

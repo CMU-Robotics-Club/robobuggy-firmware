@@ -49,6 +49,12 @@
 #define LIMIT_SWITCH_RIGHT_PIN 7
 #define LIMIT_SWITCH_LEFT_PIN 8
 
+// Start with steps per revolution of the stepper,
+// divide by 360 to get steps per degree of the stepper,
+// multiply by the gear ratio to get steps per degree of the gearbox,
+// and finally multiply by the belt ratio to get steps per degree of the wheel.
+const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (34.0 / 18.0);
+
 #define BNO_085_INT 20
 
 #define RADIO_TX_PERIOD_MS 100
@@ -135,11 +141,10 @@ void setup()
 
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
   Wire.begin();
 
-  #if 0
   while (!bno08x.begin_I2C()) {
     Serial.println("BNO085 not detected over I2C. Retrying...");
     delay(1000);
@@ -147,6 +152,7 @@ void setup()
 
   setReports();
 
+  #if 0
   if (!SD.begin(BUILTIN_SDCARD)) {
     while (1)
       Serial.println("SD card not detected. Freezing");
@@ -191,6 +197,49 @@ private:
   int last_time = millis();
 };
 
+template<typename T, size_t Count> class History {
+public:
+  History() : length(0) {}
+
+  void push(T t) {
+    if (length >= Count) {
+      // History is full, discard an element 
+      for (size_t i = 0; i < Count - 1; ++i) {
+        data[i] = std::move(data[i + 1]);
+      }
+      data[Count - 1] = std::move(t);
+    } else {
+      data[length++] = std::move(t);
+    }
+  }
+
+  T max() {
+    if (length == 0) {
+      return {};
+    } else {
+      T m = data[0];
+      for (size_t i = 1; i < length; ++i) {
+        if (m < data[i]) {
+          m = data[i];
+        }
+      }
+      return m;
+    }
+  }
+
+  double avg() {
+    double a = 0.0;
+    for (size_t i = 0; i < length; ++i) {
+      a += data[i];
+    }
+    return a / length;
+  }
+
+private:
+  T data[Count];
+  size_t length;
+};
+
 void loop()
 {
   #if 0
@@ -223,9 +272,13 @@ void loop()
 
   RateLimit radio_tx_limit { 100 };
 
-  GpsUpdate last_gps_data;
+  GpsUpdate last_gps_data { 0 };
   bool fresh_gps_data = false;
   int gps_sequence_number = 0;
+
+  History<uint32_t, 10> gps_time_history {};
+  History<uint32_t, 10> imu_update_history {};
+  History<uint32_t, 10> radio_send_history {};
 
   while (1) {
     /* ================================================ */
@@ -248,8 +301,8 @@ void loop()
 
     brake::set(brake_command);
 
+    elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
-      static int i = 0;
       Serial.print("x: ");
       Serial.println(gps_coord->x);
       Serial.print("y: ");
@@ -265,21 +318,48 @@ void loop()
       fresh_gps_data = true;
       ++gps_sequence_number;
 
+      gps_time_history.push(gps_update_elapsed);
+
+      Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
+      Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
+
       //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
+    elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
+      fresh_gps_data = false;
       radio_tx_limit.reset();
       radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix);
+
+      radio_send_history.push(radio_send_elapsed);
+
+      Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
+      Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
     }
 
-    #if 0
     if (millis() - last_imu_update > 5) {
       last_imu_update = millis();
 
-      f.printf("%lu,steering,%f\n", millis(), steering::current_angle_degrees());
-
       if (bno08x.wasReset()) {
+        Serial.print("sensor was reset ");
+        setReports();
+      }
+
+      elapsedMillis imu_update_elapsed = {};
+      if (bno08x.getSensorEvent(&sensorValue)) {
+        Serial.println("IMU event");
+
+        imu_update_history.push(imu_update_elapsed);
+
+        Serial.printf("Maximum IMU update time: %d\n", imu_update_history.max());
+        Serial.printf("Average IMU update time: %f\n", imu_update_history.avg());
+      }
+
+
+      //f.printf("%lu,steering,%f\n", millis(), steering::current_angle_degrees());
+
+      /*if (bno08x.wasReset()) {
         Serial.print("sensor was reset ");
         setReports();
       }
@@ -393,9 +473,8 @@ void loop()
         f.flush();
 
         digitalToggle(LED_BUILTIN);
-      }
+      }*/
     }
-    #endif
   }
 }
 

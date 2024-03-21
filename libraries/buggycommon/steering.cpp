@@ -8,6 +8,8 @@ namespace steering
     static int alarm_pin = -1;
     static int left_stepper_switch_pin = -1;
     static int right_stepper_switch_pin = -1;
+    static float steps_per_degree = 0.0;
+
 
 #define STEPS_PER_REV 1000 // steps per rotation
 
@@ -73,13 +75,20 @@ namespace steering
     /**
      * @brief Initializes hardware.  Should be called in the main setup() function.
      */
-    void init(int pulse_pin_, int dir_pin_, int alarm_pin_, int left_stepper_switch_pin_, int right_stepper_switch_pin_)
-    {
+    void init(
+        int pulse_pin_,
+        int dir_pin_,
+        int alarm_pin_,
+        int left_stepper_switch_pin_,
+        int right_stepper_switch_pin_,
+        float steps_per_degree_
+    ) {
         pulse_pin = pulse_pin_;
         dir_pin = dir_pin_;
         alarm_pin = alarm_pin_;
         left_stepper_switch_pin = left_stepper_switch_pin_;
         right_stepper_switch_pin = right_stepper_switch_pin_;
+        steps_per_degree = steps_per_degree_;
 
         pinMode(left_stepper_switch_pin, INPUT_PULLUP);
         pinMode(right_stepper_switch_pin, INPUT_PULLUP);
@@ -131,20 +140,14 @@ namespace steering
         set_goal_angle(0.0);
     }
 
-    // Start with steps per revolution of the stepper,
-    // divide by 360 to get steps per degree of the stepper,
-    // multiply by the gear ratio to get steps per degree of the gearbox,
-    // and finally multiply by the belt ratio to get steps per degree of the wheel.
-    const float STEPS_PER_DEGREE = (STEPS_PER_REV / 360.0) * 10.0 * (34.0 / 18.0);
-
     void set_goal_angle(float degrees)
     {
-        goal_position = (int)(STEPS_PER_DEGREE * degrees);
+        goal_position = (int)(steps_per_degree * degrees);
     }
 
     float current_angle_degrees()
     {
-        return current_position / STEPS_PER_DEGREE;
+        return current_position / steps_per_degree;
     }
 
     /**

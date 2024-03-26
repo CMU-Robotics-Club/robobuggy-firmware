@@ -7,6 +7,7 @@
 #define SYNC_LEN 4
 
 #define COMM_SERIAL Serial1
+#define COMM_BAUDRATE 1000000
 
 #define MAX_PAYLOAD_SIZE 100
 
@@ -152,9 +153,12 @@ public:
 
 namespace host_comms {
 
+static uint8_t rxbuf[1024];
+
 void init() {
-    COMM_SERIAL.begin(1000000);
+    COMM_SERIAL.begin(COMM_BAUDRATE);
     COMM_SERIAL.setTimeout(0);
+    COMM_SERIAL.addMemoryForRead(rxbuf, sizeof(rxbuf));
 }
 
 static uint32_t LAST_MESSAGE = 0;
@@ -188,7 +192,7 @@ double steering_angle() {
 }
 
 
-void send_debug_info(ros_comms::DebugInfo info) {
+void send_debug_info(DebugInfo info) {
     Crc16 checksum = {};
 
     COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());

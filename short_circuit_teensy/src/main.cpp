@@ -9,7 +9,6 @@
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
-#include "ros_comms.h"
 #include "host_comms.h"
 #include "status_led.h"
 
@@ -142,7 +141,7 @@ void loop()
 
     float battery_voltage = analogRead(VOLTAGE_PIN) / 1024.0 * 50.0;
 
-    ros_comms::DebugInfo info {
+    host_comms::DebugInfo info {
       rc::steering_angle(),
       steering_command,
       battery_voltage,

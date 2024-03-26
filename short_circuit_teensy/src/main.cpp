@@ -11,6 +11,7 @@
 #include "brake.h"
 #include "ros_comms.h"
 #include "host_comms.h"
+#include "status_led.h"
 
 /* ============= */
 /* Board Config  */
@@ -33,7 +34,7 @@
 // divide by 360 to get steps per degree of the stepper,
 // multiply by the gear ratio to get steps per degree of the gearbox,
 // and finally multiply by the belt ratio to get steps per degree of the wheel.
-const float STEPS_PER_DEGREE = (STEPS_PER_REV / 360.0) * 10.0 * (34.0 / 18.0);
+const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (34.0 / 18.0);
 
 #define BRAKE_RELAY_PIN 26
 
@@ -51,6 +52,7 @@ void setup()
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
+  status_led::init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
@@ -68,8 +70,35 @@ void loop()
 
   host_comms::poll();
 
+  // Green by default
+  status_led::Rgb status_color = { 0xFF, 0xFF, 0x00 };
+
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
   steering::set_goal_angle(steering_command);
+
+  if (rc::use_autonomous_steering()) {
+    if (host_comms::message_age() <= 1000) {
+      // Normal autonomous function, blue
+      status_color = { 0x00, 0x00, 0xFF };
+    } else {
+      // We're in autonomous but we haven't recently received any messages, very concerning!
+      status_color = { 0xFF, 0x00, 0x00 };
+    }
+  } else {
+    if (host_comms::message_age() <= 1000) {
+      // Teleop, but we can see that the autonomous is ready, so be green
+      status_color = { 0x00, 0xFF, 0x00 };
+    }
+  }
+
+  if (steering::alarm_triggered() || !rc::connected()) {
+    // Blink red really fast, we have lost steering
+    status_led::Rgb red   = { 0xFF, 0x00, 0x00 };
+    status_led::Rgb black = { 0x00, 0x00, 0x00 };
+    status_color = ((millis() % 300) < 150) ? red : black;
+  }
+
+  status_led::set_color(status_color);
 
   brake::Status brake_command = brake::Status::Stopped;
   if (rc::operator_ready() && !steering::alarm_triggered()) {

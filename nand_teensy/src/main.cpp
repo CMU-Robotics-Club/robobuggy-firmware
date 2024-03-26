@@ -53,7 +53,7 @@
 // divide by 360 to get steps per degree of the stepper,
 // multiply by the gear ratio to get steps per degree of the gearbox,
 // and finally multiply by the belt ratio to get steps per degree of the wheel.
-const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (34.0 / 18.0);
+const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (32.0 / 15.0);
 
 #define BNO_085_INT 20
 
@@ -144,6 +144,7 @@ void setup()
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
   Wire.begin();
+  Wire.setClock(400000);
 
   while (!bno08x.begin_I2C()) {
     Serial.println("BNO085 not detected over I2C. Retrying...");

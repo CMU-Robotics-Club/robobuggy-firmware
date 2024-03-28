@@ -21,7 +21,8 @@ enum MessageType : uint16_t {
     DebugInfo = PACK_MSG_TYPE('D', 'B'),
     Odometry  = PACK_MSG_TYPE('O', 'D'),
     Steering  = PACK_MSG_TYPE('S', 'T'),
-    Brake     = PACK_MSG_TYPE('B', 'R')
+    Brake     = PACK_MSG_TYPE('B', 'R'),
+    Alarm     = PACK_MSG_TYPE('A', 'L')
 };
 
 void write_and_checksum(const std::uint8_t *data, std::size_t size, Crc16 &crc) {
@@ -165,6 +166,8 @@ static uint32_t LAST_MESSAGE = 0;
 
 static double STEERING_ANGLE = 0.0;
 
+static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
+
 void poll() {
     static Parser parser = {};
 
@@ -174,8 +177,12 @@ void poll() {
             memcpy(&STEERING_ANGLE, parser.msg_buf, sizeof(STEERING_ANGLE));
             LAST_MESSAGE = millis();
         } else if (parser.msg_type == MessageType::Brake) {
-            Serial.println("Brake packet");
             // TODO: decide on a format
+            Serial.println("Brake packet");
+
+            LAST_MESSAGE = millis();
+        } else if (parser.msg_type == MessageType::Alarm) {
+            ALARM_STATUS = (AlarmStatus)parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
@@ -189,6 +196,10 @@ uint32_t message_age() {
 
 double steering_angle() {
     return STEERING_ANGLE;
+}
+
+AlarmStatus alarm_status() {
+    return ALARM_STATUS;
 }
 
 

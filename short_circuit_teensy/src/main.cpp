@@ -59,6 +59,9 @@ void setup()
   steering::calibrate();
 }
 
+using status_led::Rgb;
+using host_comms::AlarmStatus;
+
 void loop()
 {
   /* ================================================ */
@@ -69,31 +72,68 @@ void loop()
 
   host_comms::poll();
 
-  // Green by default
-  status_led::Rgb status_color = { 0xFF, 0xFF, 0x00 };
+  Rgb blue   = { 0x00, 0x00, 0xFF };
+  Rgb orange = { 0xFF, 0x80, 0x00 };
+  Rgb red    = { 0xFF, 0x00, 0x00 };
+  Rgb black  = { 0x00, 0x00, 0x00 };
+  Rgb green  = { 0x00, 0xFF, 0x00 };
+
+  // Orange by default
+  Rgb status_color = orange;
 
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
   steering::set_goal_angle(steering_command);
 
+
   if (rc::use_autonomous_steering()) {
-    if (host_comms::message_age() <= 1000) {
-      // Normal autonomous function, blue
-      status_color = { 0x00, 0x00, 0xFF };
-    } else {
+    if (host_comms::message_age() > 1000) {
       // We're in autonomous but we haven't recently received any messages, very concerning!
+      // Solid red
       status_color = { 0xFF, 0x00, 0x00 };
+    } else {
+
+      switch (host_comms::alarm_status()) {
+      case AlarmStatus::Ok:
+        // Blue
+        status_color = { 0x00, 0x00, 0xFF };
+        break;
+      case AlarmStatus::Warning:
+        // Blink blue/orange
+        status_color = ((millis() % 1000) < 500) ? blue : orange;
+        break;
+      case AlarmStatus::Error:
+        // Blink blue/red
+        status_color = ((millis() % 1000) < 500) ? blue : red;
+        break;
+      default:
+        break;
+      }
     }
   } else {
+    // Teleop mode
+
     if (host_comms::message_age() <= 1000) {
-      // Teleop, but we can see that the autonomous is ready, so be green
-      status_color = { 0x00, 0xFF, 0x00 };
+      switch (host_comms::alarm_status()) {
+      case AlarmStatus::Ok:
+        // Green
+        status_color = green;
+        break;
+      case AlarmStatus::Warning:
+        // Blink green/orange
+        status_color = ((millis() % 1000) < 500) ? green : orange;
+        break;
+      case AlarmStatus::Error:
+        // Blink green/red
+        status_color = ((millis() % 1000) < 500) ? green : red;
+        break;
+      default:
+        break;
+      }
     }
   }
 
   if (steering::alarm_triggered() || !rc::connected()) {
     // Blink red really fast, we have lost steering
-    status_led::Rgb red   = { 0xFF, 0x00, 0x00 };
-    status_led::Rgb black = { 0x00, 0x00, 0x00 };
     status_color = ((millis() % 300) < 150) ? red : black;
   }
 

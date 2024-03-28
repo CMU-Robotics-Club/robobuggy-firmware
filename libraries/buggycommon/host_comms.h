@@ -18,6 +18,12 @@ struct DebugInfo {
 	uint8_t padding[2];
 };
 
+enum AlarmStatus : uint8_t {
+	Ok      = 0,
+	Warning = 1,
+	Error   = 2
+};
+
 void init();
 
 void poll();
@@ -26,6 +32,8 @@ void poll();
 uint32_t message_age();
 
 double steering_angle();
+
+AlarmStatus alarm_status();
 
 void send_debug_info(DebugInfo info);
 

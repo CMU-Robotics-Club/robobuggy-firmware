@@ -7,5 +7,7 @@ namespace sd_logging {
 
 	void log_gps(double x, double y);
 
-	void log_encoder(int steps);
+	void log_speed(double speed);
+
+	void flush_files();
 }

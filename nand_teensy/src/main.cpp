@@ -282,7 +282,11 @@ void loop()
   History<uint32_t, 10> imu_update_history {};
   History<uint32_t, 10> radio_send_history {};
 
-  RateLimit steering_log_limit { 100 };
+  RateLimit speed_log_limit { 40 };
+
+  RateLimit steering_log_limit { 10 };
+
+  RateLimit flush_file_limit { 1000 };
 
   while (1) {
     /* ================================================ */
@@ -292,6 +296,8 @@ void loop()
     rc::update();
 
     host_comms::poll();
+
+    encoder::update();
 
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
@@ -307,6 +313,7 @@ void loop()
       if (++j >= 10000) {
         j = 0;
         Serial.println("hewo");
+
       }
     }
 
@@ -316,14 +323,21 @@ void loop()
     if (++i >= 10000) {
       i = 0;
 
-      Serial.printf("steering command: %f??\n", steering_command);
+      Serial.printf("encoder: %d\n", encoder::steps());
+      Serial.printf("speed: %f\n", encoder::speed());
+
+      //Serial.printf("steering command: %f??\n", steering_command);
 
       host_comms::DebugInfo info { 42 };
       host_comms::send_debug_info(info);
     }
 
+    if (speed_log_limit.ready()) {
+      sd_logging::log_speed(encoder::speed());
+    }
+
     if (steering_log_limit.ready()) {
-      sd_logging::log_steering(steering_command);
+      sd_logging::log_steering(steering::current_angle_degrees());
     }
 
     elapsedMillis gps_update_elapsed = {};
@@ -353,7 +367,12 @@ void loop()
       //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
-    elapsedMillis radio_send_elapsed = {};
+    if (flush_file_limit.ready()) {
+      Serial.println("Flushing files!");
+      sd_logging::flush_files();
+    }
+
+    /*elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
       fresh_gps_data = false;
       radio_tx_limit.reset();
@@ -363,7 +382,7 @@ void loop()
 
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
-    }
+    }*/
 
     #if 0
     if (millis() - last_imu_update > 5) {

@@ -41,8 +41,6 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(dir_pin, LOW);
-            delayMicroseconds(5);
             digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
             digitalWrite(pulse_pin, LOW);
@@ -54,8 +52,6 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(dir_pin, HIGH);
-            delayMicroseconds(5);
             digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
             digitalWrite(pulse_pin, LOW);
@@ -104,6 +100,37 @@ namespace steering
 
 #define CENTER_STEP_OFFSET 0
 
+    static void set_goal_step(int step) {
+        static int last_dir = 0;
+
+        cli();
+
+        goal_position = step;
+
+        int dir = 0;
+        if (current_position < goal_position) {
+            digitalWrite(dir_pin, LOW);
+            dir = 1;
+        } else if (current_position > goal_position) { 
+            digitalWrite(dir_pin, HIGH);
+            dir = -1;
+        }
+
+        if (last_dir != dir && dir != 0) {
+            // Delay if we needed to change directions
+            delayMicroseconds(5);
+        }
+
+        sei();
+
+        last_dir = dir;
+    }
+
+    void set_goal_angle(float degrees)
+    {
+        set_goal_step(steps_per_degree * degrees);
+    }
+
     /**
      * @brief The steering motor performs the calibration sequence by rotating to both of the limit switches,
      * and then updating the step counter.
@@ -111,21 +138,26 @@ namespace steering
      */
     void calibrate()
     {
+        // TODO: This only works the first time we start up
+        // If we ever want to have a recalibrate button,
+        // we need to check the current steering angle
+        int goal = 0;
+
         Serial.println("Beginning calibration...");
         while (!at_left_limit())
         {
             delay(1);
-            ++goal_position;
+            set_goal_step(++goal);
         }
-        LEFT_STEPPER_LIMIT = goal_position;
+        LEFT_STEPPER_LIMIT = goal;
         Serial.printf("Determined left limit (%d)\n", LEFT_STEPPER_LIMIT);
 
         while (!at_right_limit())
         {
             delay(1);
-            --goal_position;
+            set_goal_step(--goal);
         }
-        RIGHT_STEPPER_LIMIT = goal_position;
+        RIGHT_STEPPER_LIMIT = goal;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
         int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + CENTER_STEP_OFFSET;
@@ -140,14 +172,12 @@ namespace steering
         set_goal_angle(0.0);
     }
 
-    void set_goal_angle(float degrees)
-    {
-        goal_position = (int)(steps_per_degree * degrees);
-    }
-
     float current_angle_degrees()
     {
-        return current_position / steps_per_degree;
+        cli();
+        int pos = current_position;
+        sei();
+        return pos / steps_per_degree;
     }
 
     /**

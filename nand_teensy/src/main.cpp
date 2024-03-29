@@ -29,10 +29,12 @@
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
+#include "encoder.h"
+#include "sd_logging.h"
+#include "host_comms.h"
 
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
-#include <SD.h>
 
 #include <Adafruit_BNO08x.h>
 
@@ -153,16 +155,15 @@ void setup()
 
   setReports();
 
-  #if 0
-  if (!SD.begin(BUILTIN_SDCARD)) {
-    while (1)
-      Serial.println("SD card not detected. Freezing");
-  }
-  #endif
-
   gps_init();
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
+
+  host_comms::init();
+
+  encoder::init();
+
+  sd_logging::init();
 
   delay(1000);
 
@@ -281,6 +282,8 @@ void loop()
   History<uint32_t, 10> imu_update_history {};
   History<uint32_t, 10> radio_send_history {};
 
+  RateLimit steering_log_limit { 100 };
+
   while (1) {
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
@@ -288,8 +291,9 @@ void loop()
 
     rc::update();
 
-    //float steering_command = rc::use_autonomous_steering() ? ros_comms::steering_angle() : rc::steering_angle();
-    float steering_command = rc::steering_angle();
+    host_comms::poll();
+
+    float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 
     brake::Status brake_command = brake::Status::Stopped;
@@ -298,9 +302,29 @@ void loop()
       // 1. The person holding the controller is holding down the buttons actively
       // 2. The steering servo is still working
       brake_command = brake::Status::Rolling;
+
+      static int j = 0;
+      if (++j >= 10000) {
+        j = 0;
+        Serial.println("hewo");
+      }
     }
 
     brake::set(brake_command);
+
+    static int i = 0;
+    if (++i >= 10000) {
+      i = 0;
+
+      Serial.printf("steering command: %f??\n", steering_command);
+
+      host_comms::DebugInfo info { 42 };
+      host_comms::send_debug_info(info);
+    }
+
+    if (steering_log_limit.ready()) {
+      sd_logging::log_steering(steering_command);
+    }
 
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
@@ -324,6 +348,8 @@ void loop()
       Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
 
+      sd_logging::log_gps(gps_coord->x, gps_coord->y);
+
       //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
 
@@ -339,6 +365,7 @@ void loop()
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
     }
 
+    #if 0
     if (millis() - last_imu_update > 5) {
       last_imu_update = millis();
 
@@ -476,6 +503,7 @@ void loop()
         digitalToggle(LED_BUILTIN);
       }*/
     }
+    #endif
   }
 }
 

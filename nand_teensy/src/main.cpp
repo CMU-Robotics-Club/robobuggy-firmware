@@ -289,6 +289,7 @@ void loop()
   RateLimit flush_file_limit { 1000 };
 
   while (1) {
+    unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
@@ -308,13 +309,6 @@ void loop()
       // 1. The person holding the controller is holding down the buttons actively
       // 2. The steering servo is still working
       brake_command = brake::Status::Rolling;
-
-      static int j = 0;
-      if (++j >= 10000) {
-        j = 0;
-        Serial.println("hewo");
-
-      }
     }
 
     brake::set(brake_command);
@@ -523,6 +517,11 @@ void loop()
       }*/
     }
     #endif
+
+    unsigned long now_ms = millis();
+    if (now_ms - loop_update_elapsed_ms > 10) {
+      Serial.println(now_ms - loop_update_elapsed_ms);
+    }
   }
 }
 

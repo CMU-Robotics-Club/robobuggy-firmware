@@ -58,7 +58,7 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
 }
 
 void radio_transmit(const uint8_t *data, size_t size) {
-	rf69->waitPacketSent();
+	rf69->waitPacketSent(10);
 	rf69->send(data, size);
 }
 

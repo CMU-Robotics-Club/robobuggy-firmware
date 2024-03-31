@@ -366,7 +366,7 @@ void loop()
       sd_logging::flush_files();
     }
 
-    /*elapsedMillis radio_send_elapsed = {};
+    elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
       fresh_gps_data = false;
       radio_tx_limit.reset();
@@ -376,7 +376,7 @@ void loop()
 
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
-    }*/
+    }
 
     #if 0
     if (millis() - last_imu_update > 5) {

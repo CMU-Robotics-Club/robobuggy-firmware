@@ -21,9 +21,9 @@ struct Packet {
 
 void radio_init(int pin_cs, int pin_int, int pin_rst);
 
-void radio_transmit(const uint8_t *data, size_t size);
+bool radio_transmit(const uint8_t *data, size_t size);
 
-void radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix);
+bool radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix);
 
 void radio_send_steering(double angle);
 

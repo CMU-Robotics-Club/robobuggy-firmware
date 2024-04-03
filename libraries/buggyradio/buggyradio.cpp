@@ -57,19 +57,24 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
 	Serial.println("RFM69 radio init OK!");
 }
 
-void radio_transmit(const uint8_t *data, size_t size) {
-	rf69->waitPacketSent(10);
-	rf69->send(data, size);
+bool radio_transmit(const uint8_t *data, size_t size) {
+	if (rf69->waitPacketSent(10)) {
+        rf69->send(data, size);
+        return true;
+    } else {
+        Serial.println("================ MISSED PACKET ===============");
+        return false;
+    }
 }
 
-void radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix) {
+bool radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix) {
     Packet p{};
     p.tag = GPS_X_Y;
     p.gps_x_y.x = x;
     p.gps_x_y.y = y;
     p.gps_x_y.time = gps_time;
     p.gps_x_y.fix = fix;
-    radio_transmit((uint8_t*)&p, sizeof(p));
+    return radio_transmit((uint8_t*)&p, sizeof(p));
 }
 
 void radio_send_steering(double angle) {

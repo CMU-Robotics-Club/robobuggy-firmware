@@ -6,7 +6,7 @@
 
 namespace sd_logging {
 
-static const bool DO_LOGGING = true;
+static const bool DO_LOGGING = false;
 
 static File STEERING_FILE {};
 static File GPS_FILE {};
@@ -53,13 +53,13 @@ void log_steering(double angle) {
 	STEERING_FILE.write(buf, cnt);
 }
 
-void log_gps(double x, double y) {
+void log_gps(double x, double y, double accuracy) {
 	if (!DO_LOGGING) {
 		return;
 	}
 
 	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f,%f\n", millis(), x, y);
+	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f,%f,%f\n", millis(), x, y, accuracy);
 	GPS_FILE.write(buf, cnt);
 }
 

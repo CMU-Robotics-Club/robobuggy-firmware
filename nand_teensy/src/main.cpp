@@ -32,11 +32,14 @@
 #include "encoder.h"
 #include "sd_logging.h"
 #include "host_comms.h"
+#include "status_led.h"
 
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
 
 #include <Adafruit_BNO08x.h>
+
+using status_led::Rgb;
 
 #define RFM69_CS 10
 #define RFM69_INT 36
@@ -132,10 +135,18 @@ void setReports(void) {
   }
 }
 
+#define STATUS_LED_PIN 16
+
 void setup()
 {
   Serial.begin(115200);
   Serial.println("SparkFun Ublox Example");
+
+  // Workaround to set the status LED pin as an output
+  pinMode(29, OUTPUT);
+  digitalWrite(29, LOW);
+
+  pinMode(STATUS_LED_PIN, OUTPUT);
 
   if (CrashReport) {
     Serial.print(CrashReport);
@@ -145,15 +156,17 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
+  status_led::init(STATUS_LED_PIN);
+
   Wire.begin();
   Wire.setClock(400000);
 
-  while (!bno08x.begin_I2C()) {
+  /*while (!bno08x.begin_I2C()) {
     Serial.println("BNO085 not detected over I2C. Retrying...");
     delay(1000);
-  }
+  }*/
 
-  setReports();
+  //setReports();
 
   gps_init();
 
@@ -288,11 +301,19 @@ void loop()
 
   RateLimit flush_file_limit { 1000 };
 
+  Rgb  dark_green = { 0x00, 0xD0, 0x00 };
+  Rgb light_green = { 0x00, 0xFF, 0x20 };
+
+  Rgb  dark_red = { 0xD0, 0x00, 0x00 };
+  Rgb light_red = { 0xFF, 0x20, 0x00 };
+
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
+
+    Rgb rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
 
     rc::update();
 
@@ -317,8 +338,8 @@ void loop()
     if (++i >= 10000) {
       i = 0;
 
-      Serial.printf("encoder: %d\n", encoder::steps());
-      Serial.printf("speed: %f\n", encoder::speed());
+      //Serial.printf("encoder: %d\n", encoder::steps());
+      //Serial.printf("speed: %f\n", encoder::speed());
 
       //Serial.printf("steering command: %f??\n", steering_command);
 
@@ -356,7 +377,7 @@ void loop()
       Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
 
-      sd_logging::log_gps(gps_coord->x, gps_coord->y);
+      sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
 
       //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
     }
@@ -366,16 +387,29 @@ void loop()
       sd_logging::flush_files();
     }
 
+    static int last_failed = millis();
+
     elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
       fresh_gps_data = false;
       radio_tx_limit.reset();
-      radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix);
+      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix)) {
+        last_failed = millis();
+      }
 
       radio_send_history.push(radio_send_elapsed);
 
+      static int aaa =0;
+      ++aaa;
+
+      Serial.printf("SEQ: %d\n", gps_sequence_number);
+      Serial.printf("SEQ      : %d\n", aaa);
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
+    }
+
+    if (millis() - last_failed < 300) {
+      rgb = ((millis() % 500) > 250) ? dark_red : light_red;
     }
 
     #if 0
@@ -517,6 +551,8 @@ void loop()
       }*/
     }
     #endif
+
+    status_led::set_color(rgb);
 
     unsigned long now_ms = millis();
     if (now_ms - loop_update_elapsed_ms > 10) {

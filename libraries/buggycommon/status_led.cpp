@@ -2,18 +2,21 @@
 
 #include <OctoWS2811.h>
 
-#define DATA_PIN 19
+// #define DATA_PIN 19
 
 namespace status_led {
 
 static DMAMEM int display_memory[8 * 1];
 static int drawing_memory[8 * 1];
 
-const static uint8_t pin_list[1] = { DATA_PIN };
+static uint8_t pin_list[1] = { 0 };
 
-static OctoWS2811 leds(1, display_memory, drawing_memory, WS2811_GRB | WS2811_800kHz, 1, pin_list);
+static OctoWS2811 leds(0, nullptr, nullptr);
 
-void init() {
+void init(int pin) {
+    pin_list[0] = pin;
+    leds = OctoWS2811(1, display_memory, drawing_memory, WS2811_GRB | WS2811_800kHz, 1, pin_list);
+
     leds.begin();
 }
 

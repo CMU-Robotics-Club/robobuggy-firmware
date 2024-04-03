@@ -285,7 +285,7 @@ void loop()
   /*             CSV Format                  */
   /* timestamp, type of data, <rest of data> */
 
-  RateLimit radio_tx_limit { 100 };
+  RateLimit radio_tx_limit { 200 };
 
   GpsUpdate last_gps_data { 0 };
   bool fresh_gps_data = false;

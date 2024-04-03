@@ -31,3 +31,5 @@ void radio_send_steering(double angle);
 std::optional<uint8_t> radio_receive(uint8_t *data);
 
 bool radio_available();
+
+int16_t radio_last_rssi();

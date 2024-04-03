@@ -29,6 +29,8 @@
 #define LIMIT_SWITCH_RIGHT_PIN 7
 #define LIMIT_SWITCH_LEFT_PIN 8
 
+#define STATUS_LED_PIN 19
+
 // Start with steps per revolution of the stepper,
 // divide by 360 to get steps per degree of the stepper,
 // multiply by the gear ratio to get steps per degree of the gearbox,
@@ -51,7 +53,7 @@ void setup()
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
-  status_led::init();
+  status_led::init(STATUS_LED_PIN);
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
@@ -161,6 +163,7 @@ void loop()
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
         Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
+        Serial.printf("RSSI: %i dBm\n", (int)radio_last_rssi());
         host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
         nand_fix = p->gps_x_y.fix;
       }

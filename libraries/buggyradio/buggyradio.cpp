@@ -44,6 +44,7 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
     }
 
     if (!rf69->setModemConfig(RH_RF69::GFSK_Rb250Fd250)) {
+    //if (!rf69->setModemConfig(RH_RF69::GFSK_Rb9_6Fd19_2)) {
         while (1) {
             Serial.println("setModem failed");
             delay(100);
@@ -95,4 +96,8 @@ std::optional<uint8_t> radio_receive(uint8_t *data) {
 
 bool radio_available() {
 	return rf69->available();
+}
+
+int16_t radio_last_rssi() {
+    return rf69->lastRssi();
 }

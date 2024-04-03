@@ -64,11 +64,59 @@ void setup()
 using status_led::Rgb;
 using host_comms::AlarmStatus;
 
+#define LOG_COUNT 100
+
+template<typename T, size_t Count> class History {
+public:
+  History() : length(0) {}
+
+  void push(T t) {
+    if (length >= Count) {
+      // History is full, discard an element 
+      for (size_t i = 0; i < Count - 1; ++i) {
+        data[i] = std::move(data[i + 1]);
+      }
+      data[Count - 1] = std::move(t);
+    } else {
+      data[length++] = std::move(t);
+    }
+  }
+
+  T max() {
+    if (length == 0) {
+      return {};
+    } else {
+      T m = data[0];
+      for (size_t i = 1; i < length; ++i) {
+        if (m < data[i]) {
+          m = data[i];
+        }
+      }
+      return m;
+    }
+  }
+
+  double avg() {
+    double a = 0.0;
+    for (size_t i = 0; i < length; ++i) {
+      a += data[i];
+    }
+    return a / length;
+  }
+
+private:
+  T data[Count];
+  size_t length;
+};
+
 void loop()
 {
+  static History<uint32_t, LOG_COUNT> loop_time {};
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
+
+  uint32_t loop_start = millis();
 
   rc::update();
 
@@ -155,6 +203,8 @@ void loop()
   /* Publish NAND odometry data */
   /* ========================== */
 
+  static int last_time = 0;
+
   static uint8_t nand_fix = 0xFF;
   if (radio_available()) {
     uint8_t buf[256] = { 0 };
@@ -162,10 +212,15 @@ void loop()
     if (std::optional<uint8_t> length = radio_receive(buf)) {
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
-        Serial.printf("X: %lf Y: %lf T: %llu F: %u\n", p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.time, (unsigned)p->gps_x_y.fix);
+        Serial.printf("S: %u X: %lf Y: %lf T: %u F: %u\n", p->seq, p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.gps_seq, (unsigned)p->gps_x_y.fix);
         Serial.printf("RSSI: %i dBm\n", (int)radio_last_rssi());
-        host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y);
+        host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y, p->seq, p->gps_x_y.gps_seq);
         nand_fix = p->gps_x_y.fix;
+
+        if (last_time + 1 != p->seq) {
+          Serial.printf("====== MISSED %d PACKETS =========\n", p->seq - last_time + 1);
+        }
+        last_time = p->seq;
       }
     }
   }
@@ -199,5 +254,17 @@ void loop()
     host_comms::send_debug_info(info);
   }
 
-  delay(1);
+  /*
+  uint32_t loop_dur = millis() - loop_start;
+
+  loop_time.push(loop_dur);
+
+  static int x = 0;
+  if (++x >= 10000) {
+    x = 0;
+
+    Serial.printf("LOOP TIME: %f\n", loop_time.avg());
+    Serial.printf("MAX LOOP TIME: %u\n", loop_time.max());
+  }
+  */
 }

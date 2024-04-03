@@ -13,9 +13,19 @@ enum PacketType : uint32_t {
 
 struct Packet {
     PacketType tag;
+    uint32_t seq; // increments by one with every *radio* message sent
     union {
-        struct { double x; double y; uint64_t time; uint8_t fix; uint8_t _pad[7]; } gps_x_y;
-        struct { double degrees; } steer_angle;
+        struct {
+            double x;
+            double y;
+            uint32_t gps_seq; // increments by one with every *gps* update received 
+            uint8_t fix; 
+            uint8_t _pad[3];
+        } gps_x_y;
+
+        struct {
+            double degrees;
+        } steer_angle;
     };
 };
 
@@ -23,7 +33,7 @@ void radio_init(int pin_cs, int pin_int, int pin_rst);
 
 bool radio_transmit(const uint8_t *data, size_t size);
 
-bool radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix);
+bool radio_send_gps(double x, double y, uint32_t gps_seq_number, uint8_t fix);
 
 void radio_send_steering(double angle);
 

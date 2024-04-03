@@ -34,6 +34,10 @@ void write_and_checksum(uint16_t data, Crc16 &crc) {
     write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
 }
 
+void write_and_checksum(uint32_t data, Crc16 &crc) {
+    write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
+}
+
 
 void read_and_checksum(std::uint8_t *data, std::size_t size, Crc16 &crc) {
     COMM_SERIAL.readBytes(data, size);
@@ -57,6 +61,8 @@ public:
     uint8_t msg_buf[MAX_PAYLOAD_SIZE] = { 0 };
 
     uint16_t msg_type;
+
+    // Includes only the body of the message
     uint16_t msg_len;
 
     Crc16 checksum;
@@ -213,14 +219,16 @@ void send_debug_info(DebugInfo info) {
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
 
-void send_nand_odometry(double x, double y) {
+void send_nand_odometry(double x, double y, uint32_t radio_seq_num, uint32_t gps_seq_num) {
     Crc16 checksum = {};
 
     COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
     write_and_checksum(MessageType::Odometry, checksum);
-    write_and_checksum((uint16_t)(2 * sizeof(double)), checksum);
+    write_and_checksum((uint16_t)(2 * sizeof(double) + sizeof(uint32_t) + sizeof(uint32_t)), checksum);
     write_and_checksum(reinterpret_cast< uint8_t* >(&x), sizeof(x), checksum);
     write_and_checksum(reinterpret_cast< uint8_t* >(&y), sizeof(y), checksum);
+    write_and_checksum(radio_seq_num, checksum);
+    write_and_checksum(gps_seq_num,   checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
 

@@ -33,6 +33,7 @@
 #include "sd_logging.h"
 #include "host_comms.h"
 #include "status_led.h"
+#include "ukf.h"
 
 #include <Arduino.h>
 #include <Wire.h> //Needed for I2C to GPS
@@ -307,6 +308,8 @@ void loop()
   Rgb  dark_red = { 0xD0, 0x00, 0x00 };
   Rgb light_red = { 0xFF, 0x20, 0x00 };
 
+  FilterState filter;
+
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
@@ -379,7 +382,17 @@ void loop()
 
       sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
 
+      filter.handle_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
+
       //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
+    }
+
+    if (steering_log_limit.ready()) {
+      filter.handle_steering(steering::current_angle_degrees());
+    }
+
+    if (speed_log_limit.ready()) {
+      filter.handle_encoder(encoder::speed());
     }
 
     if (flush_file_limit.ready()) {

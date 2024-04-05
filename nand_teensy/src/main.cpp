@@ -313,6 +313,8 @@ void loop()
 
   bool kalman_init = false;
 
+  double heading_rate = 0.0;
+
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
@@ -423,6 +425,13 @@ void loop()
         filter.curr_state_est(2, 0)
       );
       sd_logging::log_covariance(filter.curr_state_cov);
+      host_comms::send_bnya_telemetry(
+        filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
+        encoder::speed(),
+        steering::current_angle_degrees(),
+        filter.curr_state_est(2, 0),
+        heading_rate
+      );
 
       static int i = 0;
       if (++i > 100) {
@@ -486,6 +495,8 @@ void loop()
           double x = sensorValue.un.gyroscope.x;
           double y = sensorValue.un.gyroscope.y;
           double z = sensorValue.un.gyroscope.z;
+
+          heading_rate = z;
         }
       }
     }

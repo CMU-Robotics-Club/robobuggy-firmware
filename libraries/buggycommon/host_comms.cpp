@@ -22,7 +22,8 @@ enum MessageType : uint16_t {
     Odometry  = PACK_MSG_TYPE('O', 'D'),
     Steering  = PACK_MSG_TYPE('S', 'T'),
     Brake     = PACK_MSG_TYPE('B', 'R'),
-    Alarm     = PACK_MSG_TYPE('A', 'L')
+    Alarm     = PACK_MSG_TYPE('A', 'L'),
+    BnyaTelem = PACK_MSG_TYPE('B', 'T')
 };
 
 void write_and_checksum(const std::uint8_t *data, std::size_t size, Crc16 &crc) {
@@ -38,6 +39,9 @@ void write_and_checksum(uint32_t data, Crc16 &crc) {
     write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
 }
 
+void write_and_checksum(double data, Crc16 &crc) {
+    write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
+}
 
 void read_and_checksum(std::uint8_t *data, std::size_t size, Crc16 &crc) {
     COMM_SERIAL.readBytes(data, size);
@@ -229,6 +233,27 @@ void send_nand_odometry(double x, double y, uint32_t radio_seq_num, uint32_t gps
     write_and_checksum(reinterpret_cast< uint8_t* >(&y), sizeof(y), checksum);
     write_and_checksum(radio_seq_num, checksum);
     write_and_checksum(gps_seq_num,   checksum);
+    COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
+}
+
+void send_bnya_telemetry(
+	double x, double y,
+	double velocity,
+	double steering,
+	double heading,
+	double heading_rate
+) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::BnyaTelem, checksum);
+    write_and_checksum((uint16_t)(6 * sizeof(double)), checksum);
+    write_and_checksum(x, checksum);
+    write_and_checksum(y, checksum);
+    write_and_checksum(velocity, checksum);
+    write_and_checksum(steering, checksum);
+    write_and_checksum(heading, checksum);
+    write_and_checksum(heading_rate, checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
 

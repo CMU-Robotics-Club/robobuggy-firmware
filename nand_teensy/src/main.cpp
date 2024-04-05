@@ -101,13 +101,13 @@ uint64_t positivePow(uint64_t base, uint64_t power)
 
 void setReports(void) {
   Serial.println("Setting desired reports");
-  if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
+  /*if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
     Serial.println("Could not enable accelerometer");
-  }
+  }*/
   if (!bno08x.enableReport(SH2_GYROSCOPE_CALIBRATED)) {
     Serial.println("Could not enable gyroscope");
   }
-  if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
+  /*if (!bno08x.enableReport(SH2_MAGNETIC_FIELD_CALIBRATED)) {
     Serial.println("Could not enable magnetic field calibrated");
   }
   if (!bno08x.enableReport(SH2_LINEAR_ACCELERATION)) {
@@ -134,6 +134,7 @@ void setReports(void) {
   if (!bno08x.enableReport(SH2_RAW_MAGNETOMETER)) {
     Serial.println("Could not enable raw magnetometer");
   }
+  */
 }
 
 #define STATUS_LED_PIN 16
@@ -162,10 +163,10 @@ void setup()
   Wire.begin();
   Wire.setClock(400000);
 
-  /*while (!bno08x.begin_I2C()) {
+  while (!bno08x.begin_I2C()) {
     Serial.println("BNO085 not detected over I2C. Retrying...");
     delay(1000);
-  }*/
+  }
 
   //setReports();
 
@@ -281,8 +282,6 @@ void loop()
 
   #endif
 
-  unsigned long last_imu_update = millis();
-
   /*             CSV Format                  */
   /* timestamp, type of data, <rest of data> */
 
@@ -302,6 +301,8 @@ void loop()
 
   RateLimit flush_file_limit { 1000 };
 
+  RateLimit imu_poll_limit { 5 };
+
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
 
@@ -310,13 +311,20 @@ void loop()
 
   FilterState filter;
 
+  bool kalman_init = false;
+
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
 
-    Rgb rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
+    Rgb rgb;
+    if (kalman_init) {
+      rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
+    } else {
+      rgb = Rgb { 0x80, 0x80, 0x00 };
+    }
 
     rc::update();
 
@@ -349,12 +357,24 @@ void loop()
       host_comms::DebugInfo info { 42 };
       host_comms::send_debug_info(info);
     }
+    
+    bool filter_updated = false;
 
     if (speed_log_limit.ready()) {
+      if (kalman_init) {
+        filter.handle_encoder(encoder::speed());
+        filter_updated = true;
+      }
+
       sd_logging::log_speed(encoder::speed());
     }
 
     if (steering_log_limit.ready()) {
+      if (kalman_init) {
+        filter.handle_steering(steering::current_angle_degrees());
+        filter_updated = true;
+      }
+
       sd_logging::log_steering(steering::current_angle_degrees());
     }
 
@@ -371,6 +391,14 @@ void loop()
       Serial.print("fix type: ");
       Serial.println(gps_coord->fix);
 
+      if (!kalman_init && gps_coord->accuracy < 50.0) {
+        Serial.println("GPS accuracy OK, initializing filter");
+        filter.curr_state_est(0, 0) = gps_coord->x;
+        filter.curr_state_est(1, 0) = gps_coord->y;
+
+        kalman_init = true;
+      }
+
       last_gps_data = *gps_coord;
       fresh_gps_data = true;
       ++gps_sequence_number;
@@ -380,19 +408,36 @@ void loop()
       Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
 
-      sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
+      if (kalman_init) {
+        filter.handle_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
+        sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
 
-      filter.handle_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
-
-      //f.printf("%lu,GPS,%f,%f,%f,%f\n", millis(), gps_coord->x,gps_coord->y,gps_coord->gps_time,gps_coord->fix);
+        filter_updated = true;
+      }
     }
 
-    if (steering_log_limit.ready()) {
-      filter.handle_steering(steering::current_angle_degrees());
-    }
+    if (filter_updated) {
+      sd_logging::log_filter_state(
+        filter.curr_state_est(0, 0),
+        filter.curr_state_est(1, 0),
+        filter.curr_state_est(2, 0)
+      );
+      sd_logging::log_covariance(filter.curr_state_cov);
 
-    if (speed_log_limit.ready()) {
-      filter.handle_encoder(encoder::speed());
+      static int i = 0;
+      if (++i > 100) {
+        auto& s = filter.curr_state_est;
+        Serial.println("filter:");
+        Serial.printf("%10f %10f %10f\n", s(0, 0), s(1, 0), s(2, 0));
+        Serial.println();
+
+        Serial.println("cov:");
+        auto& c = filter.curr_state_cov;
+        Serial.printf("%10f %10f %10f\n", c(0, 0), c(0, 1), c(0, 2));
+        Serial.printf("%10f %10f %10f\n", c(1, 0), c(1, 1), c(1, 2));
+        Serial.printf("%10f %10f %10f\n", c(2, 0), c(2, 1), c(2, 2));
+        Serial.println();
+      }
     }
 
     if (flush_file_limit.ready()) {
@@ -415,20 +460,19 @@ void loop()
       static int aaa =0;
       ++aaa;
 
+      /*
       Serial.printf("SEQ: %d\n", gps_sequence_number);
       Serial.printf("SEQ      : %d\n", aaa);
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
+      */
     }
 
     if (millis() - last_failed < 300) {
       rgb = ((millis() % 500) > 250) ? dark_red : light_red;
     }
 
-    #if 0
-    if (millis() - last_imu_update > 5) {
-      last_imu_update = millis();
-
+    if (imu_poll_limit.ready()) {
       if (bno08x.wasReset()) {
         Serial.print("sensor was reset ");
         setReports();
@@ -436,134 +480,15 @@ void loop()
 
       elapsedMillis imu_update_elapsed = {};
       if (bno08x.getSensorEvent(&sensorValue)) {
-        Serial.println("IMU event");
+        //Serial.println("Logging IMU event");
 
-        imu_update_history.push(imu_update_elapsed);
-
-        Serial.printf("Maximum IMU update time: %d\n", imu_update_history.max());
-        Serial.printf("Average IMU update time: %f\n", imu_update_history.avg());
-      }
-
-
-      //f.printf("%lu,steering,%f\n", millis(), steering::current_angle_degrees());
-
-      /*if (bno08x.wasReset()) {
-        Serial.print("sensor was reset ");
-        setReports();
-      }
-
-      if (bno08x.getSensorEvent(&sensorValue)) {
-        Serial.println("Logging IMU event");
-
-        f.printf("%lu,IMU ", millis());
-        switch (sensorValue.sensorId) { 
-        case SH2_ACCELEROMETER:
-          f.printf(
-            "Accelerometer,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.accelerometer.x,
-            (double)sensorValue.un.accelerometer.y,
-            (double)sensorValue.un.accelerometer.z
-          );
-          break;
-        case SH2_GYROSCOPE_CALIBRATED:
-          f.printf(
-            "Gyro,%f,%f,%f\n",  //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.gyroscope.x,
-            (double)sensorValue.un.gyroscope.y,
-            (double)sensorValue.un.gyroscope.z
-          );
-          break;
-        case SH2_MAGNETIC_FIELD_CALIBRATED:
-          f.printf(
-            "Magnetic Field,%f,%f,%f\n",  //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.magneticField.x,
-            (double)sensorValue.un.magneticField.y,
-            (double)sensorValue.un.magneticField.z
-          );
-          break;
-        case SH2_LINEAR_ACCELERATION:
-          f.printf(
-            "Linear Acceleration,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.linearAcceleration.x,
-            (double)sensorValue.un.linearAcceleration.y,
-            (double)sensorValue.un.linearAcceleration.z
-          );
-          break;
-        case SH2_GRAVITY:
-          f.printf(
-            "Gravity,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.gravity.x,
-            (double)sensorValue.un.gravity.y,
-            (double)sensorValue.un.gravity.z
-          );
-          break;
-        case SH2_ROTATION_VECTOR:
-          f.printf(
-            "Rotation Vector,%f,%f,%f,%f\n", //CSV formatting: [TYPE],[R],[I],[J],[K]
-            (double)sensorValue.un.rotationVector.real,
-            (double)sensorValue.un.rotationVector.i,
-            (double)sensorValue.un.rotationVector.j,
-            (double)sensorValue.un.rotationVector.k
-          );
-          break;
-        case SH2_GEOMAGNETIC_ROTATION_VECTOR:
-          f.printf(
-            "Geo-Magnetic Rotation Vector,%f,%f,%f,%f\n",  //CSV formatting: [TYPE],[R],[I],[J],[K]
-            (double)sensorValue.un.geoMagRotationVector.real,
-            (double)sensorValue.un.geoMagRotationVector.i,
-            (double)sensorValue.un.geoMagRotationVector.j,
-            (double)sensorValue.un.geoMagRotationVector.k
-          );
-          break;
-        case SH2_GAME_ROTATION_VECTOR:
-          f.printf(
-            "Game Rotation Vector,%f,%f,%f,%f\n", //CSV formatting: [TYPE],[R],[I],[J],[K]
-            (double)sensorValue.un.gameRotationVector.real,
-            (double)sensorValue.un.gameRotationVector.i,
-            (double)sensorValue.un.gameRotationVector.j,
-            (double)sensorValue.un.gameRotationVector.k
-          );
-          break;
-        case SH2_RAW_ACCELEROMETER:
-          f.printf(
-            "Raw Accelerometer,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.rawAccelerometer.x,
-            (double)sensorValue.un.rawAccelerometer.y,
-            (double)sensorValue.un.rawAccelerometer.z
-          );
-          break;
-        case SH2_RAW_GYROSCOPE:
-          f.printf(
-            "Raw Gyro,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.rawGyroscope.x,
-            (double)sensorValue.un.rawGyroscope.y,
-            (double)sensorValue.un.rawGyroscope.z
-          );
-          break;
-        case SH2_RAW_MAGNETOMETER:
-          f.printf(
-            "Raw Magnetic Field,%f,%f,%f\n", //CSV formatting: [TYPE],[X],[Y],[Z]
-            (double)sensorValue.un.rawMagnetometer.x,
-            (double)sensorValue.un.rawMagnetometer.y,
-            (double)sensorValue.un.rawMagnetometer.z
-          );
-          break;
-        default:
-          f.printf("Unknown\n");
-          break;
+        if (sensorValue.sensorId == SH2_GYROSCOPE_CALIBRATED) {
+          double x = sensorValue.un.gyroscope.x;
+          double y = sensorValue.un.gyroscope.y;
+          double z = sensorValue.un.gyroscope.z;
         }
       }
-
-      static int flush_cnt = 0;
-
-      if (++flush_cnt >= 100) {
-        flush_cnt = 0;
-        f.flush();
-
-        digitalToggle(LED_BUILTIN);
-      }*/
     }
-    #endif
 
     status_led::set_color(rgb);
 

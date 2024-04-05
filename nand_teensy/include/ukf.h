@@ -62,7 +62,7 @@ public:
       state_cov_matrix_t {
         { 0.0001,    0.0,    0.0 },
         { 0.0,    0.0001,    0.0 },
-        { 0.0,       0.0, 0.0001 }
+        { 0.0,       0.0, 0.0003 }
       },
       // GPS noise,
       measurement_cov_matrix_t {
@@ -80,16 +80,17 @@ public:
   // Speed measured in m/s
   void handle_encoder(double speed);
 
-  // 
+  // Steering is in degrees
   void handle_steering(double steering);
 
-private:
   // ukf value setup
-  state_vector_t curr_state_est{{0, 0, 0}}; 
+  state_vector_t curr_state_est{{0, 0, PI}}; 
 
   state_cov_matrix_t curr_state_cov{{1, 0, 0},
                                     {0, 1, 0},
                                     {0, 0, 1}};
+
+private:
 
   state_vector_t predicted_state_est;
   state_cov_matrix_t predicted_state_cov;

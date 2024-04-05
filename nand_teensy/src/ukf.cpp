@@ -139,7 +139,7 @@ state_vector_t UKF::dynamics(state_vector_t state, input_vector_t input)
   state_vector_t x;
   x(0, 0) = this->speed * cos(state(2, 0));
   x(1, 0) = this->speed * sin(state(2, 0));
-  x(2, 0) = this->speed * tan(-input(0, 0)) / this->wheelbase;
+  x(2, 0) = this->speed * tan(input(0, 0)) / this->wheelbase;
   return x;
 }
 
@@ -336,6 +336,8 @@ void FilterState::handle_gps(double x, double y, double acc) {
   curr_state_est = updated_state_est;
   curr_state_cov = updated_state_cov;
 
+  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
+
   last_predict_timestamp = cur_time;
 
   // COMMON
@@ -384,6 +386,8 @@ void FilterState::handle_encoder(double speed) {
 
   curr_state_est = predicted_state_est;
   curr_state_cov = predicted_state_cov;
+
+  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
 }
 
 void FilterState::handle_steering(double steering) {
@@ -403,4 +407,6 @@ void FilterState::handle_steering(double steering) {
 
   curr_state_est = predicted_state_est;
   curr_state_cov = predicted_state_cov;
+
+  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
 }

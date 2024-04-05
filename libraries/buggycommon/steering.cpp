@@ -8,6 +8,8 @@ namespace steering
     static int alarm_pin = -1;
     static int left_stepper_switch_pin = -1;
     static int right_stepper_switch_pin = -1;
+    static float steps_per_degree = 0.0;
+
 
 #define STEPS_PER_REV 1000 // steps per rotation
 
@@ -39,8 +41,6 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(dir_pin, LOW);
-            delayMicroseconds(5);
             digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
             digitalWrite(pulse_pin, LOW);
@@ -52,8 +52,6 @@ namespace steering
             {
                 return;
             }
-            digitalWrite(dir_pin, HIGH);
-            delayMicroseconds(5);
             digitalWrite(pulse_pin, HIGH);
             delayMicroseconds(5);
             digitalWrite(pulse_pin, LOW);
@@ -73,13 +71,20 @@ namespace steering
     /**
      * @brief Initializes hardware.  Should be called in the main setup() function.
      */
-    void init(int pulse_pin_, int dir_pin_, int alarm_pin_, int left_stepper_switch_pin_, int right_stepper_switch_pin_)
-    {
+    void init(
+        int pulse_pin_,
+        int dir_pin_,
+        int alarm_pin_,
+        int left_stepper_switch_pin_,
+        int right_stepper_switch_pin_,
+        float steps_per_degree_
+    ) {
         pulse_pin = pulse_pin_;
         dir_pin = dir_pin_;
         alarm_pin = alarm_pin_;
         left_stepper_switch_pin = left_stepper_switch_pin_;
         right_stepper_switch_pin = right_stepper_switch_pin_;
+        steps_per_degree = steps_per_degree_;
 
         pinMode(left_stepper_switch_pin, INPUT_PULLUP);
         pinMode(right_stepper_switch_pin, INPUT_PULLUP);
@@ -95,6 +100,37 @@ namespace steering
 
 #define CENTER_STEP_OFFSET 0
 
+    static void set_goal_step(int step) {
+        static int last_dir = 0;
+
+        cli();
+
+        goal_position = step;
+
+        int dir = 0;
+        if (current_position < goal_position) {
+            digitalWrite(dir_pin, LOW);
+            dir = 1;
+        } else if (current_position > goal_position) { 
+            digitalWrite(dir_pin, HIGH);
+            dir = -1;
+        }
+
+        if (last_dir != dir && dir != 0) {
+            // Delay if we needed to change directions
+            delayMicroseconds(5);
+        }
+
+        sei();
+
+        last_dir = dir;
+    }
+
+    void set_goal_angle(float degrees)
+    {
+        set_goal_step(steps_per_degree * degrees);
+    }
+
     /**
      * @brief The steering motor performs the calibration sequence by rotating to both of the limit switches,
      * and then updating the step counter.
@@ -102,21 +138,26 @@ namespace steering
      */
     void calibrate()
     {
+        // TODO: This only works the first time we start up
+        // If we ever want to have a recalibrate button,
+        // we need to check the current steering angle
+        int goal = 0;
+
         Serial.println("Beginning calibration...");
         while (!at_left_limit())
         {
             delay(1);
-            ++goal_position;
+            set_goal_step(++goal);
         }
-        LEFT_STEPPER_LIMIT = goal_position;
+        LEFT_STEPPER_LIMIT = goal;
         Serial.printf("Determined left limit (%d)\n", LEFT_STEPPER_LIMIT);
 
         while (!at_right_limit())
         {
             delay(1);
-            --goal_position;
+            set_goal_step(--goal);
         }
-        RIGHT_STEPPER_LIMIT = goal_position;
+        RIGHT_STEPPER_LIMIT = goal;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
         int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + CENTER_STEP_OFFSET;
@@ -131,15 +172,12 @@ namespace steering
         set_goal_angle(0.0);
     }
 
-    // Start with steps per revolution of the stepper,
-    // divide by 360 to get steps per degree of the stepper,
-    // multiply by the gear ratio to get steps per degree of the gearbox,
-    // and finally multiply by the belt ratio to get steps per degree of the wheel.
-    const float STEPS_PER_DEGREE = (STEPS_PER_REV / 360.0) * 10.0 * (34.0 / 18.0);
-
-    void set_goal_angle(float degrees)
+    float current_angle_degrees()
     {
-        goal_position = (int)(STEPS_PER_DEGREE * degrees);
+        cli();
+        int pos = current_position;
+        sei();
+        return pos / steps_per_degree;
     }
 
     /**

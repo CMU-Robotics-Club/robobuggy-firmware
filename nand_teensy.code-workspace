@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "nand_teensy"
+		},
+		{
+			"path": "libraries"
+		}
+	],
+	"settings": {}
+}

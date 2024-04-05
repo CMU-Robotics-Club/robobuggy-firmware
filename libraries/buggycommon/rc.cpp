@@ -26,12 +26,15 @@ namespace rc
 
 	ArduinoCRSF rc_controller;
 
+	static uint8_t rxbuf[1024];
+
 	/**
 	 * @brief Initializes hardware.  Should be called in the main setup() function.
 	 */
 	void init(HardwareSerial &serial)
 	{
 		serial.begin(RC_BAUDRATE);
+		serial.addMemoryForRead(rxbuf, sizeof(rxbuf));
 		if (!serial)
 		{
 			while (1)

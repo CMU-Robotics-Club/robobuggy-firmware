@@ -6,34 +6,28 @@
 #include <SparkFun_u-blox_GNSS_v3.h>
 #include <Wire.h>
 
-#define myWire Wire2
-#define gnssAddress 0x42
-
+#define GPS_I2C Wire
+#define GPS_I2C_ADDRESS 0x42
 namespace UTM {
     static inline void LLtoUTM(const double Lat, const double Long,
                                double &UTMNorthing, double &UTMEasting,
                                char *UTMZone);
 }
 
-char nmeaBuffer[100];
-MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
-
-HardwareSerial& gps_serial = Serial4;
-
-SFE_UBLOX_GNSS myGNSS;
+SFE_UBLOX_GNSS gps;
 
 void gps_init() {
-  myWire.begin();
-
-  while (myGNSS.begin(myWire, gnssAddress) == false)
-  {
+  while (!gps.begin(GPS_I2C, GPS_I2C_ADDRESS)) {
     Serial.println(F("u-blox GNSS not detected. Retrying..."));
-    delay (1000);
+    delay(1000);
   }
-  myGNSS.setI2COutput(COM_TYPE_UBX);
+
+  gps.setI2COutput(COM_TYPE_UBX);
+
+  gps.setAutoHPPOSLLH(true);
 
   byte rate;
-  if (myGNSS.getNavigationFrequency(&rate)) {
+  if (gps.getNavigationFrequency(&rate)) {
     Serial.printf("Navigation rate is %d\n", (int)rate);
   } else {
     Serial.println("Failed to get navigation rate?");
@@ -49,15 +43,14 @@ std::optional<GpsUpdate> gps_update() {
     if (millis() - last_update > 100) {
       last_update = millis();
 
-      //while (gps_serial.available()) {
-      if (myGNSS.getHPPOSLLH()) {
+      if (gps.getHPPOSLLH()) {
         /*long latitude_mdeg = myGPS.getLatitude();
         long longitude_mdeg = myGPS.getLongitude();*/
 
-        double latitude = (myGNSS.getHighResLatitude() / 1e7) + (myGNSS.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
-        double longitude = (myGNSS.getHighResLongitude() / 1e7) + (myGNSS.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
+        double latitude  = (gps.getHighResLatitude() / 1e7) + (gps.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
+        double longitude = (gps.getHighResLongitude() / 1e7) + (gps.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
 
-        double accuracy = (myGNSS.getHorizontalAccuracy() / 10.0);
+        double accuracy = (gps.getHorizontalAccuracy() / 10.0);
 
         double x = 0;
         double y = 0;
@@ -69,10 +62,8 @@ std::optional<GpsUpdate> gps_update() {
         update.x = x;
         update.y = y;
         update.accuracy = accuracy;
-        /*update.gps_time = gps_time_millis();
-        update.fix = nmea.getFixQuality();*/
         update.gps_time = 0;
-        update.fix = myGNSS.getFixType();
+        update.fix = 0/*gps.getFixType()*/;
 
         static bool led_state;
         digitalWrite(LED_BUILTIN, led_state);
@@ -91,11 +82,11 @@ std::optional<GpsUpdate> gps_update() {
 uint64_t gps_time_millis()
 {
 
-  uint64_t n_hun  = nmea.getHundredths();
-  uint64_t n_sec  = nmea.getSecond();
-  uint64_t n_min  = nmea.getMinute();
-  uint64_t n_hour = nmea.getHour();
-  uint64_t n_day  = nmea.getDay(); 
+  uint64_t n_hun  = gps.getNanosecond();
+  uint64_t n_sec  = gps.getSecond();
+  uint64_t n_min  = gps.getMinute();
+  uint64_t n_hour = gps.getHour();
+  uint64_t n_day  = gps.getDay(); 
 
   uint64_t total_time =
     n_hun +

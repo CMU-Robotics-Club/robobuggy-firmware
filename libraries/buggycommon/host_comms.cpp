@@ -7,6 +7,7 @@
 #define SYNC_LEN 4
 
 #define COMM_SERIAL Serial1
+#define COMM_BAUDRATE 1000000
 
 #define MAX_PAYLOAD_SIZE 100
 
@@ -20,7 +21,9 @@ enum MessageType : uint16_t {
     DebugInfo = PACK_MSG_TYPE('D', 'B'),
     Odometry  = PACK_MSG_TYPE('O', 'D'),
     Steering  = PACK_MSG_TYPE('S', 'T'),
-    Brake     = PACK_MSG_TYPE('B', 'R')
+    Brake     = PACK_MSG_TYPE('B', 'R'),
+    Alarm     = PACK_MSG_TYPE('A', 'L'),
+    BnyaTelem = PACK_MSG_TYPE('B', 'T')
 };
 
 void write_and_checksum(const std::uint8_t *data, std::size_t size, Crc16 &crc) {
@@ -32,6 +35,13 @@ void write_and_checksum(uint16_t data, Crc16 &crc) {
     write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
 }
 
+void write_and_checksum(uint32_t data, Crc16 &crc) {
+    write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
+}
+
+void write_and_checksum(double data, Crc16 &crc) {
+    write_and_checksum((const uint8_t *)&data, sizeof(data), crc);
+}
 
 void read_and_checksum(std::uint8_t *data, std::size_t size, Crc16 &crc) {
     COMM_SERIAL.readBytes(data, size);
@@ -55,6 +65,8 @@ public:
     uint8_t msg_buf[MAX_PAYLOAD_SIZE] = { 0 };
 
     uint16_t msg_type;
+
+    // Includes only the body of the message
     uint16_t msg_len;
 
     Crc16 checksum;
@@ -152,14 +164,19 @@ public:
 
 namespace host_comms {
 
+static uint8_t rxbuf[1024];
+
 void init() {
-    COMM_SERIAL.begin(1000000);
+    COMM_SERIAL.begin(COMM_BAUDRATE);
     COMM_SERIAL.setTimeout(0);
+    COMM_SERIAL.addMemoryForRead(rxbuf, sizeof(rxbuf));
 }
 
 static uint32_t LAST_MESSAGE = 0;
 
 static double STEERING_ANGLE = 0.0;
+
+static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
 void poll() {
     static Parser parser = {};
@@ -170,8 +187,12 @@ void poll() {
             memcpy(&STEERING_ANGLE, parser.msg_buf, sizeof(STEERING_ANGLE));
             LAST_MESSAGE = millis();
         } else if (parser.msg_type == MessageType::Brake) {
-            Serial.println("Brake packet");
             // TODO: decide on a format
+            Serial.println("Brake packet");
+
+            LAST_MESSAGE = millis();
+        } else if (parser.msg_type == MessageType::Alarm) {
+            ALARM_STATUS = (AlarmStatus)parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
@@ -187,8 +208,12 @@ double steering_angle() {
     return STEERING_ANGLE;
 }
 
+AlarmStatus alarm_status() {
+    return ALARM_STATUS;
+}
 
-void send_debug_info(ros_comms::DebugInfo info) {
+
+void send_debug_info(DebugInfo info) {
     Crc16 checksum = {};
 
     COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
@@ -198,14 +223,37 @@ void send_debug_info(ros_comms::DebugInfo info) {
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
 
-void send_nand_odometry(double x, double y) {
+void send_nand_odometry(double x, double y, uint32_t radio_seq_num, uint32_t gps_seq_num) {
     Crc16 checksum = {};
 
     COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
     write_and_checksum(MessageType::Odometry, checksum);
-    write_and_checksum((uint16_t)(2 * sizeof(double)), checksum);
+    write_and_checksum((uint16_t)(2 * sizeof(double) + sizeof(uint32_t) + sizeof(uint32_t)), checksum);
     write_and_checksum(reinterpret_cast< uint8_t* >(&x), sizeof(x), checksum);
     write_and_checksum(reinterpret_cast< uint8_t* >(&y), sizeof(y), checksum);
+    write_and_checksum(radio_seq_num, checksum);
+    write_and_checksum(gps_seq_num,   checksum);
+    COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
+}
+
+void send_bnya_telemetry(
+	double x, double y,
+	double velocity,
+	double steering,
+	double heading,
+	double heading_rate
+) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::BnyaTelem, checksum);
+    write_and_checksum((uint16_t)(6 * sizeof(double)), checksum);
+    write_and_checksum(x, checksum);
+    write_and_checksum(y, checksum);
+    write_and_checksum(velocity, checksum);
+    write_and_checksum(steering, checksum);
+    write_and_checksum(heading, checksum);
+    write_and_checksum(heading_rate, checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
 

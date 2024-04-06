@@ -252,7 +252,14 @@ void send_bnya_telemetry(
     write_and_checksum(y, checksum);
     write_and_checksum(velocity, checksum);
     write_and_checksum(steering, checksum);
-    write_and_checksum(heading, checksum);
+    // The UKF coordinate system puts x north and y east,
+    // which means that positive angle turns the buggy to the right.
+    //
+    // The autonomous coordinate system expects x east and y north,
+    // which means that positive angle turns the buggy to the left.
+    //
+    // This converts the UKF heading to the autonomous heading.
+    write_and_checksum(M_PI_2 - heading, checksum);
     write_and_checksum(heading_rate, checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }

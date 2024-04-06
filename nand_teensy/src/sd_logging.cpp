@@ -6,7 +6,7 @@
 
 namespace sd_logging {
 
-static const bool DO_LOGGING = false;
+static const bool DO_LOGGING = true;
 
 static File STEERING_FILE {};
 static File GPS_FILE {};
@@ -50,7 +50,11 @@ void init() {
 	FILTER_FILE     = SD.open(filter_file_name, FILE_WRITE);
 	COVARIANCE_FILE = SD.open(covar_file_name, FILE_WRITE);
 
-
+	STEERING_FILE.write("timestamp,steering\n");
+	GPS_FILE.write("timestamp,pos_x,pos_y,accuracy\n");
+	ENCODER_FILE.write("timestamp,speed\n");
+	FILTER_FILE.write("timestamp,pos_x,pos_y,heading\n");
+	COVARIANCE_FILE.write("timestamp,c1,c2,c3,c4,c5,c6,c7,c8,c9\n");
 }
 
 void log_steering(double angle) {
@@ -100,7 +104,7 @@ void log_covariance(const state_cov_matrix_t &cov) {
 
 	char buf[200];
 	size_t cnt = snprintf(buf, sizeof(buf),
-		"%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f", millis(),
+		"%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
 		cov(0, 0), cov(0, 1), cov(0, 2),
 		cov(1, 0), cov(1, 1), cov(1, 2),
 		cov(2, 0), cov(2, 1), cov(2, 2)

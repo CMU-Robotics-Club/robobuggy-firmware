@@ -343,6 +343,10 @@ void loop()
       // 1. The person holding the controller is holding down the buttons actively
       // 2. The steering servo is still working
       brake_command = brake::Status::Rolling;
+
+      if (rc::use_autonomous_steering()) {
+        rgb = Rgb { 0x00, 0x00, 0xFF };
+      }
     }
 
     brake::set(brake_command);
@@ -363,12 +367,14 @@ void loop()
     bool filter_updated = false;
 
     if (speed_log_limit.ready()) {
+      double speed = encoder::rear_speed(steering::current_angle_degrees());
+
       if (kalman_init) {
-        filter.handle_encoder(encoder::speed());
+        filter.handle_encoder(speed);
         filter_updated = true;
       }
 
-      sd_logging::log_speed(encoder::speed());
+      sd_logging::log_speed(speed);
     }
 
     if (steering_log_limit.ready()) {
@@ -419,6 +425,8 @@ void loop()
     }
 
     if (filter_updated) {
+      double speed = encoder::rear_speed(steering::current_angle_degrees());
+
       sd_logging::log_filter_state(
         filter.curr_state_est(0, 0),
         filter.curr_state_est(1, 0),
@@ -427,7 +435,7 @@ void loop()
       sd_logging::log_covariance(filter.curr_state_cov);
       host_comms::send_bnya_telemetry(
         filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-        encoder::speed(),
+        speed,
         steering::current_angle_degrees(),
         filter.curr_state_est(2, 0),
         heading_rate

@@ -54,10 +54,10 @@ class FilterState {
 public:
   FilterState() :
     filter(
-      // ???
-      1,
-      // ???,
-      1/3, 
+      // Wheelbase (meters)
+      1.2,
+      // Zeroth sigma point weight 
+      1.0/3.0, 
       // Process noise,
       state_cov_matrix_t {
         { 0.0001,    0.0,    0.0 },

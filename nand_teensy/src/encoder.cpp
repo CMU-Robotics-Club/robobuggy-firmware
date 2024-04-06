@@ -33,7 +33,7 @@ void update() {
 
 }
 
-double speed() {
+double front_speed() {
 	double speed = 0.0;
 
 	cli();
@@ -42,7 +42,12 @@ double speed() {
 	sei();
 
 	return (speed * CIRCUMFERENCE_M * 1000.0) / (PPR * BUCKET_INTERVAL_MS * NUM_BUCKETS);
+}
 
+double rear_speed(double steering_angle) {
+	steering_angle *= M_PI / 180.0;
+
+	return front_speed() * cos(steering_angle);
 }
 
 void init() {

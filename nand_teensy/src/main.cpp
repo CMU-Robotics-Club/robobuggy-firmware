@@ -302,12 +302,16 @@ void loop()
   RateLimit flush_file_limit { 1000 };
 
   RateLimit imu_poll_limit { 5 };
+  
+  RateLimit debug_limit { 50 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
 
   Rgb  dark_red = { 0xD0, 0x00, 0x00 };
   Rgb light_red = { 0xFF, 0x20, 0x00 };
+
+  Rgb black = { 0x00, 0x00, 0x00 };
 
   FilterState filter;
 
@@ -351,16 +355,20 @@ void loop()
 
     brake::set(brake_command);
 
-    static int i = 0;
-    if (++i >= 10000) {
-      i = 0;
+    if (debug_limit.ready()) {
+      auto link_stats = rc::link_statistics();
 
-      //Serial.printf("encoder: %d\n", encoder::steps());
-      //Serial.printf("speed: %f\n", encoder::speed());
-
-      //Serial.printf("steering command: %f??\n", steering_command);
-
-      host_comms::DebugInfo info { 42 };
+      host_comms::DebugInfo info {
+        rc::steering_angle(),
+        steering::current_angle_degrees(),
+        0.0,
+        rc::operator_ready(),
+        steering::alarm_triggered(),
+        brake_command,
+        rc::use_autonomous_steering(),
+        link_stats.uplink_Link_quality,
+        0
+      };
       host_comms::send_debug_info(info);
     }
     
@@ -441,6 +449,9 @@ void loop()
         heading_rate
       );
 
+      Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
+      Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
+
       static int i = 0;
       if (++i > 100) {
         auto& s = filter.curr_state_est;
@@ -487,6 +498,10 @@ void loop()
 
     if (millis() - last_failed < 300) {
       rgb = ((millis() % 500) > 250) ? dark_red : light_red;
+    }
+
+    if (!rc::connected() || steering::alarm_triggered()) {
+      rgb = ((millis() % 500) > 250) ? dark_red : black;
     }
 
     if (imu_poll_limit.ready()) {

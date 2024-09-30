@@ -1,65 +1,43 @@
 #include "encoder.h"
+#include "AS5600.h"
 
 #include <Arduino.h>
+
+#include <Wire.h>
+
+#define ENCODER_I2C Wire1
 
 #define ENCODER_PIN 40
 #define NUM_BUCKETS 20
 #define BUCKET_INTERVAL_MS 40
 #define PPR 5
 #define CIRCUMFERENCE_M (0.565)
+#define RADIUS_M (0.180)
 
 namespace encoder {
 
 volatile int TOTAL_STEPS = 0;
 volatile int STEPS[NUM_BUCKETS];
 volatile int bucket = 0;
-
-static void on_step() {
-	++STEPS[bucket];
-	++TOTAL_STEPS;
-}
-
-void update() {
-	static int last_bucket = bucket;
-
-	cli();
-	bucket = (millis() % (NUM_BUCKETS * BUCKET_INTERVAL_MS)) / BUCKET_INTERVAL_MS;
-	if (bucket != last_bucket) {
-		STEPS[bucket] = 0;
-	}
-	last_bucket = bucket;
-	sei();
-
-
-}
+AS5600 as5600(&ENCODER_I2C);
 
 double front_speed() {
-	double speed = 0.0;
-
-	cli();
-	for (int i = 0; i < NUM_BUCKETS; i++)
-		speed += STEPS[i];
-	sei();
-
-	return (speed * CIRCUMFERENCE_M * 1000.0) / (PPR * BUCKET_INTERVAL_MS * NUM_BUCKETS);
+	return as5600.getAngularSpeed(AS5600_MODE_RADIANS)*RADIUS_M; // v=r*omega
+	// when getAngularSpeed returns radians per second, builtin_front_speed returns meters per second
 }
 
 double rear_speed(double steering_angle) {
 	steering_angle *= M_PI / 180.0;
-
 	return front_speed() * cos(steering_angle);
 }
 
 void init() {
-	pinMode(ENCODER_PIN, INPUT_PULLUP);
-	attachInterrupt(ENCODER_PIN, on_step, RISING);
-}
-
-int steps() {
-	cli();
-	int steps = TOTAL_STEPS;
-	sei();
-	return steps;
+	//need to set direction (need to test once mounted)
+	as5600.begin();
+	while(!as5600.isConnected()) {
+		Serial.println("Encoder not connected");
+	}
+	//if not connected, serial print in while(1)
 }
 
 }

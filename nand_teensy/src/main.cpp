@@ -336,8 +336,6 @@ void loop()
 
     host_comms::poll();
 
-    encoder::update();
-
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 

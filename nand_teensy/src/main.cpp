@@ -374,7 +374,7 @@ void loop()
 
     if (speed_log_limit.ready()) {
       double speed = encoder::rear_speed(steering::current_angle_degrees());
-      Serial.printf("Current speed: %d",speed);
+      Serial.printf("Current speed: %d\n",speed);
       if (kalman_init) {
         filter.handle_encoder(speed);
         filter_updated = true;

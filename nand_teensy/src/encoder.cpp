@@ -7,18 +7,10 @@
 
 #define ENCODER_I2C Wire1
 
-#define ENCODER_PIN 40
-#define NUM_BUCKETS 20
-#define BUCKET_INTERVAL_MS 40
-#define PPR 5
-#define CIRCUMFERENCE_M (0.565)
 #define RADIUS_M (0.180)
 
 namespace encoder {
 
-volatile int TOTAL_STEPS = 0;
-volatile int STEPS[NUM_BUCKETS];
-volatile int bucket = 0;
 AS5600 as5600(&ENCODER_I2C);
 
 double front_speed() {

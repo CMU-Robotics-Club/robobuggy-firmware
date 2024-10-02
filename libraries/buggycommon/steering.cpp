@@ -97,7 +97,9 @@ namespace steering
         pulse_timer.begin(pulse_interrupt_handler, 50);
         pulse_timer.priority(255);
     }
-
+// Note: step offsets are intended to be changed often, only written down for convience
+// step offset for SC:   150
+// step offset for NAND: X
 #define CENTER_STEP_OFFSET 0
 
     static void set_goal_step(int step) {

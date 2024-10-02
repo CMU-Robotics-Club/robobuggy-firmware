@@ -176,12 +176,15 @@ void UKF::set_gps_noise(double accuracy) {
   this->gps_noise = measurement_cov_matrix_t { {sigma, 0}, {0, sigma} };
 }
 
-void UKF::predict(state_vector_t curr_state_est, state_cov_matrix_t curr_state_cov, input_vector_t input, double dt,
-                  state_vector_t &predicted_state_est, state_cov_matrix_t &predicted_state_cov)
+void UKF::predict(input_vector_t input, double dt)
 {
+  if (this->speed < MOVING_THRESHOLD) {
+    return;
+  }
+
   state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
   double state_weights[2 * STATE_SPACE_DIM + 1];
-  this->generate_sigmas(curr_state_est, curr_state_cov, state_sigmas, state_weights);
+  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
 
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
   {
@@ -189,27 +192,26 @@ void UKF::predict(state_vector_t curr_state_est, state_cov_matrix_t curr_state_c
     // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
   }
 
-  predicted_state_est.fill(0);
-  predicted_state_cov.fill(0);
+  this->curr_state_est.fill(0);
+  this->curr_state_cov.fill(0);
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
   {
-    predicted_state_est += state_sigmas[i] * state_weights[i];
+    this->curr_state_est += state_sigmas[i] * state_weights[i];
   }
 
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
   {
-    state_vector_t m = state_sigmas[i] - predicted_state_est;
-    predicted_state_cov += ((m * m.transpose()) * state_weights[i]);
+    state_vector_t m = state_sigmas[i] - this->curr_state_est;
+    this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
   }
-  predicted_state_cov += this->process_noise * dt;
+  this->curr_state_cov += this->process_noise * dt;
 }
 
-void UKF::update(state_vector_t curr_state_est, state_cov_matrix_t curr_state_cov, measurement_vector_t measurement,
-                 state_vector_t &updated_state_est, state_cov_matrix_t &updated_state_cov)
+void UKF::update(measurement_vector_t measurement)
 {
   state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
   double weights[2 * STATE_SPACE_DIM + 1];
-  this->generate_sigmas(curr_state_est, curr_state_cov, state_sigmas, weights);
+  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, weights);
 
   measurement_vector_t measurement_sigmas[2 * STATE_SPACE_DIM + 1];
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
@@ -234,7 +236,7 @@ void UKF::update(state_vector_t curr_state_est, state_cov_matrix_t curr_state_co
   {
     measurement_vector_t m = measurement_sigmas[i] - predicted_measurement;
     innovation_cov += (m * m.transpose()) * weights[i];
-    cross_cov += ((state_sigmas[i] - curr_state_est) * m.transpose()) * weights[i];
+    cross_cov += ((state_sigmas[i] - this->curr_state_est) * m.transpose()) * weights[i];
   }
   innovation_cov += this->gps_noise;
 
@@ -243,8 +245,8 @@ void UKF::update(state_vector_t curr_state_est, state_cov_matrix_t curr_state_co
   Serial.printf("Measurement: %f, %f\n", measurement(0, 0), measurement(1, 0));
   Serial.printf("Predicted measurement: %f, %f\n", predicted_measurement(0, 0), predicted_measurement(1, 0));
   Serial.printf("Kalman gain:\n%f,%f\n%f,%f\n%f,%f\n", kalman_gain(0, 0), kalman_gain(0, 1), kalman_gain(1, 0), kalman_gain(1, 1), kalman_gain(2, 0), kalman_gain(2, 1));
-  updated_state_est = curr_state_est + (kalman_gain * (measurement - predicted_measurement));
-  updated_state_cov = curr_state_cov - (kalman_gain * (innovation_cov * kalman_gain.transpose()));
+  this->curr_state_est += (kalman_gain * (measurement - predicted_measurement));
+  this->curr_state_cov -= (kalman_gain * (innovation_cov * kalman_gain.transpose()));
 }
 
 #if 0
@@ -310,103 +312,3 @@ void run_kalman() {
 }
 
 #endif
-
-void FilterState::handle_gps(double x, double y, double acc) {
-  // gps is the next timestamp
-  // set the new gps noise
-  // predict using most recent steering and velocity
-  // then update using the current gps noise
-
-  double cur_time = millis() / 1000.0;
-  double dt = cur_time - last_predict_timestamp;
-
-  filter.set_gps_noise(acc);
-
-  filter.predict(
-    curr_state_est, curr_state_cov, current_steering, dt,
-    predicted_state_est, predicted_state_cov
-  );
-
-  filter.update(
-    predicted_state_est, predicted_state_cov,
-    measurement_vector_t { x, y },
-    updated_state_est, updated_state_cov
-  );
-
-  curr_state_est = updated_state_est;
-  curr_state_cov = updated_state_cov;
-
-  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
-
-  last_predict_timestamp = cur_time;
-
-  // COMMON
-
-  /*filter_out.printf("%f,%f,%f,%f\n", last_predict_timestamp, updated_state_est(0, 0), updated_state_est(1, 0), updated_state_est(2, 0));
-  cov_out.printf("%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", last_predict_timestamp, updated_state_cov(0, 0), updated_state_cov(0, 1), updated_state_cov(0, 2),
-                  updated_state_cov(1, 0), updated_state_cov(1, 1), updated_state_cov(1, 2),
-                  updated_state_cov(2, 0), updated_state_cov(2, 1), updated_state_cov(2, 2));
-
-
-  ++point;
-
-  static int i = 0;
-  if (++i >= 1000) {
-    i = 0;
-    filter_out.flush();
-    cov_out.flush();
-
-    Serial.println("===========================\n");
-    Serial.printf("Data point %d, time %f\n", point, last_predict_timestamp);
-    Serial.println("===========================\n");
-  }
-  uint32_t diff2 = micros() - mic2;
-  //Serial.printf("printf took %lu micros\n", diff2);
-  */
-}
-
-void FilterState::handle_encoder(double speed) {
-  // encoder is the next timestamp
-  // set the new speed stored by instance of UKF
-  // predict using most recent steering and new speed
-
-  double cur_time = millis() / 1000.0;
-  double dt = cur_time - last_predict_timestamp;
-
-  filter.set_speed(speed);
-
-  if (speed != 0) {
-    filter.predict(
-      curr_state_est, curr_state_cov, current_steering, dt,
-      predicted_state_est, predicted_state_cov
-    );
-  }
-
-  last_predict_timestamp = cur_time;
-
-  curr_state_est = predicted_state_est;
-  curr_state_cov = predicted_state_cov;
-
-  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
-}
-
-void FilterState::handle_steering(double steering) {
-  steering *= PI / 180.0;
-
-  // steering is the next timestamp
-  // predict using this new steering
-
-  double cur_time = millis() / 1000.0;
-  double dt = cur_time - last_predict_timestamp;
-
-  filter.predict(curr_state_est, curr_state_cov, current_steering,
-  dt, predicted_state_est, predicted_state_cov);
-
-  last_predict_timestamp = cur_time;
-  current_steering(0, 0) = steering;
-
-  curr_state_est = predicted_state_est;
-  curr_state_cov = predicted_state_cov;
-
-  curr_state_est(2, 0) = fmod(curr_state_est(2, 0), PI * 2);
-}

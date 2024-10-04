@@ -375,8 +375,6 @@ void loop()
 
     host_comms::poll();
 
-    encoder::update();
-
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 
@@ -399,6 +397,15 @@ void loop()
     if (debug_limit.ready())
     {
       auto link_stats = rc::link_statistics();
+      Serial.printf("Sending a debug package\n");
+      Serial.printf("Field 1: %f\n",steering::current_angle_degrees());
+      Serial.printf("Field 2: %f\n",0.0);
+      Serial.printf("Field 3: %i\n",rc::operator_ready());
+      Serial.printf("Field 4: %i\n",steering::alarm_triggered());
+      Serial.printf("Field 5: %i\n",brake_command);
+      Serial.printf("Field 6: %i\n",rc::use_autonomous_steering());
+      Serial.printf("Field 7: %i\n",link_stats.uplink_Link_quality);
+      Serial.printf("Field 8: %i\n",0);
 
       host_comms::DebugInfo info{
           rc::steering_angle(),
@@ -457,8 +464,8 @@ void loop()
 
       gps_time_history.push(gps_update_elapsed);
 
-      Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
-      Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
+      /*Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
+      Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());*/
 
       sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
       filter.set_gps_noise(gps_coord->accuracy);

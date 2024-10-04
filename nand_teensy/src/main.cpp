@@ -339,9 +339,9 @@ void loop()
       1.0/3.0, 
       // Process noise,
       state_cov_matrix_t {
-        { 0.0001,    0.0,    0.0 },
-        { 0.0,    0.0001,    0.0 },
-        { 0.0,       0.0, 0.0003 }
+        { 0.1,    0.0,    0.0 },
+        { 0.0,    0.1,    0.0 },
+        { 0.0,       0.0, 0.3 }
       },
       // GPS noise,
       measurement_cov_matrix_t {
@@ -397,7 +397,7 @@ void loop()
     if (debug_limit.ready())
     {
       auto link_stats = rc::link_statistics();
-      Serial.printf("Sending a debug package\n");
+      /*Serial.printf("Sending a debug package\n");
       Serial.printf("Field 1: %f\n",steering::current_angle_degrees());
       Serial.printf("Field 2: %f\n",0.0);
       Serial.printf("Field 3: %i\n",rc::operator_ready());
@@ -405,8 +405,8 @@ void loop()
       Serial.printf("Field 5: %i\n",brake_command);
       Serial.printf("Field 6: %i\n",rc::use_autonomous_steering());
       Serial.printf("Field 7: %i\n",link_stats.uplink_Link_quality);
-      Serial.printf("Field 8: %i\n",0);
-
+      Serial.printf("Field 8: %i\n",0);*/
+      //Serial.printf("Weak magnet: %i\n",encoder::e_m_weak());
       host_comms::DebugInfo info{
           rc::steering_angle(),
           steering::current_angle_degrees(),
@@ -439,7 +439,7 @@ void loop()
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update())
     {
-      Serial.print("x: ");
+      /*Serial.print("x: ");
       Serial.println(gps_coord->x);
       Serial.print("y: ");
       Serial.println(gps_coord->y);
@@ -448,7 +448,7 @@ void loop()
       Serial.print("time: ");
       Serial.println(gps_coord->gps_time);
       Serial.print("fix type: ");
-      Serial.println(gps_coord->fix);
+      Serial.println(gps_coord->fix);*/
 
       if (!kalman_init && gps_coord->accuracy < 50.0)
       {
@@ -473,7 +473,7 @@ void loop()
     }
 
     double speed = encoder::rear_speed(steering::current_angle_degrees());
-
+    Serial.printf("Speed: %f\n",speed);
     sd_logging::log_filter_state(
         filter.curr_state_est(0, 0),
         filter.curr_state_est(1, 0),
@@ -486,14 +486,14 @@ void loop()
         filter.curr_state_est(2, 0),
         heading_rate);
 
-    Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
-    Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
+    //Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
+    //Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
 
     static int i = 0;
     if (++i > 100)
     {
       auto &s = filter.curr_state_est;
-      Serial.println("filter:");
+      /*Serial.println("filter:");
       Serial.printf("%10f %10f %10f\n", s(0, 0), s(1, 0), s(2, 0));
       Serial.println();
 
@@ -502,7 +502,7 @@ void loop()
       Serial.printf("%10f %10f %10f\n", c(0, 0), c(0, 1), c(0, 2));
       Serial.printf("%10f %10f %10f\n", c(1, 0), c(1, 1), c(1, 2));
       Serial.printf("%10f %10f %10f\n", c(2, 0), c(2, 1), c(2, 2));
-      Serial.println();
+      Serial.println();*/
 
       if (flush_file_limit.ready())
       {

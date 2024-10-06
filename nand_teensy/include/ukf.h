@@ -28,7 +28,7 @@ typedef Eigen::Matrix<double, INPUT_SPACE_DIM, 1> input_vector_t;
 
 #define EIGEN_MAX_ITERS 50
 
-#define MOVING_THRESHOLD 0
+#define MOVING_THRESHOLD 0.9
 
 class UKF
 {
@@ -75,9 +75,9 @@ public:
    * 
    */
   state_vector_t curr_state_est{{0, 0, PI}}; 
-  state_cov_matrix_t curr_state_cov{{1, 0, 0},
-                                    {0, 1, 0},
-                                    {0, 0, 1}};
+  state_cov_matrix_t curr_state_cov{{1e-1, 0, 0},
+                                    {0, 1e-1, 0},
+                                    {0, 0, 1e-1}};
 };
 
 state_vector_t get_col(state_cov_matrix_t A, int i);

@@ -113,6 +113,9 @@ void log_covariance(const state_cov_matrix_t &cov) {
 }
 
 void flush_files() {
+	if(!DO_LOGGING){
+		return;
+	}
 	STEERING_FILE.flush();
 	GPS_FILE.flush();
 	ENCODER_FILE.flush();

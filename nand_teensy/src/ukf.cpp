@@ -164,47 +164,51 @@ measurement_vector_t UKF::state_to_measurement(state_vector_t vector)
   return m;
 }
 
-void UKF::set_speed(double speed) {
+void UKF::set_speed(double speed)
+{
   this->speed = speed;
 }
 
-void UKF::set_gps_noise(double accuracy) {
+void UKF::set_gps_noise(double accuracy)
+{
   // Convert mm to m
   accuracy /= 1000.0;
+  // Serial.printf("ACCURACY: %f\n", accuracy);
 
   double sigma = (accuracy / (0.848867684498)) * (accuracy / (0.848867684498));
-  this->gps_noise = measurement_cov_matrix_t { {sigma, 0}, {0, sigma} };
+  this->gps_noise = measurement_cov_matrix_t{{sigma, 0}, {0, sigma}};
 }
 
 void UKF::predict(input_vector_t input, double dt)
 {
-  if (this->speed < MOVING_THRESHOLD) {
-    return;
-  }
-
-  state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
-  double state_weights[2 * STATE_SPACE_DIM + 1];
-  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
-
-  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  // Serial.printf("dt: %f\n", dt);
+  if (abs(this->speed) > MOVING_THRESHOLD)
   {
-    state_sigmas[i] = rk4(state_sigmas[i], input, dt);
-    // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
-  }
+    state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
+    double state_weights[2 * STATE_SPACE_DIM + 1];
+    this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
 
-  this->curr_state_est.fill(0);
-  this->curr_state_cov.fill(0);
-  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-  {
-    this->curr_state_est += state_sigmas[i] * state_weights[i];
-  }
+    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    {
+      state_sigmas[i] = rk4(state_sigmas[i], input, dt);
+      // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
+    }
 
-  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-  {
-    state_vector_t m = state_sigmas[i] - this->curr_state_est;
-    this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
+    this->curr_state_est.fill(0);
+    this->curr_state_cov.fill(0);
+    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    {
+      this->curr_state_est += state_sigmas[i] * state_weights[i];
+    }
+
+    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    {
+      state_vector_t m = state_sigmas[i] - this->curr_state_est;
+      this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
+    }
+
+    this->curr_state_cov += this->process_noise * dt;
   }
-  this->curr_state_cov += this->process_noise * dt;
 }
 
 void UKF::update(measurement_vector_t measurement)
@@ -242,9 +246,9 @@ void UKF::update(measurement_vector_t measurement)
 
   Eigen::Matrix<double, STATE_SPACE_DIM, MEASUREMENT_SPACE_DIM> kalman_gain = cross_cov * innovation_cov.inverse();
 
-  Serial.printf("Measurement: %f, %f\n", measurement(0, 0), measurement(1, 0));
-  Serial.printf("Predicted measurement: %f, %f\n", predicted_measurement(0, 0), predicted_measurement(1, 0));
-  Serial.printf("Kalman gain:\n%f,%f\n%f,%f\n%f,%f\n", kalman_gain(0, 0), kalman_gain(0, 1), kalman_gain(1, 0), kalman_gain(1, 1), kalman_gain(2, 0), kalman_gain(2, 1));
+  // Serial.printf("Measurement: %f, %f\n", measurement(0, 0), measurement(1, 0));
+  // Serial.printf("Predicted measurement: %f, %f\n", predicted_measurement(0, 0), predicted_measurement(1, 0));
+  // Serial.printf("Kalman gain:\n%f,%f\n%f,%f\n%f,%f\n", kalman_gain(0, 0), kalman_gain(0, 1), kalman_gain(1, 0), kalman_gain(1, 1), kalman_gain(2, 0), kalman_gain(2, 1));
   this->curr_state_est += (kalman_gain * (measurement - predicted_measurement));
   this->curr_state_cov -= (kalman_gain * (innovation_cov * kalman_gain.transpose()));
 }
@@ -252,14 +256,14 @@ void UKF::update(measurement_vector_t measurement)
 #if 0
 
 void run_kalman() {
-  #if 0
+#if 0
   /**************** Kalman Filtering! ****************/
   // output file setup
   File filter_out = SD.open("filter.csv", FILE_WRITE);
   filter_out.println("timestamp,pos_x,pos_y,heading");
   File cov_out = SD.open("covariance.csv", FILE_WRITE);
   cov_out.println("timestamp,c1,c2,c3,c4,c5,c6,c7,c8,c9");
-  #endif
+#endif
 
   // TODO in real buggy code, set initial x and y first gps reading
   // set heading to where it's facing in tent upon power on, probably

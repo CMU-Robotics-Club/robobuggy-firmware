@@ -65,6 +65,7 @@ const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (32.0 / 15.0);
 
 #define RADIO_TX_PERIOD_MS 100
 
+uint32_t last_bnya = 0;
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
 
@@ -335,23 +336,20 @@ void loop()
   UKF filter(
       // Wheelbase (meters)
       1.2,
-      // Zeroth sigma point weight 
-      1.0/3.0, 
+      // Zeroth sigma point weight
+      1.0 / 3.0,
       // Process noise,
-      state_cov_matrix_t {
-        { 0.1,    0.0,    0.0 },
-        { 0.0,    0.1,    0.0 },
-        { 0.0,       0.0, 0.3 }
-      },
+      state_cov_matrix_t{
+          {0.0001, 0.0, 0.0},
+          {0.0, 0.0001, 0.0},
+          {0.0, 0.0, 0.01}},
       // GPS noise,
-      measurement_cov_matrix_t {
-        { 0.01, 0.0  },
-        { 0.0,  0.01 }
-      }
-  );
+      measurement_cov_matrix_t{
+          {0.01, 0.0},
+          {0.0, 0.01}});
 
   bool kalman_init = false;
-  double last_predict_timestamp;
+  uint32_t last_predict_timestamp;
   double heading_rate = 0.0;
 
   while (1)
@@ -406,7 +404,7 @@ void loop()
       Serial.printf("Field 6: %i\n",rc::use_autonomous_steering());
       Serial.printf("Field 7: %i\n",link_stats.uplink_Link_quality);
       Serial.printf("Field 8: %i\n",0);*/
-      //Serial.printf("Weak magnet: %i\n",encoder::e_m_weak());
+      // Serial.printf("Weak magnet: %i\n",encoder::e_m_weak());
       host_comms::DebugInfo info{
           rc::steering_angle(),
           steering::current_angle_degrees(),
@@ -431,9 +429,9 @@ void loop()
     }
 
     filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
-    double cur_time = millis() / 1000.0;
-    double dt = cur_time - last_predict_timestamp;
-    filter.predict(input_vector_t {steering::current_angle_degrees()}, dt);
+    uint32_t cur_time = micros();
+    double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
+    filter.predict(input_vector_t{steering::current_angle_degrees()}, dt);
     last_predict_timestamp = cur_time;
 
     elapsedMillis gps_update_elapsed = {};
@@ -455,7 +453,7 @@ void loop()
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->x;
         filter.curr_state_est(1, 0) = gps_coord->y;
-        last_predict_timestamp = millis() / 1000.0;
+        last_predict_timestamp = micros();
         kalman_init = true;
       }
 
@@ -469,26 +467,33 @@ void loop()
 
       sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
       filter.set_gps_noise(gps_coord->accuracy);
-      filter.update(measurement_vector_t {gps_coord->x, gps_coord->y});
+      filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
     }
 
     double speed = encoder::rear_speed(steering::current_angle_degrees());
-    Serial.printf("Speed: %f\n",speed);
+    // Serial.printf("Speed: %f\n", speed);
     sd_logging::log_filter_state(
         filter.curr_state_est(0, 0),
         filter.curr_state_est(1, 0),
         filter.curr_state_est(2, 0));
     sd_logging::log_covariance(filter.curr_state_cov);
-    host_comms::send_bnya_telemetry(
-        filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-        speed,
-        steering::current_angle_degrees(),
-        filter.curr_state_est(2, 0),
-        heading_rate);
 
-    //Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
-    //Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
+    if (millis() - last_bnya > 10)
+    {
+      last_bnya = millis();
+      host_comms::send_bnya_telemetry(
+          filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
+          speed,
+          steering::current_angle_degrees(),
+          filter.curr_state_est(2, 0),
+          heading_rate);
+    }
 
+    // Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
+    if (abs((M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI) > 300) {
+    Serial.printf("COVARIANCES: %f %f %f\n", filter.curr_state_cov(0, 0), filter.curr_state_cov(1, 1), filter.curr_state_cov(2, 2));
+    // while (1);
+    }
     static int i = 0;
     if (++i > 100)
     {
@@ -506,7 +511,7 @@ void loop()
 
       if (flush_file_limit.ready())
       {
-        Serial.println("Flushing files!");
+        // Serial.println("Flushing files!");
         sd_logging::flush_files();
       }
 

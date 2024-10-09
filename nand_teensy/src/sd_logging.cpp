@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <SD.h>
-
+#include "TeensyThreads.h"
 
 namespace sd_logging {
 
@@ -13,6 +13,26 @@ static File GPS_FILE {};
 static File ENCODER_FILE {};
 static File FILTER_FILE {};
 static File COVARIANCE_FILE {};
+
+volatile char steering_buf   [20000]; //Garrison
+volatile char gps_buf        [20000]; //Ashley
+volatile char encoder_buf    [20000]; //Gyan
+volatile char filter_buf     [20000]; 
+volatile char covarience_buf [20000]; //Nnenna
+
+Threads::Mutex steering_m;
+Threads::Mutex gps_m;
+Threads::Mutex encoder_m;
+Threads::Mutex filter_m;
+Threads::Mutex covarience_m;
+
+void sd_thread() {
+	
+}
+
+void multithread_covarience() {
+
+}
 
 void init() {
 	if (!DO_LOGGING) {
@@ -55,6 +75,10 @@ void init() {
 	ENCODER_FILE.write("timestamp,speed\n");
 	FILTER_FILE.write("timestamp,pos_x,pos_y,heading\n");
 	COVARIANCE_FILE.write("timestamp,c1,c2,c3,c4,c5,c6,c7,c8,c9\n");
+
+	threads.addThread(sd_thread);
+	threads.setSliceMillis(1);
+
 }
 
 void log_steering(double angle) {

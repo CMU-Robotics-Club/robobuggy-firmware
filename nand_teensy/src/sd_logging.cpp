@@ -17,8 +17,10 @@ static File COVARIANCE_FILE {};
 volatile char steering_buf   [20000]; //Garrison
 volatile char gps_buf        [20000]; //Ashley
 volatile char encoder_buf    [20000]; //Gyan
-volatile char filter_buf     [20000]; 
+volatile char filter_buf     [20000]; //Kevin
 volatile char covarience_buf [20000]; //Nnenna
+
+volatile size_t filter_size = 0;
 
 Threads::Mutex steering_m;
 Threads::Mutex gps_m;
@@ -32,6 +34,26 @@ void sd_thread() {
 
 void multithread_covarience() {
 
+}
+
+/*
+ filter_buf
+ filter_size
+ filter_m
+*/
+void multithread_filter() {
+	//make new buffer
+	char copy_buf[20000];
+	//lock
+	filter_m.lock();
+	//copy filter_buf to new buffer
+	copy_buf = snprintf(copy_buf, filter_size, (const char *)filter_buf);
+	//set filter_size to 0
+	filter_size = 0;
+	//unlock
+	filter_m.unlock();
+	//write
+	FILTER_FILE.write(copy_buf, )
 }
 
 void init() {
@@ -118,7 +140,12 @@ void log_filter_state(double x, double y, double heading) {
 
 	char buf[100];
 	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f,%f,%f\n", millis(), x, y, heading);
-	FILTER_FILE.write(buf, cnt);
+	//FILTER_FILE.write(buf, cnt);
+	
+	//lock
+	//copy buf to filter_buf (offset by filter_size) - &filter_buf[filter_size]
+	//increment filter_size by cnt
+	//unlock
 }
 
 void log_covariance(const state_cov_matrix_t &cov) {

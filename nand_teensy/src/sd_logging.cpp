@@ -47,13 +47,8 @@ void log_steering(double angle) {
 		return;
 	}
 
-	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f\n", millis(), angle);
 	steering_m.lock();
-	if (steering_size + cnt <= buf_size) {
-		snprintf((char *)&steering_buf[steering_size], cnt, buf);
-		steering_size += cnt;
-	}
+		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
 	steering_m.unlock();
 }
 

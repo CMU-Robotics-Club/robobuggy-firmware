@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <SD.h>
 #include "TeensyThreads.h"
+#define buf_size 20000
 
 namespace sd_logging {
 
@@ -14,11 +15,13 @@ static File ENCODER_FILE {};
 static File FILTER_FILE {};
 static File COVARIANCE_FILE {};
 
-volatile char steering_buf   [20000]; //Garrison
-volatile char gps_buf        [20000]; //Ashley
-volatile char encoder_buf    [20000]; //Gyan
-volatile char filter_buf     [20000]; 
-volatile char covarience_buf [20000]; //Nnenna
+volatile char steering_buf   [buf_size]; //Garrison
+volatile char gps_buf        [buf_size]; //Ashley
+volatile char encoder_buf    [buf_size]; //Gyan
+volatile char filter_buf     [buf_size]; 
+volatile char covarience_buf [buf_size]; //Nnenna
+
+volatile size_t steering_size = 0;
 
 Threads::Mutex steering_m;
 Threads::Mutex gps_m;
@@ -30,8 +33,23 @@ void sd_thread() {
 	
 }
 
-void multithread_covarience() {
+void steering_sd(){
+	steering_m.lock();
+	char thread_buf [buf_size];
+	size_t cnt = snprintf(thread_buf, steering_size, (const char *)&steering_buf);
+	steering_size = 0;
+	steering_m.unlock();
+	STEERING_FILE.write(thread_buf, cnt);
+}
 
+void log_steering(double angle) {
+	if (!DO_LOGGING) {
+		return;
+	}
+
+	steering_m.lock();
+		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
+	steering_m.unlock();
 }
 
 void init() {
@@ -79,16 +97,6 @@ void init() {
 	threads.addThread(sd_thread);
 	threads.setSliceMillis(1);
 
-}
-
-void log_steering(double angle) {
-	if (!DO_LOGGING) {
-		return;
-	}
-
-	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f\n", millis(), angle);
-	STEERING_FILE.write(buf, cnt);
 }
 
 void log_gps(double x, double y, double accuracy) {

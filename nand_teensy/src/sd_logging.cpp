@@ -19,6 +19,7 @@ volatile char gps_buf        [20000]; //Ashley
 volatile char encoder_buf    [20000]; //Gyan
 volatile char filter_buf     [20000]; 
 volatile char covarience_buf [20000]; //Nnenna
+volatile size_t covarience_size = 0;
 
 Threads::Mutex steering_m;
 Threads::Mutex gps_m;
@@ -31,7 +32,12 @@ void sd_thread() {
 }
 
 void multithread_covarience() {
-
+	char temp_buf[20000];
+	covarience_m.lock();
+	snprint(temp_buf, 20000, (const char *)covarience_buf);
+	covarience_size = 0;
+	covarience_m.unlock();
+	File.write(covarience_buf, sizeof(temp_buf), COVARIANCE_FILE);
 }
 
 void init() {

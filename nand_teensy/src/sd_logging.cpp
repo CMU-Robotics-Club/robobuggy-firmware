@@ -62,7 +62,7 @@ void log_steering(double angle) {
 */
 void multithread_filter() {
 	//make new buffer
-	char copy_buf[20000];
+	char copy_buf[buf_size];
 	//lock
 	filter_m.lock();
 	//copy filter_buf to new buffer
@@ -75,9 +75,9 @@ void multithread_filter() {
 	FILTER_FILE.write(copy_buf, copy_num);
 }
 void multithread_covarience() {
-	char temp_buf[20000];
+	char temp_buf[buf_size];
 	covarience_m.lock();
-	int copy_num = snprintf(temp_buf, 20000, (const char *)covarience_buf);
+	int copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
 	covarience_size = 0;
 	covarience_m.unlock();
 	COVARIANCE_FILE.write(temp_buf, copy_num);

@@ -15,7 +15,6 @@ static File ENCODER_FILE {};
 static File FILTER_FILE {};
 static File COVARIANCE_FILE {};
 
-<<<<<<< HEAD
 volatile char steering_buf   [buf_size]; //Garrison
 volatile char gps_buf        [buf_size]; //Ashley
 volatile char encoder_buf    [buf_size]; //Gyan
@@ -25,14 +24,7 @@ volatile char covarience_buf [buf_size]; //Nnenna
 volatile size_t steering_size = 0;
 
 volatile size_t filter_size = 0;
-=======
-volatile char steering_buf   [20000]; //Garrison
-volatile char gps_buf        [20000]; //Ashley
-volatile char encoder_buf    [20000]; //Gyan
-volatile char filter_buf     [20000]; 
-volatile char covarience_buf [20000]; //Nnenna
 volatile size_t covarience_size = 0;
->>>>>>> 23d77d8464fa7667acbfcf3ec52bc4907af5b37d
 
 Threads::Mutex steering_m;
 Threads::Mutex gps_m;
@@ -44,7 +36,6 @@ void sd_thread() {
 	
 }
 
-<<<<<<< HEAD
 void steering_sd(){
 	steering_m.lock();
 	char thread_buf [buf_size];
@@ -75,22 +66,21 @@ void multithread_filter() {
 	//lock
 	filter_m.lock();
 	//copy filter_buf to new buffer
-	copy_buf = snprintf(copy_buf, filter_size, (const char *)filter_buf);
+	int copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
 	//set filter_size to 0
 	filter_size = 0;
 	//unlock
 	filter_m.unlock();
 	//write
-	FILTER_FILE.write(copy_buf, )
-=======
+	FILTER_FILE.write(copy_buf, copy_num);
+}
 void multithread_covarience() {
 	char temp_buf[20000];
 	covarience_m.lock();
-	snprint(temp_buf, 20000, (const char *)covarience_buf);
+	int copy_num = snprintf(temp_buf, 20000, (const char *)covarience_buf);
 	covarience_size = 0;
 	covarience_m.unlock();
-	File.write(covarience_buf, sizeof(temp_buf), COVARIANCE_FILE);
->>>>>>> 23d77d8464fa7667acbfcf3ec52bc4907af5b37d
+	COVARIANCE_FILE.write(temp_buf, copy_num);
 }
 
 void init() {

@@ -95,7 +95,7 @@ namespace steering
         pinMode(dir_pin, OUTPUT);
 
         pulse_timer.begin(pulse_interrupt_handler, 50);
-        pulse_timer.priority(255);
+        pulse_timer.priority(0);
     }
 // Note: step offsets are intended to be changed often, only written down for convience
 // step offset for SC:   150

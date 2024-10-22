@@ -22,7 +22,8 @@ volatile char filter_buf     [buf_size]; //Kevin
 volatile char covarience_buf [buf_size]; //Nnenna
 
 volatile size_t steering_size = 0;
-
+volatile size_t gps_size = 0;
+volatile size_t encoder_size = 0;
 volatile size_t filter_size = 0;
 volatile size_t covarience_size = 0;
 
@@ -33,51 +34,57 @@ Threads::Mutex filter_m;
 Threads::Mutex covarience_m;
 
 void sd_thread() {
-	
-}
-
-void steering_sd(){
-	steering_m.lock();
-	char thread_buf [buf_size];
-	size_t cnt = snprintf(thread_buf, steering_size, (const char *)&steering_buf);
-	steering_size = 0;
-	steering_m.unlock();
-	STEERING_FILE.write(thread_buf, cnt);
-}
-
-void log_steering(double angle) {
-	if (!DO_LOGGING) {
+	if(!DO_LOGGING) {
 		return;
 	}
+	multithread_steering();
+	multithread_gps();
+	multithread_encoder();
+	multithread_filter();
+	multithread_covarience();
 
-	steering_m.lock();
-		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
-	steering_m.unlock();
+	flush_files();
 }
 
-/*
- filter_buf
- filter_size
- filter_m
-*/
+void multithread_steering(){
+	char temp_buf [buf_size];
+	steering_m.lock();
+	size_t cnt = snprintf(temp_buf, steering_size, (const char *)steering_buf);
+	steering_size = 0;
+	steering_m.unlock();
+	STEERING_FILE.write(temp_buf, cnt);
+}
+
+void multithread_gps(){
+	char temp_buf[buf_size];
+	gps_m.lock();
+	size_t copy_num = snprintf(temp_buf, gps_size, (const char *)gps_buf);
+	gps_size = 0;
+	gps_m.unlock();
+	GPS_FILE.write(temp_buf, copy_num);
+}
+
+void multithread_encoder() {
+	char temp_buf[buf_size];
+	encoder_m.lock();
+	size_t copy_num = snprintf(temp_buf, encoder_size, (const char *)encoder_buf);
+	encoder_size = 0;
+	encoder_m.unlock();
+	ENCODER_FILE.write(temp_buf, copy_num);
+}
+
 void multithread_filter() {
-	//make new buffer
 	char copy_buf[buf_size];
-	//lock
 	filter_m.lock();
-	//copy filter_buf to new buffer
-	int copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
-	//set filter_size to 0
+	size_t copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
 	filter_size = 0;
-	//unlock
 	filter_m.unlock();
-	//write
 	FILTER_FILE.write(copy_buf, copy_num);
 }
 void multithread_covarience() {
 	char temp_buf[buf_size];
 	covarience_m.lock();
-	int copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
+	size_t copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
 	covarience_size = 0;
 	covarience_m.unlock();
 	COVARIANCE_FILE.write(temp_buf, copy_num);
@@ -130,14 +137,24 @@ void init() {
 
 }
 
+void log_steering(double angle) {
+	if (!DO_LOGGING) {
+		return;
+	}
+
+	steering_m.lock();
+		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
+	steering_m.unlock();
+}
+
 void log_gps(double x, double y, double accuracy) {
 	if (!DO_LOGGING) {
 		return;
 	}
 
-	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f,%f,%f\n", millis(), x, y, accuracy);
-	GPS_FILE.write(buf, cnt);
+	gps_m.lock();
+		gps_size += snprintf((char *)&gps_buf[gps_size], buf_size - gps_size, "%lu,%f,%f,%f",millis(),x,y,accuracy);
+	gps_m.unlock();
 }
 
 void log_speed(double speed) {
@@ -145,9 +162,9 @@ void log_speed(double speed) {
 		return;
 	}
 
-	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f\n", millis(), speed);
-	ENCODER_FILE.write(buf, cnt);
+	encoder_m.lock();
+		encoder_size += snprintf((char *)&encoder_buf[encoder_size], buf_size - encoder_size, "%lu,%f",millis(),speed);
+	encoder_m.unlock();
 }
 
 void log_filter_state(double x, double y, double heading) {
@@ -155,8 +172,9 @@ void log_filter_state(double x, double y, double heading) {
 		return;
 	}
 
-	char buf[100];
-	size_t cnt = snprintf(buf, sizeof(buf), "%lu,%f,%f,%f\n", millis(), x, y, heading);
+	filter_m.lock();
+		filter_size += snprintf((char *)&filter_buf[encoder_size], buf_size - filter_size, "%lu,%f,%f,%f",millis(),x,y,heading);
+	filter_m.unlock();
 	//FILTER_FILE.write(buf, cnt);
 	
 	//lock
@@ -170,14 +188,12 @@ void log_covariance(const state_cov_matrix_t &cov) {
 		return;
 	}
 
-	char buf[200];
-	size_t cnt = snprintf(buf, sizeof(buf),
-		"%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
-		cov(0, 0), cov(0, 1), cov(0, 2),
-		cov(1, 0), cov(1, 1), cov(1, 2),
-		cov(2, 0), cov(2, 1), cov(2, 2)
-	);
-	COVARIANCE_FILE.write(buf, cnt);
+	covarience_m.lock();
+		covarience_size += snprintf((char *)&covarience_buf[covarience_size], buf_size - filter_size, "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
+																										cov(0, 0), cov(0, 1), cov(0, 2),
+																										cov(1, 0), cov(1, 1), cov(1, 2),
+																										cov(2, 0), cov(2, 1), cov(2, 2));
+	covarience_m.unlock();
 }
 
 void flush_files() {

@@ -33,19 +33,6 @@ Threads::Mutex encoder_m;
 Threads::Mutex filter_m;
 Threads::Mutex covarience_m;
 
-void sd_thread() {
-	if(!DO_LOGGING) {
-		return;
-	}
-	multithread_steering();
-	multithread_gps();
-	multithread_encoder();
-	multithread_filter();
-	multithread_covarience();
-
-	flush_files();
-}
-
 void multithread_steering(){
 	char temp_buf [buf_size];
 	steering_m.lock();
@@ -90,6 +77,19 @@ void multithread_covarience() {
 	COVARIANCE_FILE.write(temp_buf, copy_num);
 }
 
+void sd_thread(int arg) {
+	if(!DO_LOGGING) {
+		return;
+	}
+	multithread_steering();
+	multithread_gps();
+	multithread_encoder();
+	multithread_filter();
+	multithread_covarience();
+
+	flush_files();
+}
+
 void init() {
 	if (!DO_LOGGING) {
 		return;
@@ -132,7 +132,7 @@ void init() {
 	FILTER_FILE.write("timestamp,pos_x,pos_y,heading\n");
 	COVARIANCE_FILE.write("timestamp,c1,c2,c3,c4,c5,c6,c7,c8,c9\n");
 
-	threads.addThread(sd_thread);
+	threads.addThread(sd_thread, 0, buf_size*2, NULL);
 	threads.setSliceMillis(1);
 
 }

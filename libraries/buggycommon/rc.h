@@ -21,4 +21,8 @@ namespace rc {
 	// Returns true if the auto steering angle should be used instead of the RC input.
 	// This is only true if the operator is ready and the auto switch is activated.
 	bool use_autonomous_steering();
+
+	// Returns true if the set offset switch has just been flipped
+	// Only triggers on rising edge of switch
+	bool temp_offset_switch();
 }

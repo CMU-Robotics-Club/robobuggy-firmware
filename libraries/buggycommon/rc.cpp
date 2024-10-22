@@ -25,6 +25,7 @@ namespace rc
 #define CHANNEL_BUTTON_D 10
 
 	ArduinoCRSF rc_controller;
+	bool offset_switch_prev = false;
 
 	static uint8_t rxbuf[1024];
 
@@ -126,6 +127,14 @@ namespace rc
 	{
 		bool auto_switch = (rc_controller.getChannel(CHANNEL_SWITCH_E) > 1750);
 		return operator_ready() && auto_switch;
+	}
+
+	bool temp_offset_switch()
+	{
+		bool offset_switch = (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
+		bool edge = offset_switch && !offset_switch_prev;
+		offset_switch_prev = offset_switch;
+		return edge;
 	}
 
 } // namespace rc

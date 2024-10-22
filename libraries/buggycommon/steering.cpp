@@ -9,6 +9,7 @@ namespace steering
     static int left_stepper_switch_pin = -1;
     static int right_stepper_switch_pin = -1;
     static float steps_per_degree = 0.0;
+    static float temporary_offset = 0.0;
 
 
 #define STEPS_PER_REV 1000 // steps per rotation
@@ -130,7 +131,12 @@ namespace steering
 
     void set_goal_angle(float degrees)
     {
-        set_goal_step(steps_per_degree * degrees);
+        set_goal_step(steps_per_degree * (degrees+temporary_offset));
+    }
+
+    void set_offset(float degrees) 
+    {
+        temporary_offset = degrees+temporary_offset;
     }
 
     /**

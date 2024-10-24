@@ -35,59 +35,63 @@ Threads::Mutex covarience_m;
 
 void multithread_steering(){
 	char temp_buf [buf_size];
-	steering_m.lock();
-	size_t cnt = snprintf(temp_buf, steering_size, (const char *)steering_buf);
-	steering_size = 0;
-	steering_m.unlock();
-	STEERING_FILE.write(temp_buf, cnt);
+	if(steering_m.try_lock()){
+		size_t cnt = snprintf(temp_buf, steering_size, (const char *)steering_buf);
+		steering_size = 0;
+		steering_m.unlock();
+		STEERING_FILE.write(temp_buf, cnt);
+	}
 }
 
 void multithread_gps(){
 	char temp_buf[buf_size];
-	gps_m.lock();
-	size_t copy_num = snprintf(temp_buf, gps_size, (const char *)gps_buf);
-	gps_size = 0;
-	gps_m.unlock();
-	GPS_FILE.write(temp_buf, copy_num);
+	if(gps_m.try_lock()){
+		size_t copy_num = snprintf(temp_buf, gps_size, (const char *)gps_buf);
+		gps_size = 0;
+		gps_m.unlock();
+		GPS_FILE.write(temp_buf, copy_num);
+	}
 }
 
 void multithread_encoder() {
 	char temp_buf[buf_size];
-	encoder_m.lock();
-	size_t copy_num = snprintf(temp_buf, encoder_size, (const char *)encoder_buf);
-	encoder_size = 0;
-	encoder_m.unlock();
-	ENCODER_FILE.write(temp_buf, copy_num);
+	if(encoder_m.try_lock()){
+		size_t copy_num = snprintf(temp_buf, encoder_size, (const char *)encoder_buf);
+		encoder_size = 0;
+		encoder_m.unlock();
+		ENCODER_FILE.write(temp_buf, copy_num);
+	}
 }
 
 void multithread_filter() {
 	char copy_buf[buf_size];
-	filter_m.lock();
-	size_t copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
-	filter_size = 0;
-	filter_m.unlock();
-	FILTER_FILE.write(copy_buf, copy_num);
+	if(filter_m.try_lock()){
+		size_t copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
+		filter_size = 0;
+		filter_m.unlock();
+		FILTER_FILE.write(copy_buf, copy_num);
+	}
 }
 void multithread_covarience() {
 	char temp_buf[buf_size];
-	covarience_m.lock();
-	size_t copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
-	covarience_size = 0;
-	covarience_m.unlock();
-	COVARIANCE_FILE.write(temp_buf, copy_num);
+	if(covarience_m.try_lock()){
+		size_t copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
+		covarience_size = 0;
+		covarience_m.unlock();
+		COVARIANCE_FILE.write(temp_buf, copy_num);
+	}
 }
 
 void sd_thread(int arg) {
-	if(!DO_LOGGING) {
-		return;
-	}
-	multithread_steering();
-	multithread_gps();
-	multithread_encoder();
-	multithread_filter();
-	multithread_covarience();
+	while(DO_LOGGING){
+		multithread_steering();
+		multithread_gps();
+		multithread_encoder();
+		multithread_filter();
+		multithread_covarience();
 
-	flush_files();
+		flush_files();
+	}
 }
 
 void init() {

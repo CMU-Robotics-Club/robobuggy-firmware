@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <SD.h>
 #include "TeensyThreads.h"
-#define buf_size 20000
+#define buf_size 2000
 
 namespace sd_logging {
 
@@ -78,6 +78,7 @@ void multithread_covarience() {
 }
 
 void sd_thread(int arg) {
+	Serial.println("sd_thread");
 	if(!DO_LOGGING) {
 		return;
 	}
@@ -142,8 +143,10 @@ void log_steering(double angle) {
 		return;
 	}
 
+	Serial.println("Log steering");
 	steering_m.lock();
-		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
+		size_t s = (buf_size - steering_size>=0) ? buf_size-steering_size : 0;
+		steering_size += snprintf((char *)&steering_buf[steering_size], s, "%lu,%f\n", millis(), angle);
 	steering_m.unlock();
 }
 
@@ -152,8 +155,10 @@ void log_gps(double x, double y, double accuracy) {
 		return;
 	}
 
+	Serial.println("Log gps");
 	gps_m.lock();
-		gps_size += snprintf((char *)&gps_buf[gps_size], buf_size - gps_size, "%lu,%f,%f,%f",millis(),x,y,accuracy);
+		size_t s = (buf_size - gps_size>=0) ? buf_size-gps_size : 0;
+		gps_size += snprintf((char *)&gps_buf[gps_size], s, "%lu,%f,%f,%f",millis(),x,y,accuracy);
 	gps_m.unlock();
 }
 
@@ -162,8 +167,10 @@ void log_speed(double speed) {
 		return;
 	}
 
+	Serial.println("Log speed");
 	encoder_m.lock();
-		encoder_size += snprintf((char *)&encoder_buf[encoder_size], buf_size - encoder_size, "%lu,%f",millis(),speed);
+		size_t s = (buf_size - encoder_size>=0) ? buf_size-encoder_size : 0;
+		encoder_size += snprintf((char *)&encoder_buf[encoder_size], s, "%lu,%f",millis(),speed);
 	encoder_m.unlock();
 }
 
@@ -172,8 +179,10 @@ void log_filter_state(double x, double y, double heading) {
 		return;
 	}
 
+	Serial.println("Log filter state");
 	filter_m.lock();
-		filter_size += snprintf((char *)&filter_buf[encoder_size], buf_size - filter_size, "%lu,%f,%f,%f",millis(),x,y,heading);
+		size_t s = (buf_size - filter_size>=0) ? buf_size-filter_size : 0;
+		filter_size += snprintf((char *)&filter_buf[encoder_size], s, "%lu,%f,%f,%f",millis(),x,y,heading);
 	filter_m.unlock();
 	//FILTER_FILE.write(buf, cnt);
 	
@@ -188,8 +197,10 @@ void log_covariance(const state_cov_matrix_t &cov) {
 		return;
 	}
 
+	Serial.println("Log cov");
 	covarience_m.lock();
-		covarience_size += snprintf((char *)&covarience_buf[covarience_size], buf_size - filter_size, "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
+		size_t s = (buf_size - covarience_size>=0) ? buf_size-covarience_size : 0;
+		covarience_size += snprintf((char *)&covarience_buf[covarience_size], s, "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
 																										cov(0, 0), cov(0, 1), cov(0, 2),
 																										cov(1, 0), cov(1, 1), cov(1, 2),
 																										cov(2, 0), cov(2, 1), cov(2, 2));

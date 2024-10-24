@@ -147,7 +147,7 @@ void log_steering(double angle) {
 	}
 
 	steering_m.lock();
-		steering_size += snprintf((char *)&steering_buf[steering_size], buf_size - steering_size, "%lu,%f\n", millis(), angle);
+		steering_size += snprintf((char *)&steering_buf[steering_size], (buf_size - steering_size>=0)?buf_size - steering_size:0, "%lu,%f\n", millis(), angle);
 	steering_m.unlock();
 }
 
@@ -157,7 +157,7 @@ void log_gps(double x, double y, double accuracy) {
 	}
 
 	gps_m.lock();
-		gps_size += snprintf((char *)&gps_buf[gps_size], buf_size - gps_size, "%lu,%f,%f,%f",millis(),x,y,accuracy);
+		gps_size += snprintf((char *)&gps_buf[gps_size], (buf_size - gps_size>=0)?buf_size - gps_size:0, "%lu,%f,%f,%f",millis(),x,y,accuracy);
 	gps_m.unlock();
 }
 
@@ -167,7 +167,7 @@ void log_speed(double speed) {
 	}
 
 	encoder_m.lock();
-		encoder_size += snprintf((char *)&encoder_buf[encoder_size], buf_size - encoder_size, "%lu,%f",millis(),speed);
+		encoder_size += snprintf((char *)&encoder_buf[encoder_size], (buf_size - encoder_size>=0)?buf_size - encoder_size:0, "%lu,%f",millis(),speed);
 	encoder_m.unlock();
 }
 
@@ -177,7 +177,7 @@ void log_filter_state(double x, double y, double heading) {
 	}
 
 	filter_m.lock();
-		filter_size += snprintf((char *)&filter_buf[encoder_size], buf_size - filter_size, "%lu,%f,%f,%f",millis(),x,y,heading);
+		filter_size += snprintf((char *)&filter_buf[encoder_size], (buf_size - filter_size>=0)?buf_size - filter_size:0, "%lu,%f,%f,%f",millis(),x,y,heading);
 	filter_m.unlock();
 	//FILTER_FILE.write(buf, cnt);
 	
@@ -193,7 +193,7 @@ void log_covariance(const state_cov_matrix_t &cov) {
 	}
 
 	covarience_m.lock();
-		covarience_size += snprintf((char *)&covarience_buf[covarience_size], buf_size - filter_size, "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
+		covarience_size += snprintf((char *)&covarience_buf[covarience_size], (buf_size - covarience_size>=0)?buf_size - covarience_size:0, "%lu,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", millis(),
 																										cov(0, 0), cov(0, 1), cov(0, 2),
 																										cov(1, 0), cov(1, 1), cov(1, 2),
 																										cov(2, 0), cov(2, 1), cov(2, 2));

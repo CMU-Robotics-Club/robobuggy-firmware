@@ -157,7 +157,7 @@ void log_gps(double x, double y, double accuracy) {
 	}
 
 	gps_m.lock();
-		gps_size += snprintf((char *)&gps_buf[gps_size], (buf_size - gps_size>=0)?buf_size - gps_size:0, "%lu,%f,%f,%f",millis(),x,y,accuracy);
+		gps_size += snprintf((char *)&gps_buf[gps_size], (buf_size - gps_size>=0)?buf_size - gps_size:0, "%lu,%f,%f,%f\n",millis(),x,y,accuracy);
 	gps_m.unlock();
 }
 
@@ -167,7 +167,7 @@ void log_speed(double speed) {
 	}
 
 	encoder_m.lock();
-		encoder_size += snprintf((char *)&encoder_buf[encoder_size], (buf_size - encoder_size>=0)?buf_size - encoder_size:0, "%lu,%f",millis(),speed);
+		encoder_size += snprintf((char *)&encoder_buf[encoder_size], (buf_size - encoder_size>=0)?buf_size - encoder_size:0, "%lu,%f\n",millis(),speed);
 	encoder_m.unlock();
 }
 
@@ -177,7 +177,7 @@ void log_filter_state(double x, double y, double heading) {
 	}
 
 	filter_m.lock();
-		filter_size += snprintf((char *)&filter_buf[encoder_size], (buf_size - filter_size>=0)?buf_size - filter_size:0, "%lu,%f,%f,%f",millis(),x,y,heading);
+		filter_size += snprintf((char *)&filter_buf[encoder_size], (buf_size - filter_size>=0)?buf_size - filter_size:0, "%lu,%f,%f,%f\n",millis(),x,y,heading);
 	filter_m.unlock();
 	//FILTER_FILE.write(buf, cnt);
 	

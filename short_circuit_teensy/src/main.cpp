@@ -26,8 +26,8 @@
 #define STEERING_PULSE_PIN 27             // pin for stepper pulse
 #define STEERING_DIR_PIN 38             // pin for stepper direction
 #define STEERING_ALARM_PIN 39
-#define LIMIT_SWITCH_RIGHT_PIN 7
-#define LIMIT_SWITCH_LEFT_PIN 8
+#define LIMIT_SWITCH_RIGHT_PIN 8
+#define LIMIT_SWITCH_LEFT_PIN 7
 
 #define STATUS_LED_PIN 19
 

@@ -25,7 +25,7 @@
 
 #define STEERING_PULSE_PIN 27             // pin for stepper pulse
 #define STEERING_DIR_PIN 38             // pin for stepper direction
-#define STEERING_ALARM_PIN 39
+#define STEERING_ALARM_PIN 40
 #define LIMIT_SWITCH_RIGHT_PIN 8
 #define LIMIT_SWITCH_LEFT_PIN 7
 
@@ -182,7 +182,7 @@ void loop()
       }
     }
   }
-
+  Serial.printf("alarm: %i, connect: %i | ",steering::alarm_triggered(),!rc::connected());
   if (steering::alarm_triggered() || !rc::connected()) {
     // Blink red really fast, we have lost steering
     status_color = ((millis() % 300) < 150) ? red : black;
@@ -191,6 +191,7 @@ void loop()
   status_led::set_color(status_color);
 
   brake::Status brake_command = brake::Status::Stopped;
+  Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());
   if (rc::operator_ready() && !steering::alarm_triggered()) {
     // Only roll if:
     // 1. The person holding the controller is holding down the buttons actively

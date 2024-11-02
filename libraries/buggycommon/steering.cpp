@@ -187,7 +187,18 @@ namespace steering
         sei();
         return pos / steps_per_degree;
     }
-
+    bool avg_read(int pin, bool prev) {
+        int read[10];
+        for(int i=0;i<10;i++) {
+            read[i] = digitalRead(pin);
+        }
+        
+        bool fault = read[0];
+        for(int i=1;i<10;i++) {
+            if(fault ^ read[i]) return prev;
+        }
+        return fault;
+    }
     /**
      * @brief Checks whether or not the "alarm pin" has been triggered.
      * The pin triggers once the stepper goes into overcurrent protection and is then unresponsive to any movement commands.
@@ -196,8 +207,10 @@ namespace steering
     {
         // static to make sure it persists between calls
         static bool fault = false;
+        static bool current_val = true;
 
-        if (!digitalRead(alarm_pin))
+        current_val = avg_read(alarm_pin, current_val);
+        if (!current_val)
         {
             fault = true;
         }

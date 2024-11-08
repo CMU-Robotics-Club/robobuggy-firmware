@@ -7,7 +7,7 @@
 
 namespace sd_logging {
 
-static const bool DO_LOGGING = true;
+static const bool DO_LOGGING = false;
 
 static File STEERING_FILE {};
 static File GPS_FILE {};
@@ -83,9 +83,12 @@ void multithread_covarience() {
 }
 
 void sd_thread(int arg) {
-	while(DO_LOGGING){
+	while(true){
+		if(!DO_LOGGING) return;
 		threads.delay(1000);
+		Serial.println("Starting to flush");
 		flush_files();
+		Serial.println("Done flushing");
 	}
 }
 

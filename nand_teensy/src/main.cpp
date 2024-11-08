@@ -514,7 +514,7 @@ void loop()
       if (flush_file_limit.ready())
       {
         // Serial.println("Flushing files!");
-        //sd_logging::flush_files();
+        sd_logging::flush_files();
       }
 
       static int last_failed = millis();

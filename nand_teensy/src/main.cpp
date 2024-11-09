@@ -423,6 +423,9 @@ void loop()
     if (speed_log_limit.ready())
     {
       double speed = encoder::rear_speed(steering::current_angle_degrees());
+      double f_speed = encoder::front_speed();
+      if(f_speed < 0) Serial.printf("Negative Front speed: %f\n",f_speed);
+      else Serial.printf("Front speed: %f\n", f_speed);
       sd_logging::log_speed(speed);
     }
     if (steering_log_limit.ready())

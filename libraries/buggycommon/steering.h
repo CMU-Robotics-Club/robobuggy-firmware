@@ -16,6 +16,7 @@ namespace steering {
 	void set_offset(float degrees);
 
 	float current_angle_degrees();
+	float current_angle_rads();
 
 	// Returns true if the alarm pin has been triggered,
 	// meaning that the stepper driver is no longer responding and we have lost steering control.

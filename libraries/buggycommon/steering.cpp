@@ -187,6 +187,14 @@ namespace steering
         sei();
         return pos / steps_per_degree;
     }
+
+    float current_angle_rads() {
+        cli();
+        int pos = current_position;
+        sei();
+        return pos / (steps_per_degree * 180 / M_PI_2);
+    }
+
     bool avg_read(int pin, bool prev) {
         int read[10];
         for(int i=0;i<10;i++) {

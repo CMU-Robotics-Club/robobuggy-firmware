@@ -29,7 +29,7 @@ typedef Eigen::Matrix<double, INPUT_SPACE_DIM, 1> input_vector_t;
 
 #define EIGEN_MAX_ITERS 50
 
-#define MOVING_THRESHOLD 0.9
+#define MOVING_THRESHOLD 0
 
 class UKF
 {

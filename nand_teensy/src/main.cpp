@@ -295,12 +295,6 @@ void loop()
   History<uint32_t, 10> imu_update_history {};
   History<uint32_t, 10> radio_send_history {};
 
-  RateLimit speed_log_limit { 40 };
-
-  RateLimit steering_log_limit { 10 };
-
-  RateLimit flush_file_limit { 1000 };
-
   RateLimit imu_poll_limit { 5 };
   
   RateLimit debug_limit { 50 };
@@ -313,9 +307,8 @@ void loop()
 
   Rgb black = { 0x00, 0x00, 0x00 };
 
-  FilterState filter;
-
   bool kalman_init = false;
+  uint32_t last_predict_timestamp;
 
   double heading_rate = 0.0;
 
@@ -373,28 +366,12 @@ void loop()
       };
       host_comms::send_debug_info(info);
     }
-    
-    bool filter_updated = false;
 
-    if (speed_log_limit.ready()) {
-      double speed = encoder::rear_speed(steering::current_angle_degrees());
-
-      if (kalman_init) {
-        filter.handle_encoder(speed);
-        filter_updated = true;
-      }
-
-      sd_logging::log_speed(speed);
-    }
-
-    if (steering_log_limit.ready()) {
-      if (kalman_init) {
-        filter.handle_steering(steering::current_angle_degrees());
-        filter_updated = true;
-      }
-
-      sd_logging::log_steering(steering::current_angle_degrees());
-    }
+    filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
+    uint32_t cur_time = micros();
+    double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
+    filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
+    last_predict_timestamp = cur_time;
 
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
@@ -422,34 +399,11 @@ void loop()
       ++gps_sequence_number;
 
       gps_time_history.push(gps_update_elapsed);
+      filter.set_gps_noise(gps_coord->accuracy);
+      filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
 
       Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
-
-      if (kalman_init) {
-        filter.handle_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
-        sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
-
-        filter_updated = true;
-      }
-    }
-
-    if (filter_updated) {
-      double speed = encoder::rear_speed(steering::current_angle_degrees());
-
-      sd_logging::log_filter_state(
-        filter.curr_state_est(0, 0),
-        filter.curr_state_est(1, 0),
-        filter.curr_state_est(2, 0)
-      );
-      sd_logging::log_covariance(filter.curr_state_cov);
-      host_comms::send_bnya_telemetry(
-        filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-        speed,
-        steering::current_angle_degrees(),
-        filter.curr_state_est(2, 0),
-        heading_rate
-      );
 
       Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
       Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
@@ -468,11 +422,6 @@ void loop()
         Serial.printf("%10f %10f %10f\n", c(2, 0), c(2, 1), c(2, 2));
         Serial.println();
       }
-    }
-
-    if (flush_file_limit.ready()) {
-      Serial.println("Flushing files!");
-      sd_logging::flush_files();
     }
 
     static int last_failed = millis();

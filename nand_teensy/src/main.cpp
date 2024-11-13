@@ -436,6 +436,14 @@ void loop()
       }
     }
 
+    host_comms::send_bnya_telemetry(
+      filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
+      encoder::rear_speed(steering::current_angle_degrees()),
+      steering::current_angle_degrees(),
+      filter.curr_state_est(2, 0),
+      heading_rate
+    );
+
     static int last_failed = millis();
 
     elapsedMillis radio_send_elapsed = {};

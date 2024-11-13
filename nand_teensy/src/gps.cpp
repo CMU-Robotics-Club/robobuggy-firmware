@@ -3,74 +3,90 @@
 #include <MicroNMEA.h> //http://librarymanager/All#MicroNMEA
 #include <cstring>
 
+#include <SparkFun_u-blox_GNSS_v3.h>
+#include <Wire.h>
+
+#define GPS_I2C Wire
+#define GPS_I2C_ADDRESS 0x42
 namespace UTM {
     static inline void LLtoUTM(const double Lat, const double Long,
                                double &UTMNorthing, double &UTMEasting,
                                char *UTMZone);
 }
 
-char nmeaBuffer[100];
-MicroNMEA nmea(nmeaBuffer, sizeof(nmeaBuffer));
-
-HardwareSerial& gps_serial = Serial4;
+SFE_UBLOX_GNSS gps;
 
 void gps_init() {
-	gps_serial.begin(38400);
+  while (!gps.begin(GPS_I2C, GPS_I2C_ADDRESS)) {
+    Serial.println(F("u-blox GNSS not detected. Retrying..."));
+    delay(1000);
+  }
+
+  gps.setI2COutput(COM_TYPE_UBX);
+
+  gps.setAutoHPPOSLLH(true);
+
+  byte rate;
+  if (gps.getNavigationFrequency(&rate)) {
+    Serial.printf("Navigation rate is %d\n", (int)rate);
+  } else {
+    Serial.println("Failed to get navigation rate?");
+  }
 }
 
 std::optional<GpsUpdate> gps_update() {
     bool got_update = false;
     GpsUpdate update {};
 
-    while (gps_serial.available()) {
-        if (nmea.process(gps_serial.read())) {
-            if (nmea.isValid()) {
-                bool is_gga = std::strcmp(nmea.getMessageID(), "GGA") == 0;
-                bool is_rmc = std::strcmp(nmea.getMessageID(), "RMC") == 0;
-                if (is_gga || is_rmc) {
-                    /*long latitude_mdeg = myGPS.getLatitude();
-                    long longitude_mdeg = myGPS.getLongitude();*/
+    static int last_update = millis();
 
-                    long latitude_mdeg = nmea.getLatitude();
-                    long longitude_mdeg = nmea.getLongitude();
+    if (millis() - last_update > 100) {
+      last_update = millis();
 
-                    double x = 0;
-                    double y = 0;
-                    char r[] = "T";
+      if (gps.getHPPOSLLH()) {
+        /*long latitude_mdeg = myGPS.getLatitude();
+        long longitude_mdeg = myGPS.getLongitude();*/
 
-                    UTM::LLtoUTM(latitude_mdeg / 1000000.0, longitude_mdeg / 1000000.0, x, y, r);
+        double latitude  = (gps.getHighResLatitude() / 1e7) + (gps.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
+        double longitude = (gps.getHighResLongitude() / 1e7) + (gps.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
 
-                    got_update = true;
-                    update.x = x;
-                    update.y = y;
-                    update.gps_time = gps_time_millis();
-                    update.fix = nmea.getFixQuality();
+        double accuracy = (gps.getHorizontalAccuracy() / 10.0);
 
-                    static bool led_state;
-                    digitalWrite(LED_BUILTIN, led_state);
-                    led_state = !led_state;
-                }
-            }
-        }
+        double x = 0;
+        double y = 0;
+        char r[] = "T";
+
+        UTM::LLtoUTM(latitude, longitude, x, y, r);
+
+        got_update = true;
+        update.x = x;
+        update.y = y;
+        update.accuracy = accuracy;
+        update.gps_time = 0;
+        update.fix = 0/*gps.getFixType()*/;
+
+        static bool led_state;
+        digitalWrite(LED_BUILTIN, led_state);
+        led_state = !led_state;
+      }
     }
 
     if (got_update) {
         return { update };
     } else {
         return std::nullopt;
-    }
+  }
 }
-
 // converts day:hour:minute:second:nanosecond to absolute time in nanoseconds
 // warning: will break if you run the buggy at midNight on the end of a month;
 uint64_t gps_time_millis()
 {
 
-  uint64_t n_hun  = nmea.getHundredths();
-  uint64_t n_sec  = nmea.getSecond();
-  uint64_t n_min  = nmea.getMinute();
-  uint64_t n_hour = nmea.getHour();
-  uint64_t n_day  = nmea.getDay(); 
+  uint64_t n_hun  = gps.getNanosecond();
+  uint64_t n_sec  = gps.getSecond();
+  uint64_t n_min  = gps.getMinute();
+  uint64_t n_hour = gps.getHour();
+  uint64_t n_day  = gps.getDay(); 
 
   uint64_t total_time =
     n_hun +

@@ -43,7 +43,7 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
         }
     }
 
-    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb250Fd250)) {
+    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb9_6Fd19_2)) {
         while (1) {
             Serial.println("setModem failed");
             delay(100);
@@ -57,24 +57,33 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
 	Serial.println("RFM69 radio init OK!");
 }
 
-void radio_transmit(const uint8_t *data, size_t size) {
-	rf69->waitPacketSent();
-	rf69->send(data, size);
+bool radio_transmit(const uint8_t *data, size_t size) {
+	if (rf69->waitPacketSent(10)) {
+        rf69->send(data, size);
+        return true;
+    } else {
+        Serial.println("================ MISSED PACKET ===============");
+        return false;
+    }
 }
 
-void radio_send_gps(double x, double y, uint64_t gps_time, uint8_t fix) {
+static int radio_seq_number = 0;
+
+bool radio_send_gps(double x, double y, uint32_t gps_seq_number, uint8_t fix) {
     Packet p{};
     p.tag = GPS_X_Y;
+    p.seq = radio_seq_number++;
     p.gps_x_y.x = x;
     p.gps_x_y.y = y;
-    p.gps_x_y.time = gps_time;
+    p.gps_x_y.gps_seq = gps_seq_number;
     p.gps_x_y.fix = fix;
-    radio_transmit((uint8_t*)&p, sizeof(p));
+    return radio_transmit((uint8_t*)&p, sizeof(p));
 }
 
 void radio_send_steering(double angle) {
     Packet p{};
     p.tag = STEER_ANGLE;
+    p.seq = radio_seq_number++;
     p.steer_angle.degrees = angle;
     radio_transmit((uint8_t*)&p, sizeof(p));
 }
@@ -90,4 +99,8 @@ std::optional<uint8_t> radio_receive(uint8_t *data) {
 
 bool radio_available() {
 	return rf69->available();
+}
+
+int16_t radio_last_rssi() {
+    return rf69->lastRssi();
 }

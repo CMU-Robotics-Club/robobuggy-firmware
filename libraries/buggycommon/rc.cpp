@@ -25,6 +25,9 @@ namespace rc
 #define CHANNEL_BUTTON_D 10
 
 	ArduinoCRSF rc_controller;
+	bool offset_switch_prev = false;
+
+	static uint8_t rxbuf[1024];
 
 	/**
 	 * @brief Initializes hardware.  Should be called in the main setup() function.
@@ -32,6 +35,7 @@ namespace rc
 	void init(HardwareSerial &serial)
 	{
 		serial.begin(RC_BAUDRATE);
+		serial.addMemoryForRead(rxbuf, sizeof(rxbuf));
 		if (!serial)
 		{
 			while (1)
@@ -158,4 +162,13 @@ namespace rc
 	int raw_auto_switch() {
 		return rc_controller.getChannel(CHANNEL_SWITCH_E);
 	}
+
+	bool temp_offset_switch()
+	{
+		bool offset_switch = (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
+		bool edge = offset_switch && !offset_switch_prev;
+		offset_switch_prev = offset_switch;
+		return edge;
+	}
+
 } // namespace rc

@@ -6,6 +6,7 @@
 struct GpsUpdate {
     double x;
     double y;
+    double accuracy;
     uint64_t gps_time;
     uint8_t fix;
     uint8_t _pad[7];

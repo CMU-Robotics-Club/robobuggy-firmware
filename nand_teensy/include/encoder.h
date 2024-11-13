@@ -6,8 +6,6 @@ namespace encoder {
 
 void init();
 
-void update();
-
 int steps();
 
 uint16_t e_raw_angle();

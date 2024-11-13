@@ -307,6 +307,20 @@ void loop()
 
   Rgb black = { 0x00, 0x00, 0x00 };
 
+  UKF filter(
+    // Wheelbase (meters)
+    1.2,
+    // Zeroth sigma point weight
+    1.0 / 3.0,
+    // Process noise,
+    state_cov_matrix_t{
+        {0.0001, 0.0, 0.0},
+        {0.0, 0.0001, 0.0},
+        {0.0, 0.0, 0.01}},
+    // GPS noise,
+    measurement_cov_matrix_t{
+        {0.01, 0.0},
+        {0.0, 0.01}});
   bool kalman_init = false;
   uint32_t last_predict_timestamp;
 
@@ -328,8 +342,6 @@ void loop()
     rc::update();
 
     host_comms::poll();
-
-    encoder::update();
 
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);

@@ -5,7 +5,7 @@
 
 /**
  * @brief Wrapper namespace for the TX12 rc controller.
- * Communication to hte controller is implemented using the ArduinoCRSF class.
+ * Communication to the controller is implemented using the ArduinoCRSF class.
  *
  */
 namespace rc
@@ -127,6 +127,40 @@ namespace rc
 	{
 		bool auto_switch = (rc_controller.getChannel(CHANNEL_SWITCH_E) > 1750);
 		return operator_ready() && auto_switch;
+	}
+
+	/**
+	 * @brief Returns raw steering angle, exactly as recieved from the RC
+	 */
+	int raw_steering_angle() {
+		return rc_controller.getChannel(CHANNEL_RIGHT_X);
+	}
+
+	/**
+	 * @brief Returns raw operator ready switch 1, exactly as recieved from the RC
+	 * 
+	 * @return Integer value, check operator_ready() for activation threshold (1500 at time of writing)
+	 */
+	int raw_operator_ready_switch_1() {
+		return rc_controller.getChannel(CHANNEL_BUTTON_A);
+	}
+
+	/**
+	 * @brief Returns raw operator ready switch 2, exactly as recieved from the RC
+	 * 
+	 * @return Integer value, check operator_ready() for activation threshold (1500 at time of writing)
+	 */
+	int raw_operator_ready_switch_2() {
+		return rc_controller.getChannel(CHANNEL_BUTTON_D);
+	}
+
+	/**
+	 * @brief Returns raw autonomous switch value, exactly as recieved from the RC
+	 * 
+	 * @return Integer value, check use_autonomous_steering() for activation threshold (1750 at time of writing)
+	 */
+	int raw_auto_switch() {
+		return rc_controller.getChannel(CHANNEL_SWITCH_E);
 	}
 
 	bool temp_offset_switch()

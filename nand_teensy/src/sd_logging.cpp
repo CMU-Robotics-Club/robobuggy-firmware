@@ -2,8 +2,6 @@
 
 #include <Arduino.h>
 #include <SD.h>
-//#include "TeensyThreads.h"
-#define buf_size 20000
 
 namespace sd_logging {
 
@@ -16,83 +14,6 @@ static File GPS_FILE {};
 static File ENCODER_FILE {};
 static File FILTER_FILE {};
 static File COVARIANCE_FILE {};
-
-/*volatile char steering_buf   [buf_size]; //Garrison
-volatile char gps_buf        [buf_size]; //Ashley
-volatile char encoder_buf    [buf_size]; //Gyan
-volatile char filter_buf     [buf_size]; //Kevin
-volatile char covarience_buf [buf_size]; //Nnenna
-
-volatile size_t steering_size = 0;
-volatile size_t gps_size = 0;
-volatile size_t encoder_size = 0;
-volatile size_t filter_size = 0;
-volatile size_t covarience_size = 0;
-
-Threads::Mutex steering_m;
-Threads::Mutex gps_m;
-Threads::Mutex encoder_m;
-Threads::Mutex filter_m;
-Threads::Mutex covarience_m;
-
-void multithread_steering(){
-	char temp_buf [buf_size];
-	if(steering_m.try_lock()){
-		size_t cnt = snprintf(temp_buf, steering_size, (const char *)steering_buf);
-		steering_size = 0;
-		steering_m.unlock();
-		STEERING_FILE.write(temp_buf, cnt);
-	}
-}
-
-void multithread_gps(){
-	char temp_buf[buf_size];
-	if(gps_m.try_lock()){
-		size_t copy_num = snprintf(temp_buf, gps_size, (const char *)gps_buf);
-		gps_size = 0;
-		gps_m.unlock();
-		GPS_FILE.write(temp_buf, copy_num);
-	}
-}
-
-void multithread_encoder() {
-	char temp_buf[buf_size];
-	if(encoder_m.try_lock()){
-		size_t copy_num = snprintf(temp_buf, encoder_size, (const char *)encoder_buf);
-		encoder_size = 0;
-		encoder_m.unlock();
-		ENCODER_FILE.write(temp_buf, copy_num);
-	}
-}
-
-void multithread_filter() {
-	char copy_buf[buf_size];
-	if(filter_m.try_lock()){
-		size_t copy_num = snprintf(copy_buf, filter_size, (const char *)filter_buf);
-		filter_size = 0;
-		filter_m.unlock();
-		FILTER_FILE.write(copy_buf, copy_num);
-	}
-}
-void multithread_covarience() {
-	char temp_buf[buf_size];
-	if(covarience_m.try_lock()){
-		size_t copy_num = snprintf(temp_buf, covarience_size, (const char *)covarience_buf);
-		covarience_size = 0;
-		covarience_m.unlock();
-		COVARIANCE_FILE.write(temp_buf, copy_num);
-	}
-}
-
-void sd_thread(int arg) {
-	while(true){
-		if(!DO_LOGGING) return;
-		threads.delay(1000);
-		Serial.println("Starting to flush");
-		flush_files();
-		Serial.println("Done flushing");
-	}
-}*/
 
 void init() {
 	if (!DO_LOGGING) {

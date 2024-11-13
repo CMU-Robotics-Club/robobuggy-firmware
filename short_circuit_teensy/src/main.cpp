@@ -136,6 +136,7 @@ void loop()
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
   steering::set_goal_angle(steering_command);
 
+  if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
 
   if (rc::use_autonomous_steering()) {
     if (host_comms::message_age() > 1000) {
@@ -183,7 +184,7 @@ void loop()
       }
     }
   }
-
+  //Serial.printf("alarm: %i, connect: %i | ",steering::alarm_triggered(),!rc::connected());
   if (steering::alarm_triggered() || !rc::connected()) {
     // Blink red really fast, we have lost steering
     status_color = ((millis() % 300) < 150) ? red : black;
@@ -192,6 +193,7 @@ void loop()
   status_led::set_color(status_color);
 
   brake::Status brake_command = brake::Status::Stopped;
+  //Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());
   if (rc::operator_ready() && !steering::alarm_triggered()) {
     // Only roll if:
     // 1. The person holding the controller is holding down the buttons actively

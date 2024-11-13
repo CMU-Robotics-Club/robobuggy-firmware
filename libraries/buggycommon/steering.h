@@ -12,6 +12,9 @@ namespace steering {
 	// Set the position (in degrees from center, left-positive) that the stepper will try to achieve.
 	void set_goal_angle(float degrees);
 
+	// Store the current steering position as the temporary zero steering point
+	void set_offset(float degrees);
+
 	float current_angle_degrees();
 
 	// Returns true if the alarm pin has been triggered,

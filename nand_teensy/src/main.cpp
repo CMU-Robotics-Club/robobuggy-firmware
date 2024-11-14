@@ -142,7 +142,7 @@ void setReports(void) {
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("SparkFun Ublox Example");
+  Serial.println("NAND Booting Up!");
 
   // Workaround to set the status LED pin as an output
   pinMode(29, OUTPUT);
@@ -256,6 +256,19 @@ private:
   T data[Count];
   size_t length;
 };
+
+void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
+  Serial.printf("%9.3f\t", time_ms / 1000.0);
+  Serial.printf("% 6.3f\t", speed_mps);
+  Serial.printf("% 6.3f\t", degrees(steering_rad));
+  Serial.printf("% 12.3f\t", state_est(0, 0));
+  Serial.printf("% 12.3f\t", state_est(1, 0));
+  Serial.printf("% 7.3f\t", degrees(state_est(2, 0)));
+  Serial.printf("%6.3e\t", state_cov(0, 0));
+  Serial.printf("%6.3e\t", state_cov(1, 1));
+  Serial.printf("%6.3e\t", state_cov(2, 2));
+  Serial.println();
+}
 
 void loop()
 {
@@ -379,29 +392,22 @@ void loop()
       host_comms::send_debug_info(info);
     }
 
-    filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
-    filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
+    if (kalman_init) {
+      filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
+      filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
+    }
     last_predict_timestamp = cur_time;
 
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
-      Serial.print("x: ");
-      Serial.println(gps_coord->x);
-      Serial.print("y: ");
-      Serial.println(gps_coord->y);
-      Serial.print("accuracy: ");
-      Serial.println(gps_coord->accuracy);
-      Serial.print("time: ");
-      Serial.println(gps_coord->gps_time);
-      Serial.print("fix type: ");
-      Serial.println(gps_coord->fix);
 
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->x;
         filter.curr_state_est(1, 0) = gps_coord->y;
+        filter.curr_state_est(2, 0) = -M_PI_2;
 
         kalman_init = true;
       }
@@ -411,29 +417,15 @@ void loop()
       ++gps_sequence_number;
 
       gps_time_history.push(gps_update_elapsed);
-      filter.set_gps_noise(gps_coord->accuracy);
-      filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
-
-      Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
-      Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
-
-      Serial.printf("HEADING: %f\n", filter.curr_state_est(2, 0) * 180.0 / M_PI);
-      Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
-
-      static int i = 0;
-      if (++i > 100) {
-        auto& s = filter.curr_state_est;
-        Serial.println("filter:");
-        Serial.printf("%10f %10f %10f\n", s(0, 0), s(1, 0), s(2, 0));
-        Serial.println();
-
-        Serial.println("cov:");
-        auto& c = filter.curr_state_cov;
-        Serial.printf("%10f %10f %10f\n", c(0, 0), c(0, 1), c(0, 2));
-        Serial.printf("%10f %10f %10f\n", c(1, 0), c(1, 1), c(1, 2));
-        Serial.printf("%10f %10f %10f\n", c(2, 0), c(2, 1), c(2, 2));
-        Serial.println();
+      if (kalman_init) {
+        filter.set_gps_noise(gps_coord->accuracy);
+        filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
+
+      serial_log(millis(), filter.speed, steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+
+      // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
+      // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
     }
 
     host_comms::send_bnya_telemetry(

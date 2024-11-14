@@ -471,7 +471,7 @@ void loop()
     }
 
     int t2 = millis();
-    Serial.printf("Time took for GPS is %dms\n", (t2-t1));
+    Serial.printf("Time took for Radio is %dms\n", (t2-t1));
 
 
 

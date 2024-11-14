@@ -447,6 +447,8 @@ void loop()
 
     static int last_failed = millis();
 
+    int t1 = millis();
+
     elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
       fresh_gps_data = false;
@@ -467,6 +469,11 @@ void loop()
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
       */
     }
+
+    int t2 = millis();
+    Serial.printf("Time took for GPS is %dms\n", (t2-t1));
+
+
 
     if (millis() - last_failed < 300) {
       rgb = ((millis() % 500) > 250) ? dark_red : light_red;

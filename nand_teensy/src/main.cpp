@@ -400,8 +400,11 @@ void loop()
     }
     last_predict_timestamp = cur_time;
 
+    int gps_t1 = millis();
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
+      int gps_t2 = millis();
+      Serial.printf("GPS Time: %dms\n", gps_t2 - gps_t1);
 
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
@@ -427,6 +430,11 @@ void loop()
 
       // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
+    }
+    else
+    {
+      int gps_t2 = millis();
+      Serial.printf("GPS not resolved: %dms\n", gps_t2 - gps_t1);
     }
 
     host_comms::send_bnya_telemetry(

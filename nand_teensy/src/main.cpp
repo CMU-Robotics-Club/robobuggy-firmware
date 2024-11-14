@@ -258,15 +258,15 @@ private:
 };
 
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
-  Serial.printf("%9.3f\t", time_ms / 1000.0);
-  Serial.printf("% 6.3f\t", speed_mps);
-  Serial.printf("% 6.3f\t", degrees(steering_rad));
-  Serial.printf("% 12.3f\t", state_est(0, 0));
-  Serial.printf("% 12.3f\t", state_est(1, 0));
-  Serial.printf("% 7.3f\t", degrees(state_est(2, 0)));
-  Serial.printf("%6.3e\t", state_cov(0, 0));
-  Serial.printf("%6.3e\t", state_cov(1, 1));
-  Serial.printf("%6.3e\t", state_cov(2, 2));
+  Serial.printf("%9.3f ", time_ms / 1000.0);
+  Serial.printf("% 6.3f ", speed_mps);
+  Serial.printf("% 6.3f ", degrees(steering_rad));
+  Serial.printf("% 12.3f ", state_est(0, 0));
+  Serial.printf("% 12.3f ", state_est(1, 0));
+  Serial.printf("% 7.3f ", degrees(state_est(2, 0)));
+  Serial.printf("%6.3e ", state_cov(0, 0));
+  Serial.printf("%6.3e ", state_cov(1, 1));
+  Serial.printf("%6.3e ", state_cov(2, 2));
   Serial.println();
 }
 
@@ -394,8 +394,8 @@ void loop()
 
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
+    filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
     if (kalman_init) {
-      filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
       filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
     }
     last_predict_timestamp = cur_time;
@@ -422,7 +422,8 @@ void loop()
         filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
 
-      serial_log(millis(), filter.speed, steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+      serial_log(millis(), encoder::rear_speed(steering::current_angle_degrees()), steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+      // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
 
       // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());

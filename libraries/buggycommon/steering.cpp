@@ -189,7 +189,7 @@ namespace steering
     }
 
     float current_angle_rads() {
-        return current_angle_degrees() * M_PI / 180.0;
+        return radians(current_angle_degrees());
     }
 
     bool avg_read(int pin, bool prev) {

@@ -178,7 +178,7 @@ void setup()
 
   encoder::init();
 
-  sd_logging::init();
+  // sd_logging::init();
 
   delay(1000);
 
@@ -417,7 +417,7 @@ void loop()
       Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
       Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
 
-      Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
+      Serial.printf("HEADING: %f\n", filter.curr_state_est(2, 0) * 180.0 / M_PI);
       Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
 
       static int i = 0;

@@ -403,8 +403,10 @@ void loop()
     int gps_t1 = millis();
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
-      int gps_t2 = millis();
-      Serial.printf("GPS Time: %dms\n", gps_t2 - gps_t1);
+      int gps_tF = millis()-gps_t1;
+      if(gps_tF>=5){
+        Serial.printf("GPS Time: %dms\n", gps_tF);
+      }
 
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
@@ -433,8 +435,10 @@ void loop()
     }
     else
     {
-      int gps_t2 = millis();
-      Serial.printf("GPS not resolved: %dms\n", gps_t2 - gps_t1);
+      int gps_tF = millis()-gps_t1;
+      if(gps_tF>=5){
+        Serial.printf("GPS not resolved: %dms\n", gps_tF);
+      }
     }
 
     host_comms::send_bnya_telemetry(
@@ -470,8 +474,10 @@ void loop()
       */
     }
 
-    int t2 = millis();
-    Serial.printf("Time took for Radio is %dms\n", (t2-t1));
+    int tF = millis()-t1;
+    if(tF>=5){
+      Serial.printf("Time took for Radio is %dms\n", tF);
+    }
 
 
 

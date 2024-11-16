@@ -192,7 +192,7 @@ uint64_t last_local_time = millis();
 
 class RateLimit {
 public:
-  int period;
+  int period; // milliseconds
 
   RateLimit(int _period) : period(_period), last_time(millis()) {}
 
@@ -311,6 +311,7 @@ void loop()
   RateLimit imu_poll_limit { 5 };
   
   RateLimit debug_limit { 50 };
+  RateLimit bnya_telem_limit { 10 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
@@ -449,13 +450,15 @@ void loop()
       }
     }
 
-    host_comms::send_bnya_telemetry(
-      filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-      encoder::rear_speed(steering::current_angle_degrees()),
-      steering::current_angle_degrees(),
-      filter.curr_state_est(2, 0),
-      heading_rate
-    );
+    if (bnya_telem_limit.ready()) {
+      host_comms::send_bnya_telemetry(
+        filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
+        encoder::rear_speed(steering::current_angle_degrees()),
+        steering::current_angle_degrees(),
+        filter.curr_state_est(2, 0),
+        heading_rate
+      );
+    }
 
     i2c_time = encoder::prev_time_millis();
     if(i2c_time>=5) {

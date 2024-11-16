@@ -142,7 +142,7 @@ void setReports(void) {
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("SparkFun Ublox Example");
+  Serial.println("NAND Booting Up!");
 
   // Workaround to set the status LED pin as an output
   pinMode(29, OUTPUT);
@@ -178,7 +178,7 @@ void setup()
 
   encoder::init();
 
-  sd_logging::init();
+  // sd_logging::init();
 
   delay(1000);
 
@@ -192,7 +192,7 @@ uint64_t last_local_time = millis();
 
 class RateLimit {
 public:
-  int period;
+  int period; // milliseconds
 
   RateLimit(int _period) : period(_period), last_time(millis()) {}
 
@@ -257,6 +257,19 @@ private:
   size_t length;
 };
 
+void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
+  Serial.printf("%9.3f ", time_ms / 1000.0);
+  Serial.printf("% 6.3f ", speed_mps);
+  Serial.printf("% 6.3f ", degrees(steering_rad));
+  Serial.printf("% 12.3f ", state_est(0, 0));
+  Serial.printf("% 12.3f ", state_est(1, 0));
+  Serial.printf("% 7.3f ", degrees(state_est(2, 0)));
+  Serial.printf("%6.3e ", state_cov(0, 0));
+  Serial.printf("%6.3e ", state_cov(1, 1));
+  Serial.printf("%6.3e ", state_cov(2, 2));
+  Serial.println();
+}
+
 void loop()
 {
   #if 0
@@ -295,15 +308,10 @@ void loop()
   History<uint32_t, 10> imu_update_history {};
   History<uint32_t, 10> radio_send_history {};
 
-  RateLimit speed_log_limit { 40 };
-
-  RateLimit steering_log_limit { 10 };
-
-  RateLimit flush_file_limit { 1000 };
-
   RateLimit imu_poll_limit { 5 };
   
   RateLimit debug_limit { 50 };
+  RateLimit bnya_telem_limit { 10 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
@@ -313,9 +321,22 @@ void loop()
 
   Rgb black = { 0x00, 0x00, 0x00 };
 
-  FilterState filter;
-
+  UKF filter(
+    // Wheelbase (meters)
+    1.2,
+    // Zeroth sigma point weight
+    1.0 / 3.0,
+    // Process noise,
+    state_cov_matrix_t{
+        {0.0001, 0.0, 0.0},
+        {0.0, 0.0001, 0.0},
+        {0.0, 0.0, 0.01}},
+    // GPS noise,
+    measurement_cov_matrix_t{
+        {0.01, 0.0},
+        {0.0, 0.01}});
   bool kalman_init = false;
+  uint32_t last_predict_timestamp;
 
   double heading_rate = 0.0;
 
@@ -335,8 +356,6 @@ void loop()
     rc::update();
 
     host_comms::poll();
-
-    encoder::update();
 
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
@@ -373,46 +392,32 @@ void loop()
       };
       host_comms::send_debug_info(info);
     }
-    
-    bool filter_updated = false;
 
-    if (speed_log_limit.ready()) {
-      double speed = encoder::rear_speed(steering::current_angle_degrees());
-
-      if (kalman_init) {
-        filter.handle_encoder(speed);
-        filter_updated = true;
-      }
-
-      sd_logging::log_speed(speed);
+    uint32_t cur_time = micros();
+    double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
+    filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
+    int i2c_time = encoder::prev_time_millis();
+    if(i2c_time>=5) {
+      Serial.printf("First encoder time: %d\n",i2c_time);
     }
-
-    if (steering_log_limit.ready()) {
-      if (kalman_init) {
-        filter.handle_steering(steering::current_angle_degrees());
-        filter_updated = true;
-      }
-
-      sd_logging::log_steering(steering::current_angle_degrees());
+    if (kalman_init) {
+      filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
     }
+    last_predict_timestamp = cur_time;
 
+    int gps_t1 = millis();
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
-      Serial.print("x: ");
-      Serial.println(gps_coord->x);
-      Serial.print("y: ");
-      Serial.println(gps_coord->y);
-      Serial.print("accuracy: ");
-      Serial.println(gps_coord->accuracy);
-      Serial.print("time: ");
-      Serial.println(gps_coord->gps_time);
-      Serial.print("fix type: ");
-      Serial.println(gps_coord->fix);
+      int gps_tF = millis()-gps_t1;
+      if(gps_tF>=5){
+        Serial.printf("GPS Time: %dms\n", gps_tF);
+      }
 
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->x;
         filter.curr_state_est(1, 0) = gps_coord->y;
+        filter.curr_state_est(2, 0) = -M_PI_2;
 
         kalman_init = true;
       }
@@ -422,60 +427,47 @@ void loop()
       ++gps_sequence_number;
 
       gps_time_history.push(gps_update_elapsed);
-
-      Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
-      Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
-
       if (kalman_init) {
-        filter.handle_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
-        sd_logging::log_gps(gps_coord->x, gps_coord->y, gps_coord->accuracy);
+        filter.set_gps_noise(gps_coord->accuracy);
+        filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
+      }
 
-        filter_updated = true;
+      serial_log(millis(), encoder::rear_speed(steering::current_angle_degrees()), steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+      i2c_time = encoder::prev_time_millis();
+      if(i2c_time>=5) {
+        Serial.printf("Second encoder time :%d\n",i2c_time);
+      }
+      // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
+
+      // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
+      // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
+    }
+    else
+    {
+      int gps_tF = millis()-gps_t1;
+      if(gps_tF>=5){
+        Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
 
-    if (filter_updated) {
-      double speed = encoder::rear_speed(steering::current_angle_degrees());
-
-      sd_logging::log_filter_state(
-        filter.curr_state_est(0, 0),
-        filter.curr_state_est(1, 0),
-        filter.curr_state_est(2, 0)
-      );
-      sd_logging::log_covariance(filter.curr_state_cov);
+    if (bnya_telem_limit.ready()) {
       host_comms::send_bnya_telemetry(
         filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-        speed,
+        encoder::rear_speed(steering::current_angle_degrees()),
         steering::current_angle_degrees(),
         filter.curr_state_est(2, 0),
         heading_rate
       );
-
-      Serial.printf("HEADING: %f\n", (M_PI_2 - filter.curr_state_est(2, 0)) * 180.0 / M_PI);
-      Serial.printf("COVARIANCE: %f\n", filter.curr_state_cov(2, 2));
-
-      static int i = 0;
-      if (++i > 100) {
-        auto& s = filter.curr_state_est;
-        Serial.println("filter:");
-        Serial.printf("%10f %10f %10f\n", s(0, 0), s(1, 0), s(2, 0));
-        Serial.println();
-
-        Serial.println("cov:");
-        auto& c = filter.curr_state_cov;
-        Serial.printf("%10f %10f %10f\n", c(0, 0), c(0, 1), c(0, 2));
-        Serial.printf("%10f %10f %10f\n", c(1, 0), c(1, 1), c(1, 2));
-        Serial.printf("%10f %10f %10f\n", c(2, 0), c(2, 1), c(2, 2));
-        Serial.println();
-      }
     }
 
-    if (flush_file_limit.ready()) {
-      Serial.println("Flushing files!");
-      sd_logging::flush_files();
+    i2c_time = encoder::prev_time_millis();
+    if(i2c_time>=5) {
+      Serial.printf("Third encoder time: %d\n",i2c_time);
     }
 
     static int last_failed = millis();
+
+    int t1 = millis();
 
     elapsedMillis radio_send_elapsed = {};
     if (radio_tx_limit.ready() || fresh_gps_data) {
@@ -497,6 +489,13 @@ void loop()
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
       */
     }
+
+    int tF = millis()-t1;
+    if(tF>=5){
+      Serial.printf("Time took for Radio is %dms\n", tF);
+    }
+
+
 
     if (millis() - last_failed < 300) {
       rgb = ((millis() % 500) > 250) ? dark_red : light_red;

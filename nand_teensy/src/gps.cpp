@@ -56,7 +56,7 @@ std::optional<GpsUpdate> gps_update() {
         double y = 0;
         char r[] = "T";
 
-        UTM::LLtoUTM(latitude, longitude, x, y, r);
+        UTM::LLtoUTM(latitude, longitude, y, x, r);
 
         got_update = true;
         update.x = x;

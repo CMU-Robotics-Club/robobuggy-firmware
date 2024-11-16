@@ -259,7 +259,7 @@ void send_bnya_telemetry(
     // which means that positive angle turns the buggy to the left.
     //
     // This converts the UKF heading to the autonomous heading.
-    write_and_checksum(M_PI_2 - heading, checksum);
+    write_and_checksum(heading, checksum);
     write_and_checksum(heading_rate, checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }

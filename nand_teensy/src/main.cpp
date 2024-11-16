@@ -395,6 +395,10 @@ void loop()
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
     filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
+    int i2c_time = encoder::prev_time_millis();
+    if(i2c_time>=5) {
+      Serial.printf("First encoder time: %d\n",i2c_time);
+    }
     if (kalman_init) {
       filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
     }
@@ -428,6 +432,10 @@ void loop()
       }
 
       serial_log(millis(), encoder::rear_speed(steering::current_angle_degrees()), steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+      i2c_time = encoder::prev_time_millis();
+      if(i2c_time>=5) {
+        Serial.printf("Second encoder time :%d\n",i2c_time);
+      }
       // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
 
       // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
@@ -448,6 +456,11 @@ void loop()
       filter.curr_state_est(2, 0),
       heading_rate
     );
+
+    i2c_time = encoder::prev_time_millis();
+    if(i2c_time>=5) {
+      Serial.printf("Third encoder time: %d\n",i2c_time);
+    }
 
     static int last_failed = millis();
 

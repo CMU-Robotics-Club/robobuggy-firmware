@@ -3,7 +3,7 @@
 // Steering is left-positive and measured in degrees from straight ahead.
 namespace steering {
 	// This begins a background timer interrupt that will send pulses on the stepper pins.
-	void init(int pulse_pin, int dir_pin, int alarm_pin, int left_stepper_switch, int right_stepper_switch, float steps_per_degree);
+	void init(int pulse_pin, int dir_pin, int alarm_pin, int left_stepper_switch, int right_stepper_switch, float steps_per_degree, int center_step_offset);
 
 	// Determine the left and right angle limits and then center the wheel.
 	// This will block until the calibration is done.

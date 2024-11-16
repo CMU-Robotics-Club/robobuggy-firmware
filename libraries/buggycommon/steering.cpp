@@ -10,6 +10,7 @@ namespace steering
     static int right_stepper_switch_pin = -1;
     static float steps_per_degree = 0.0;
     static float temporary_offset = 0.0;
+    static int center_step_offset = 0;
 
 
 #define STEPS_PER_REV 1000 // steps per rotation
@@ -78,7 +79,8 @@ namespace steering
         int alarm_pin_,
         int left_stepper_switch_pin_,
         int right_stepper_switch_pin_,
-        float steps_per_degree_
+        float steps_per_degree_,
+        int center_step_offset_
     ) {
         pulse_pin = pulse_pin_;
         dir_pin = dir_pin_;
@@ -86,6 +88,7 @@ namespace steering
         left_stepper_switch_pin = left_stepper_switch_pin_;
         right_stepper_switch_pin = right_stepper_switch_pin_;
         steps_per_degree = steps_per_degree_;
+        center_step_offset = center_step_offset_;
 
         pinMode(left_stepper_switch_pin, INPUT_PULLUP);
         pinMode(right_stepper_switch_pin, INPUT_PULLUP);
@@ -98,10 +101,6 @@ namespace steering
         pulse_timer.begin(pulse_interrupt_handler, 50);
         pulse_timer.priority(255);
     }
-// Note: step offsets are intended to be changed often, only written down for convience
-// step offset for SC:   317
-// step offset for NAND: X
-#define CENTER_STEP_OFFSET 0
 
     static void set_goal_step(int step) {
         static int last_dir = 0;
@@ -168,7 +167,7 @@ namespace steering
         RIGHT_STEPPER_LIMIT = goal;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
-        int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + CENTER_STEP_OFFSET;
+        int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + center_step_offset;
         goal_position -= offset;
         current_position -= offset;
         LEFT_STEPPER_LIMIT -= offset;

@@ -54,6 +54,7 @@ using status_led::Rgb;
 #define STEERING_ALARM_PIN 39
 #define LIMIT_SWITCH_RIGHT_PIN 7
 #define LIMIT_SWITCH_LEFT_PIN 8
+#define CENTER_STEP_OFFSET 0
 
 // Start with steps per revolution of the stepper,
 // divide by 360 to get steps per degree of the stepper,
@@ -156,7 +157,7 @@ void setup()
 
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE, CENTER_STEP_OFFSET);
 
   status_led::init(STATUS_LED_PIN);
 

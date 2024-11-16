@@ -17,10 +17,18 @@ AS5600 as5600(&ENCODER_I2C);
 float positions_rad[HISTORY_LEN] = {0};
 unsigned long long times_us[HISTORY_LEN] = {0};
 int history_index = 0;
+int prev_time = 0; // time most recent I2C call took
+
+int prev_time_millis() {
+	return prev_time;
+}
 
 double front_speed() {
 	// return  as5600.getCumulativePosition() * 2.0 * M_PI / 4096.0;
+	int t1 = millis();
 	positions_rad[history_index] = as5600.getCumulativePosition() * 2.0 * M_PI / 4096.0;
+	int tF = millis() - t1;
+	prev_time = tF;
 	times_us[history_index] = micros();
 
 	int prev_index = (history_index + 1) % HISTORY_LEN;

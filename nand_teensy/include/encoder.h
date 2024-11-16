@@ -7,6 +7,7 @@ namespace encoder {
 void init();
 
 int steps();
+int prev_time_millis();
 
 uint16_t e_raw_angle();
 uint16_t e_angle();

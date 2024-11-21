@@ -474,9 +474,14 @@ void loop()
     if (radio_tx_limit.ready() || fresh_gps_data) {
       fresh_gps_data = false;
       radio_tx_limit.reset();
+      int radio_t1 = millis();
       if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix)) {
+        int radio_tF = millis() - radio_t1;
+        if(radio_tF>5) Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
       }
+      int radio_tF = millis() - radio_t1;
+        if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 
       radio_send_history.push(radio_send_elapsed);
 
@@ -513,7 +518,10 @@ void loop()
       }
 
       elapsedMillis imu_update_elapsed = {};
+      int imu_t1 = millis();
       if (bno08x.getSensorEvent(&sensorValue)) {
+        int imu_tF = millis() - imu_t1;
+        if(imu_tF > 5) Serial.printf("IMU got event, time: %d\n",imu_tF);
         //Serial.println("Logging IMU event");
 
         if (sensorValue.sensorId == SH2_GYROSCOPE_CALIBRATED) {
@@ -523,6 +531,9 @@ void loop()
 
           heading_rate = z;
         }
+      } else {
+        int imu_tF = millis() - imu_t1;
+        if(imu_tF > 5) Serial.printf("IMU no event, time: %d\n",imu_tF);
       }
     }
 

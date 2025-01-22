@@ -44,6 +44,10 @@ double front_speed() {
 	//		speed value.
 }
 
+float front_pos() {
+	return as5600.getCumulativePosition() * 2.0 * M_PI / 4096.0;
+}
+
 double rear_speed(double steering_angle) {
 	steering_angle *= M_PI / 180.0;
 	return front_speed() * cos(steering_angle);

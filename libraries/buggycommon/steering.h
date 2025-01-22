@@ -2,6 +2,10 @@
 
 // Steering is left-positive and measured in degrees from straight ahead.
 namespace steering {
+	enum class Status : unsigned char {
+		no_alarm,
+		alarm,
+	};
 	// This begins a background timer interrupt that will send pulses on the stepper pins.
 	void init(int pulse_pin, int dir_pin, int alarm_pin, int left_stepper_switch, int right_stepper_switch, float steps_per_degree, int center_step_offset);
 
@@ -21,7 +25,7 @@ namespace steering {
 	// Returns true if the alarm pin has been triggered,
 	// meaning that the stepper driver is no longer responding and we have lost steering control.
 	// A full power cycle of both the Teensy and driver is required to clear this condition.
-	bool alarm_triggered();
+	Status alarm_triggered();
 
 	int left_step_limit();
 	int right_step_limit();

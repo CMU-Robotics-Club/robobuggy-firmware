@@ -116,12 +116,18 @@ void loop()
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
+  host_comms::SCDebugInfo debug_pkg;
+  host_comms::SCSensors sensor_pkg;
+  host_comms::Roundtrip soft_time;
+
+  
 
   uint32_t loop_start = millis();
 
   rc::update();
 
   host_comms::poll();
+
 
   Rgb blue   = { 0x00, 0x00, 0xFF };
   Rgb orange = { 0xFF, 0x80, 0x00 };
@@ -132,8 +138,12 @@ void loop()
   // Orange by default
   Rgb status_color = orange;
 
-  float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
+  float rc_ang = rc::steering_angle();
+
+  float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
   steering::set_goal_angle(steering_command);
+
+  
 
   if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
 
@@ -184,7 +194,7 @@ void loop()
     }
   }
   //Serial.printf("alarm: %i, connect: %i | ",steering::alarm_triggered(),!rc::connected());
-  if (steering::alarm_triggered() || !rc::connected()) {
+  if ((steering::alarm_triggered()==steering::Status::alarm) || !rc::connected()) {
     // Blink red really fast, we have lost steering
     status_color = ((millis() % 300) < 150) ? red : black;
   }
@@ -193,7 +203,7 @@ void loop()
 
   brake::Status brake_command = brake::Status::Stopped;
   //Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());
-  if (rc::operator_ready() && !steering::alarm_triggered()) {
+  if (rc::operator_ready() && !(steering::alarm_triggered()==steering::Status::alarm)) {
     // Only roll if:
     // 1. The person holding the controller is holding down the buttons actively
     // 2. The steering servo is still working
@@ -207,6 +217,7 @@ void loop()
   /* ========================== */
 
   static int last_time = 0;
+  static int num_missed = 0;
 
   static uint8_t nand_fix = 0xFF;
   if (radio_available()) {
@@ -217,17 +228,23 @@ void loop()
       if (p->tag == GPS_X_Y) {
         Serial.printf("S: %u X: %lf Y: %lf T: %u F: %u\n", p->seq, p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.gps_seq, (unsigned)p->gps_x_y.fix);
         Serial.printf("RSSI: %i dBm\n", (int)radio_last_rssi());
-        host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y, p->seq, p->gps_x_y.gps_seq);
-        nand_fix = p->gps_x_y.fix;
+        host_comms::SCRadioRx nand;
+        nand.nand_east = p->gps_x_y.x;
+        nand.nand_north = p->gps_x_y.y;
+        nand.gps_seq = p->gps_x_y.gps_seq;
+        nand.nand_fix = p->gps_x_y.fix;
+        host_comms::sc_send_nand_pos(nand);
+        //host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y, p->seq, p->gps_x_y.gps_seq);
+        //nand_fix = p->gps_x_y.fix;
 
         if (last_time + 1 != p->seq) {
           Serial.printf("====== MISSED %d PACKETS =========\n", p->seq - last_time + 1);
+          num_missed = p->seq - last_time + 1;
         }
         last_time = p->seq;
       }
     }
   }
-
   /* ================= */
   /* ROS Debug Logging */
   /* ================= */
@@ -247,15 +264,43 @@ void loop()
       steering_command,
       battery_voltage,
       rc::operator_ready(),
-      steering::alarm_triggered(),
+      (steering::alarm_triggered()==steering::Status::alarm),
       brake_command,
       rc::use_autonomous_steering(),
       link_stats.uplink_Link_quality,
       nand_fix,
     };
 
-    host_comms::send_debug_info(info);
+    //host_comms::send_debug_info(info);
   }
+
+  // hardware we do not have, so sensor reading will be 0
+  debug_pkg.encoder_pos = 0.0f;
+  debug_pkg.true_stepper_position = steering::current_angle_degrees();
+
+  sensor_pkg.front_speed = 0.0f;
+  sensor_pkg.true_stepper_position = steering::current_angle_degrees();
+  sensor_pkg.timestamp = millis();
+  host_comms::sc_send_sensors(sensor_pkg);
+
+  // software timestamp
+  soft_time.time = millis();
+  soft_time.soft_time = host_comms::software_time();
+  host_comms::send_timestamp(soft_time);
+
+  debug_pkg.brake_status = brake_command;
+  debug_pkg.rc_steering_angle = rc_ang;
+  debug_pkg.steering_angle = host_comms::steering_angle();
+  debug_pkg.operator_ready = rc::operator_ready();
+  debug_pkg.rc_uplink_quality = rc::link_statistics().uplink_Link_quality;
+  debug_pkg.stepper_alarm = steering::alarm_triggered();
+  debug_pkg.tx12_connected = rc::connected();
+  debug_pkg.use_auton_steering = rc::use_autonomous_steering();
+  debug_pkg.brake_status = brake::state();
+
+  debug_pkg.missed_packets = num_missed;
+  debug_pkg.timestamp = millis();
+  host_comms::sc_send_debug_info(debug_pkg);
 
   /*
   uint32_t loop_dur = millis() - loop_start;

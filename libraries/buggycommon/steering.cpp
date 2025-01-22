@@ -207,16 +207,16 @@ namespace steering
      * @brief Checks whether or not the "alarm pin" has been triggered.
      * The pin triggers once the stepper goes into overcurrent protection and is then unresponsive to any movement commands.
      */
-    bool alarm_triggered()
+    Status alarm_triggered()
     {
         // static to make sure it persists between calls
-        static bool fault = false;
+        static Status fault = steering::Status::no_alarm;
         static bool current_val = true;
 
         current_val = avg_read(alarm_pin, current_val);
         if (!current_val)
         {
-            fault = true;
+            fault = steering::Status::alarm;
         }
 
         return fault;

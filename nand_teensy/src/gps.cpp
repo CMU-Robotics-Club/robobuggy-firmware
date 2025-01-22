@@ -49,7 +49,6 @@ std::optional<GpsUpdate> gps_update() {
 
         double latitude  = (gps.getHighResLatitude() / 1e7) + (gps.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
         double longitude = (gps.getHighResLongitude() / 1e7) + (gps.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
-
         double accuracy = (gps.getHorizontalAccuracy() / 10.0);
 
         double x = 0;

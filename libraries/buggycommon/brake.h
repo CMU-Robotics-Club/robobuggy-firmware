@@ -9,4 +9,6 @@ namespace brake {
 	void init(int brake_pin);
 
 	void set(Status status);
+
+	Status state();
 }

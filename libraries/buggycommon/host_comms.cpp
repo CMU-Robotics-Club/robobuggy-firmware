@@ -18,12 +18,17 @@ const std::array<uint8_t, SYNC_LEN> SYNC_WORD = { 0xAA, 0xFF, 0x00, 0x55 };
 #define PACK_MSG_TYPE(c1, c2) ( ((uint16_t)c1) | (((uint16_t)c2) << 8) )
 
 enum MessageType : uint16_t {
-    DebugInfo = PACK_MSG_TYPE('D', 'B'),
-    Odometry  = PACK_MSG_TYPE('O', 'D'),
-    Steering  = PACK_MSG_TYPE('S', 'T'),
-    Brake     = PACK_MSG_TYPE('B', 'R'),
-    Alarm     = PACK_MSG_TYPE('A', 'L'),
-    BnyaTelem = PACK_MSG_TYPE('B', 'T')
+    NAND_DebugInfo = PACK_MSG_TYPE('N','D'),
+    NAND_UKFPacket = PACK_MSG_TYPE('N','U'),
+    NAND_RawGPS = PACK_MSG_TYPE('N','G'),
+    SC_DebugInfo = PACK_MSG_TYPE('S','D'),
+    SC_Sensors = PACK_MSG_TYPE('S','S'),
+    SC_Nand_Pos = PACK_MSG_TYPE('N','P'),
+    Timestamp = PACK_MSG_TYPE('R','T'),
+    Soft_Angle = PACK_MSG_TYPE('S','T'),
+    Soft_Alarm = PACK_MSG_TYPE('A','L'),
+    Soft_Timestamp = PACK_MSG_TYPE('T','M'),
+    Soft_Brake = PACK_MSG_TYPE('B','R')
 };
 
 void write_and_checksum(const std::uint8_t *data, std::size_t size, Crc16 &crc) {
@@ -175,6 +180,7 @@ void init() {
 static uint32_t LAST_MESSAGE = 0;
 
 static double STEERING_ANGLE = 0.0;
+static int SOFT_TIME = 0;
 
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
@@ -183,16 +189,20 @@ void poll() {
 
     while (parser.update()) {
         // We got a new packet
-        if (parser.msg_type == MessageType::Steering) {
+        if (parser.msg_type == MessageType::Soft_Angle) {
             memcpy(&STEERING_ANGLE, parser.msg_buf, sizeof(STEERING_ANGLE));
             LAST_MESSAGE = millis();
-        } else if (parser.msg_type == MessageType::Brake) {
+        } else if (parser.msg_type == MessageType::Soft_Brake) {
             // TODO: decide on a format
+            // NOTE: At the moment, we have decided against software having the ability to brake
             Serial.println("Brake packet");
 
             LAST_MESSAGE = millis();
-        } else if (parser.msg_type == MessageType::Alarm) {
+        } else if (parser.msg_type == MessageType::Soft_Alarm) {
             ALARM_STATUS = (AlarmStatus)parser.msg_buf[0];
+            LAST_MESSAGE = millis();
+        } else if (parser.msg_type==MessageType::Soft_Timestamp) {
+            SOFT_TIME = (int)parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
@@ -212,7 +222,81 @@ AlarmStatus alarm_status() {
     return ALARM_STATUS;
 }
 
+int software_time() {
+    return SOFT_TIME;
+}
 
+void nand_send_debug(NANDDebugInfo info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::NAND_DebugInfo, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void nand_send_ukf(NANDUKF info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::NAND_UKFPacket, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void nand_send_raw_gps(NANDRawGPS info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::NAND_RawGPS, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_debug_info(SCDebugInfo info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::SC_DebugInfo, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_sensors(SCSensors info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::SC_Sensors, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void send_timestamp(Roundtrip time) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::Timestamp, checksum);
+    write_and_checksum((uint16_t)sizeof(time), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&time), sizeof(time), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_nand_pos(SCRadioRx nand) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::SC_Nand_Pos, checksum);
+    write_and_checksum((uint16_t)sizeof(nand), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&nand), sizeof(nand), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+/*
 void send_debug_info(DebugInfo info) {
     Crc16 checksum = {};
 
@@ -263,5 +347,5 @@ void send_bnya_telemetry(
     write_and_checksum(heading_rate, checksum);
     COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
 }
-
+*/
 }

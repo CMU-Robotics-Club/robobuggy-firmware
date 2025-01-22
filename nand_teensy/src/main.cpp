@@ -343,6 +343,8 @@ void loop()
 
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
+    bool debug_time = debug_limit.ready();
+    host_comms::NANDDebugInfo debug_packet;
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
@@ -364,7 +366,7 @@ void loop()
     if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
 
     brake::Status brake_command = brake::Status::Stopped;
-    if (rc::operator_ready() && !steering::alarm_triggered()) {
+    if (rc::operator_ready() && !(steering::alarm_triggered()==steering::Status::alarm)) {
       // Only roll if:
       // 1. The person holding the controller is holding down the buttons actively
       // 2. The steering servo is still working
@@ -374,10 +376,20 @@ void loop()
         rgb = Rgb { 0x00, 0x00, 0xFF };
       }
     }
-
     brake::set(brake_command);
-
-    if (debug_limit.ready()) {
+    if(debug_time) {
+      debug_packet.brake_status = brake_command;
+      debug_packet.rc_steering_angle = rc::steering_angle();
+      debug_packet.steering_angle = host_comms::steering_angle();
+      debug_packet.true_stepper_pos = steering::current_angle_degrees();
+      debug_packet.operator_ready = rc::operator_ready();
+      debug_packet.use_auton_steering = rc::use_autonomous_steering();
+      debug_packet.tx12_connected = rc::connected();
+      debug_packet.rc_uplink = rc::link_statistics().uplink_Link_quality;
+      debug_packet.steering_alarm = steering::alarm_triggered();
+      debug_packet.timestamp = millis();
+    }
+    /*if (debug_limit.ready()) {
       auto link_stats = rc::link_statistics();
 
       host_comms::DebugInfo info {
@@ -392,7 +404,7 @@ void loop()
         0
       };
       host_comms::send_debug_info(info);
-    }
+    }*/
 
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
@@ -451,7 +463,7 @@ void loop()
       }
     }
 
-    if (bnya_telem_limit.ready()) {
+    /*if (bnya_telem_limit.ready()) {
       host_comms::send_bnya_telemetry(
         filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
         encoder::rear_speed(steering::current_angle_degrees()),
@@ -459,7 +471,7 @@ void loop()
         filter.curr_state_est(2, 0),
         heading_rate
       );
-    }
+    }*/
 
     i2c_time = encoder::prev_time_millis();
     if(i2c_time>=5) {
@@ -507,7 +519,7 @@ void loop()
       rgb = ((millis() % 500) > 250) ? dark_red : light_red;
     }
 
-    if (!rc::connected() || steering::alarm_triggered()) {
+    if (!rc::connected() || (steering::alarm_triggered()==steering::Status::alarm)) {
       rgb = ((millis() % 500) > 250) ? dark_red : black;
     }
 
@@ -530,6 +542,7 @@ void loop()
           double z = sensorValue.un.gyroscope.z;
 
           heading_rate = z;
+          if(debug_time) debug_packet.heading_rate = heading_rate;
         }
       } else {
         int imu_tF = millis() - imu_t1;
@@ -543,6 +556,7 @@ void loop()
     if (now_ms - loop_update_elapsed_ms > 10) {
       Serial.println(now_ms - loop_update_elapsed_ms);
     }
+
   }
 }
 

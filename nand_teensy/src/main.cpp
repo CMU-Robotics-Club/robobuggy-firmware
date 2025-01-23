@@ -312,6 +312,7 @@ void loop()
   RateLimit imu_poll_limit { 5 };
   
   RateLimit debug_limit { 50 };
+  RateLimit raw_gps_debug_limit { 250 };
   RateLimit bnya_telem_limit { 10 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
@@ -462,6 +463,18 @@ void loop()
         Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
+  // TODO: serial here
+  host_comms::NANDRawGPS RawGPS_debug_packet;
+  if (raw_gps_debug_limit.ready()) {
+    RawGPS_debug_packet.eastern = last_gps_data.x;
+    RawGPS_debug_packet.northern = last_gps_data.y;
+    RawGPS_debug_packet.accuracy = last_gps_data.accuracy;
+    RawGPS_debug_packet.gps_time = last_gps_data.gps_time;
+    RawGPS_debug_packet.gps_seq_num = gps_sequence_number;
+    RawGPS_debug_packet.timestamp = millis();
+    RawGPS_debug_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
+  }
+
 
     /*if (bnya_telem_limit.ready()) {
       host_comms::send_bnya_telemetry(

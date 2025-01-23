@@ -312,7 +312,8 @@ void loop()
   RateLimit imu_poll_limit { 5 };
   
   RateLimit debug_limit { 50 };
-  RateLimit bnya_telem_limit { 10 };
+  RateLimit ukf_limit { 50 }; // currently arbitrary delay
+  // NOT IN USE // RateLimit bnya_telem_limit { 10 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
@@ -343,12 +344,18 @@ void loop()
 
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
+
     bool debug_time = debug_limit.ready();
+
+    // serial packet structs
     host_comms::NANDDebugInfo debug_packet;
+    host_comms::NANDUKF UKF_packet;
+
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
 
+    // Status LED
     Rgb rgb;
     if (kalman_init) {
       rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
@@ -377,6 +384,7 @@ void loop()
       }
     }
     brake::set(brake_command);
+
     if(debug_time) {
       debug_packet.brake_status = brake_command;
       debug_packet.rc_steering_angle = rc::steering_angle();
@@ -388,7 +396,10 @@ void loop()
       debug_packet.rc_uplink = rc::link_statistics().uplink_Link_quality;
       debug_packet.steering_alarm = steering::alarm_triggered();
       debug_packet.timestamp = millis();
+
+      host_comms::send_debug_info(debug_packet);
     }
+
     /*if (debug_limit.ready()) {
       auto link_stats = rc::link_statistics();
 
@@ -555,6 +566,18 @@ void loop()
     unsigned long now_ms = millis();
     if (now_ms - loop_update_elapsed_ms > 10) {
       Serial.println(now_ms - loop_update_elapsed_ms);
+    }
+
+    // send packet with UKF info
+    if(UKF_limit.ready()) {
+      UKF_packet.eastern = filter.curr_state_est(0,0);
+      UKF_packet.northern = filter.curr_state_est(1,0); 
+	    UKF_packet.heading = filter.curr_state_est(2,0);;
+	    UKF_packet.heading_rate = heading_rate; 
+	    UKF_packet.front_speed = encoder::front_speed();
+	    UKF_packet.timestamp = millis();
+
+      host_comms::nand_send_ukf(UKF_packet);
     }
 
   }

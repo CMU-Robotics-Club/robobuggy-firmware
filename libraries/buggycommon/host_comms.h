@@ -132,6 +132,8 @@ void send_debug_info(DebugInfo info);
 
 void send_nand_odometry(double x, double y, uint32_t radio_seq, uint32_t gps_seq);
 
+void nand_send_ukf(NANDUKF info);
+
 void send_bnya_telemetry(
 	double x, double y,
 	double velocity,

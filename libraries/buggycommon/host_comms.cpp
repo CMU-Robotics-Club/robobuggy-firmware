@@ -23,7 +23,7 @@ enum MessageType : uint16_t {
     NAND_RawGPS = PACK_MSG_TYPE('N','G'),
     SC_DebugInfo = PACK_MSG_TYPE('S','D'),
     SC_Sensors = PACK_MSG_TYPE('S','S'),
-    SC_Nand_Pos = PACK_MSG_TYPE('N','P'),
+    SC_Nand_Pos = PACK_MSG_TYPE('S','R'),
     Timestamp = PACK_MSG_TYPE('R','T'),
     Soft_Angle = PACK_MSG_TYPE('S','T'),
     Soft_Alarm = PACK_MSG_TYPE('A','L'),

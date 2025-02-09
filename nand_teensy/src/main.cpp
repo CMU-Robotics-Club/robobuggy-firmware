@@ -259,6 +259,7 @@ private:
 };
 
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
+  return;
   Serial.printf("%9.3f ", time_ms / 1000.0);
   Serial.printf("% 6.3f ", speed_mps);
   Serial.printf("% 6.3f ", degrees(steering_rad));
@@ -311,9 +312,10 @@ void loop()
 
   RateLimit imu_poll_limit { 5 };
   
-  RateLimit debug_limit { 50 };
-  RateLimit ukf_limit { 50 }; // currently arbitrary delay
+  RateLimit ukf_packet_send_limit { 10 };
   // NOT IN USE // RateLimit bnya_telem_limit { 10 };
+  RateLimit debug_packet_send_limit { 50 };
+  RateLimit raw_gps_packet_send_limit { 250 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
@@ -344,13 +346,6 @@ void loop()
 
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
-
-    bool debug_time = debug_limit.ready();
-
-    // serial packet structs
-    host_comms::NANDDebugInfo debug_packet;
-    host_comms::NANDUKF UKF_packet;
-
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
@@ -385,7 +380,36 @@ void loop()
     }
     brake::set(brake_command);
 
-    if(debug_time) {
+    // IMU code
+    if (imu_poll_limit.ready()) {
+      if (bno08x.wasReset()) {
+        Serial.print("sensor was reset ");
+        setReports();
+      }
+
+      elapsedMillis imu_update_elapsed = {};
+      int imu_t1 = millis();
+      if (bno08x.getSensorEvent(&sensorValue)) {
+        int imu_tF = millis() - imu_t1;
+        if(imu_tF > 5) Serial.printf("IMU got event, time: %d\n",imu_tF);
+        //Serial.println("Logging IMU event");
+
+        if (sensorValue.sensorId == SH2_GYROSCOPE_CALIBRATED) {
+          double x = sensorValue.un.gyroscope.x;
+          double y = sensorValue.un.gyroscope.y;
+          double z = sensorValue.un.gyroscope.z;
+
+          heading_rate = z;
+          Serial.printf("UPDATED HEADING RATE %f\n", heading_rate);
+        }
+      } else {
+        int imu_tF = millis() - imu_t1;
+        if(imu_tF > 5) Serial.printf("IMU no event, time: %d\n",imu_tF);
+      }
+    }
+
+    if(debug_packet_send_limit.ready()) {
+      host_comms::NANDDebugInfo debug_packet;
       debug_packet.brake_status = brake_command;
       debug_packet.rc_steering_angle = rc::steering_angle();
       debug_packet.steering_angle = host_comms::steering_angle();
@@ -396,26 +420,9 @@ void loop()
       debug_packet.rc_uplink = rc::link_statistics().uplink_Link_quality;
       debug_packet.steering_alarm = steering::alarm_triggered();
       debug_packet.timestamp = millis();
-
-      host_comms::send_debug_info(debug_packet);
+      debug_packet.heading_rate = heading_rate;
+      host_comms::nand_send_debug(debug_packet);
     }
-
-    /*if (debug_limit.ready()) {
-      auto link_stats = rc::link_statistics();
-
-      host_comms::DebugInfo info {
-        rc::steering_angle(),
-        steering::current_angle_degrees(),
-        0.0,
-        rc::operator_ready(),
-        steering::alarm_triggered(),
-        brake_command,
-        rc::use_autonomous_steering(),
-        link_stats.uplink_Link_quality,
-        0
-      };
-      host_comms::send_debug_info(info);
-    }*/
 
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
@@ -473,16 +480,17 @@ void loop()
         Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
-
-    /*if (bnya_telem_limit.ready()) {
-      host_comms::send_bnya_telemetry(
-        filter.curr_state_est(0, 0), filter.curr_state_est(1, 0),
-        encoder::rear_speed(steering::current_angle_degrees()),
-        steering::current_angle_degrees(),
-        filter.curr_state_est(2, 0),
-        heading_rate
-      );
-    }*/
+  if (raw_gps_packet_send_limit.ready()) {
+    host_comms::NANDRawGPS raw_gps_packet;
+    raw_gps_packet.eastern = last_gps_data.x;
+    raw_gps_packet.northern = last_gps_data.y;
+    raw_gps_packet.accuracy = last_gps_data.accuracy;
+    raw_gps_packet.gps_time = last_gps_data.gps_time;
+    raw_gps_packet.gps_seq_num = gps_sequence_number;
+    raw_gps_packet.timestamp = millis();
+    raw_gps_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
+    host_comms::nand_send_raw_gps(raw_gps_packet);
+  }
 
     i2c_time = encoder::prev_time_millis();
     if(i2c_time>=5) {
@@ -519,6 +527,21 @@ void loop()
       */
     }
 
+    // send null gps data over the RFM69 radio if we do not have fresh gps data!!
+    if (radio_tx_limit.ready() && !fresh_gps_data) {
+      radio_tx_limit.reset();
+      int radio_t1 = millis();
+      if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
+        int radio_tF = millis() - radio_t1;
+        Serial.printf("Radio failed: %d\n",radio_tF);
+        last_failed = millis();
+      }
+      int radio_tF = millis() - radio_t1;
+        if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
+
+      radio_send_history.push(radio_send_elapsed);
+    }
+
     int tF = millis()-t1;
     if(tF>=5){
       Serial.printf("Time took for Radio is %dms\n", tF);
@@ -534,32 +557,8 @@ void loop()
       rgb = ((millis() % 500) > 250) ? dark_red : black;
     }
 
-    if (imu_poll_limit.ready()) {
-      if (bno08x.wasReset()) {
-        Serial.print("sensor was reset ");
-        setReports();
-      }
 
-      elapsedMillis imu_update_elapsed = {};
-      int imu_t1 = millis();
-      if (bno08x.getSensorEvent(&sensorValue)) {
-        int imu_tF = millis() - imu_t1;
-        if(imu_tF > 5) Serial.printf("IMU got event, time: %d\n",imu_tF);
-        //Serial.println("Logging IMU event");
-
-        if (sensorValue.sensorId == SH2_GYROSCOPE_CALIBRATED) {
-          double x = sensorValue.un.gyroscope.x;
-          double y = sensorValue.un.gyroscope.y;
-          double z = sensorValue.un.gyroscope.z;
-
-          heading_rate = z;
-          if(debug_time) debug_packet.heading_rate = heading_rate;
-        }
-      } else {
-        int imu_tF = millis() - imu_t1;
-        if(imu_tF > 5) Serial.printf("IMU no event, time: %d\n",imu_tF);
-      }
-    }
+    // send all of the bnyah serial packets
 
     status_led::set_color(rgb);
 
@@ -569,15 +568,15 @@ void loop()
     }
 
     // send packet with UKF info
-    if(UKF_limit.ready()) {
-      UKF_packet.eastern = filter.curr_state_est(0,0);
-      UKF_packet.northern = filter.curr_state_est(1,0); 
-	    UKF_packet.heading = filter.curr_state_est(2,0);;
-	    UKF_packet.heading_rate = heading_rate; 
-	    UKF_packet.front_speed = encoder::front_speed();
-	    UKF_packet.timestamp = millis();
-
-      host_comms::nand_send_ukf(UKF_packet);
+    if(ukf_packet_send_limit.ready()) {
+      host_comms::NANDUKF ukf_packet;
+      ukf_packet.eastern = filter.curr_state_est(0,0);
+      ukf_packet.northern = filter.curr_state_est(1,0); 
+	    ukf_packet.heading = filter.curr_state_est(2,0);;
+	    ukf_packet.heading_rate = heading_rate; 
+	    ukf_packet.front_speed = encoder::front_speed();
+	    ukf_packet.timestamp = millis();
+      host_comms::nand_send_ukf(ukf_packet);
     }
 
   }

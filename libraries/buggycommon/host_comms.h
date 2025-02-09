@@ -6,19 +6,6 @@
 
 namespace host_comms {
 
-struct DebugInfo {
-	float rc_steering_angle;
-	float steering_angle;
-	float battery_voltage;
-	bool operator_ready;
-	bool steering_alarm;
-	brake::Status brake_command;
-	bool use_autonomous_steering;
-	std::uint8_t rc_uplink_quality;
-	std::uint8_t nand_fix;
-	uint8_t padding[2];
-};
-
 struct NANDDebugInfo {
 	// 64 bits
 	double heading_rate; // positive when accelerating in CCW direction (done)
@@ -63,6 +50,10 @@ struct NANDRawGPS {
 	uint8_t fix_type;// RTK fix type
 	uint8_t padding[3];
 };
+
+void nand_send_debug(NANDDebugInfo info);
+void nand_send_ukf(NANDUKF info);
+void nand_send_raw_gps(NANDRawGPS info);
 
 struct SCDebugInfo {
 	// 64 bits
@@ -127,20 +118,6 @@ double steering_angle();
 int software_time();
 
 AlarmStatus alarm_status();
-
-void send_debug_info(DebugInfo info);
-
-void send_nand_odometry(double x, double y, uint32_t radio_seq, uint32_t gps_seq);
-
-void nand_send_ukf(NANDUKF info);
-
-void send_bnya_telemetry(
-	double x, double y,
-	double velocity,
-	double steering,
-	double heading,
-	double heading_rate
-);
 
 void send_timestamp(Roundtrip time);
 

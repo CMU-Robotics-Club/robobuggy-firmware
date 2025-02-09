@@ -259,6 +259,7 @@ private:
 };
 
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
+  return;
   Serial.printf("%9.3f ", time_ms / 1000.0);
   Serial.printf("% 6.3f ", speed_mps);
   Serial.printf("% 6.3f ", degrees(steering_rad));
@@ -506,6 +507,21 @@ void loop()
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
       */
+    }
+
+    // send null gps data over the RFM69 radio if we do not have fresh gps data!!
+    if (radio_tx_limit.ready() && !fresh_gps_data) {
+      radio_tx_limit.reset();
+      int radio_t1 = millis();
+      if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
+        int radio_tF = millis() - radio_t1;
+        Serial.printf("Radio failed: %d\n",radio_tF);
+        last_failed = millis();
+      }
+      int radio_tF = millis() - radio_t1;
+        if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
+
+      radio_send_history.push(radio_send_elapsed);
     }
 
     int tF = millis()-t1;

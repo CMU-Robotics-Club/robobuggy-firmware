@@ -312,6 +312,8 @@ void loop()
 
   RateLimit imu_poll_limit { 5 };
   
+  RateLimit ukf_packet_send_limit { 10 };
+  // NOT IN USE // RateLimit bnya_telem_limit { 10 };
   RateLimit debug_packet_send_limit { 50 };
   RateLimit raw_gps_packet_send_limit { 250 };
 
@@ -348,6 +350,7 @@ void loop()
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
 
+    // Status LED
     Rgb rgb;
     if (kalman_init) {
       rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
@@ -562,6 +565,18 @@ void loop()
     unsigned long now_ms = millis();
     if (now_ms - loop_update_elapsed_ms > 10) {
       Serial.println(now_ms - loop_update_elapsed_ms);
+    }
+
+    // send packet with UKF info
+    if(ukf_packet_send_limit.ready()) {
+      host_comms::NANDUKF ukf_packet;
+      ukf_packet.eastern = filter.curr_state_est(0,0);
+      ukf_packet.northern = filter.curr_state_est(1,0); 
+	    ukf_packet.heading = filter.curr_state_est(2,0);;
+	    ukf_packet.heading_rate = heading_rate; 
+	    ukf_packet.front_speed = encoder::front_speed();
+	    ukf_packet.timestamp = millis();
+      host_comms::nand_send_ukf(ukf_packet);
     }
 
   }

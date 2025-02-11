@@ -40,6 +40,30 @@ const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (34.0 / 18.0);
 
 #define BRAKE_RELAY_PIN 26
 
+class RateLimit {
+public:
+  int period; // milliseconds
+
+  RateLimit(int _period) : period(_period), last_time(millis()) {}
+
+  bool ready() {
+    int cur_time = millis();
+    if (cur_time - last_time > period) {
+      last_time = cur_time;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
+  void reset() {
+    last_time = millis();
+  }
+
+private:
+  int last_time = millis();
+};
+
 void setup()
 {
   Serial.begin(115200);
@@ -116,9 +140,9 @@ void loop()
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
-  host_comms::SCDebugInfo debug_pkg;
-  host_comms::SCSensors sensor_pkg;
-  host_comms::Roundtrip soft_time;
+  RateLimit debug_pkg_rate {100};
+  RateLimit sensor_pkg_rate {50};
+  RateLimit soft_time_rate{100}
 
   
 
@@ -275,32 +299,39 @@ void loop()
   }
 
   // hardware we do not have, so sensor reading will be 0
-  debug_pkg.encoder_pos = 0.0f;
-  debug_pkg.true_stepper_position = steering::current_angle_degrees();
+  if(debug_pkg_rate.ready()) {
+    host_comms::SCDebugInfo debug_pkg;
+    debug_pkg.encoder_pos = 0.0f;
+    debug_pkg.true_stepper_position = steering::current_angle_degrees();
+    debug_pkg.brake_status = brake_command;
+    debug_pkg.rc_steering_angle = rc_ang;
+    debug_pkg.steering_angle = host_comms::steering_angle();
+    debug_pkg.operator_ready = rc::operator_ready();
+    debug_pkg.rc_uplink_quality = rc::link_statistics().uplink_Link_quality;
+    debug_pkg.stepper_alarm = steering::alarm_triggered();
+    debug_pkg.tx12_connected = rc::connected();
+    debug_pkg.use_auton_steering = rc::use_autonomous_steering();
+    debug_pkg.brake_status = brake::state();
+    debug_pkg.missed_packets = num_missed;
+    debug_pkg.timestamp = millis();
+    host_comms::sc_send_debug_info(debug_pkg);
+  }
 
-  sensor_pkg.front_speed = 0.0f;
-  sensor_pkg.true_stepper_position = steering::current_angle_degrees();
-  sensor_pkg.timestamp = millis();
-  host_comms::sc_send_sensors(sensor_pkg);
+  if(sensor_pkg_rate.ready()) {
+    host_comms::SCSensors sensor_pkg;
+    sensor_pkg.front_speed = 0.0f;
+    sensor_pkg.true_stepper_position = steering::current_angle_degrees();
+    sensor_pkg.timestamp = millis();
+    host_comms::sc_send_sensors(sensor_pkg);
+  }
 
   // software timestamp
-  soft_time.time = millis();
-  soft_time.soft_time = host_comms::software_time();
-  host_comms::send_timestamp(soft_time);
-
-  debug_pkg.brake_status = brake_command;
-  debug_pkg.rc_steering_angle = rc_ang;
-  debug_pkg.steering_angle = host_comms::steering_angle();
-  debug_pkg.operator_ready = rc::operator_ready();
-  debug_pkg.rc_uplink_quality = rc::link_statistics().uplink_Link_quality;
-  debug_pkg.stepper_alarm = steering::alarm_triggered();
-  debug_pkg.tx12_connected = rc::connected();
-  debug_pkg.use_auton_steering = rc::use_autonomous_steering();
-  debug_pkg.brake_status = brake::state();
-
-  debug_pkg.missed_packets = num_missed;
-  debug_pkg.timestamp = millis();
-  host_comms::sc_send_debug_info(debug_pkg);
+  if(soft_time_rate.ready()) {
+    host_comms::Roundtrip soft_time;
+    soft_time.time = millis();
+    soft_time.soft_time = host_comms::software_time();
+    host_comms::send_timestamp(soft_time);
+  }
 
   /*
   uint32_t loop_dur = millis() - loop_start;

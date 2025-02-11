@@ -115,7 +115,7 @@ uint32_t message_age();
 
 double steering_angle();
 
-int software_time();
+float software_time();
 
 AlarmStatus alarm_status();
 

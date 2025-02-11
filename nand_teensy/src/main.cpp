@@ -311,7 +311,7 @@ void loop()
   History<uint32_t, 10> radio_send_history {};
 
   RateLimit imu_poll_limit { 5 };
-  
+  RateLimit software_roundtrip { 5 };
   RateLimit ukf_packet_send_limit { 10 };
   // NOT IN USE // RateLimit bnya_telem_limit { 10 };
   RateLimit debug_packet_send_limit { 50 };
@@ -578,6 +578,13 @@ void loop()
 	    ukf_packet.front_speed = encoder::front_speed();
 	    ukf_packet.timestamp = millis();
       host_comms::nand_send_ukf(ukf_packet);
+    }
+
+    if(software_roundtrip.ready()) {
+      host_comms::Roundtrip rt_packet;
+      rt_packet.time = millis();
+      rt_packet.soft_time = host_comms::software_time();
+      host_comms::send_timestamp(rt_packet);
     }
 
   }

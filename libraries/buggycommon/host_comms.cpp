@@ -180,7 +180,7 @@ void init() {
 static uint32_t LAST_MESSAGE = 0;
 
 static double STEERING_ANGLE = 0.0;
-static int SOFT_TIME = 0;
+static float SOFT_TIME = 0;
 
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
@@ -202,7 +202,8 @@ void poll() {
             ALARM_STATUS = (AlarmStatus)parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else if (parser.msg_type==MessageType::Soft_Timestamp) {
-            SOFT_TIME = (int)parser.msg_buf[0];
+            float *st = (float *)&parser.msg_buf[0];
+            SOFT_TIME = *st;
             LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
@@ -222,7 +223,7 @@ AlarmStatus alarm_status() {
     return ALARM_STATUS;
 }
 
-int software_time() {
+float software_time() {
     return SOFT_TIME;
 }
 
@@ -295,57 +296,4 @@ void sc_send_nand_pos(SCRadioRx nand) {
     write_and_checksum(reinterpret_cast<uint8_t *>(&nand), sizeof(nand), checksum);
     COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
 }
-
-/*
-void send_debug_info(DebugInfo info) {
-    Crc16 checksum = {};
-
-    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
-    write_and_checksum(MessageType::DebugInfo, checksum);
-    write_and_checksum((uint16_t)sizeof(info), checksum);
-    write_and_checksum(reinterpret_cast< uint8_t* >(&info), sizeof(info), checksum);
-    COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
-}
-
-void send_nand_odometry(double x, double y, uint32_t radio_seq_num, uint32_t gps_seq_num) {
-    Crc16 checksum = {};
-
-    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
-    write_and_checksum(MessageType::Odometry, checksum);
-    write_and_checksum((uint16_t)(2 * sizeof(double) + sizeof(uint32_t) + sizeof(uint32_t)), checksum);
-    write_and_checksum(reinterpret_cast< uint8_t* >(&x), sizeof(x), checksum);
-    write_and_checksum(reinterpret_cast< uint8_t* >(&y), sizeof(y), checksum);
-    write_and_checksum(radio_seq_num, checksum);
-    write_and_checksum(gps_seq_num,   checksum);
-    COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
-}
-
-void send_bnya_telemetry(
-	double x, double y,
-	double velocity,
-	double steering,
-	double heading,
-	double heading_rate
-) {
-    Crc16 checksum = {};
-
-    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
-    write_and_checksum(MessageType::BnyaTelem, checksum);
-    write_and_checksum((uint16_t)(6 * sizeof(double)), checksum);
-    write_and_checksum(x, checksum);
-    write_and_checksum(y, checksum);
-    write_and_checksum(velocity, checksum);
-    write_and_checksum(steering, checksum);
-    // The UKF coordinate system puts x north and y east,
-    // which means that positive angle turns the buggy to the right.
-    //
-    // The autonomous coordinate system expects x east and y north,
-    // which means that positive angle turns the buggy to the left.
-    //
-    // This converts the UKF heading to the autonomous heading.
-    write_and_checksum(heading, checksum);
-    write_and_checksum(heading_rate, checksum);
-    COMM_SERIAL.write(reinterpret_cast< uint8_t* >(&checksum.accum), sizeof(checksum.accum));
-}
-*/
 }

@@ -527,7 +527,7 @@ void loop()
       */
     }
 
-    // send null gps data over the RFM69 radio if we do not have fresh gps data!!
+    // send bogus gps data over the RFM69 radio if we do not have fresh gps data!!
     if (radio_tx_limit.ready() && !fresh_gps_data) {
       radio_tx_limit.reset();
       int radio_t1 = millis();
@@ -536,6 +536,7 @@ void loop()
         Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
       }
+      else Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
       int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 

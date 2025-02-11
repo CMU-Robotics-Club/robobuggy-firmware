@@ -96,7 +96,7 @@ struct SCRadioRx {
 struct Roundtrip {
 	// 32 bits
 	int time;
-	int soft_time;
+	float soft_time;
 };
 
 

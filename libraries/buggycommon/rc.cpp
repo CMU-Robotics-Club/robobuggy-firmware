@@ -21,8 +21,7 @@ namespace rc
 #define CHANNEL_SWITCH_F 6
 #define CHANNEL_SWITCH_B 7
 #define CHANNEL_SWITCH_C 8
-#define CHANNEL_BUTTON_A 9
-#define CHANNEL_BUTTON_D 10
+#define CHANNEL_BRAKE_9 9
 
 	ArduinoCRSF rc_controller;
 	bool offset_switch_prev = false;
@@ -85,7 +84,7 @@ namespace rc
 	{
 		if (connected())
 		{
-			return (rc_controller.getChannel(CHANNEL_BUTTON_A) > 1500) || (rc_controller.getChannel(CHANNEL_BUTTON_D) > 1500);
+			return (rc_controller.getChannel(CHANNEL_BRAKE_9) > 1500);
 		}
 		else
 		{
@@ -134,24 +133,6 @@ namespace rc
 	 */
 	int raw_steering_angle() {
 		return rc_controller.getChannel(CHANNEL_RIGHT_X);
-	}
-
-	/**
-	 * @brief Returns raw operator ready switch 1, exactly as recieved from the RC
-	 * 
-	 * @return Integer value, check operator_ready() for activation threshold (1500 at time of writing)
-	 */
-	int raw_operator_ready_switch_1() {
-		return rc_controller.getChannel(CHANNEL_BUTTON_A);
-	}
-
-	/**
-	 * @brief Returns raw operator ready switch 2, exactly as recieved from the RC
-	 * 
-	 * @return Integer value, check operator_ready() for activation threshold (1500 at time of writing)
-	 */
-	int raw_operator_ready_switch_2() {
-		return rc_controller.getChannel(CHANNEL_BUTTON_D);
 	}
 
 	/**

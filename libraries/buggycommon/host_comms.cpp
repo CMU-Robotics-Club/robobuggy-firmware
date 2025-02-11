@@ -223,7 +223,7 @@ AlarmStatus alarm_status() {
     return ALARM_STATUS;
 }
 
-int software_time() {
+float software_time() {
     return SOFT_TIME;
 }
 

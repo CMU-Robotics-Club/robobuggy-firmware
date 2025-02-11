@@ -142,7 +142,7 @@ void loop()
   /* ================================================ */
   RateLimit debug_pkg_rate {100};
   RateLimit sensor_pkg_rate {50};
-  RateLimit soft_time_rate{100}
+  RateLimit soft_time_rate{100};
 
   
 
@@ -282,18 +282,6 @@ void loop()
     auto link_stats = rc::link_statistics();
 
     float battery_voltage = analogRead(VOLTAGE_PIN) / 1024.0 * 50.0;
-
-    host_comms::DebugInfo info {
-      rc::steering_angle(),
-      steering_command,
-      battery_voltage,
-      rc::operator_ready(),
-      (steering::alarm_triggered()==steering::Status::alarm),
-      brake_command,
-      rc::use_autonomous_steering(),
-      link_stats.uplink_Link_quality,
-      nand_fix,
-    };
 
     //host_comms::send_debug_info(info);
   }

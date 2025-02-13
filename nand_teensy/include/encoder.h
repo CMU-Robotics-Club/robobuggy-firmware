@@ -17,5 +17,4 @@ uint16_t get_diagnostics();
 
 struct encoder_spi read_pkt(uint16_t rd_pkt);
 
-
 }

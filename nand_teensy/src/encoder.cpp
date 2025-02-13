@@ -8,7 +8,7 @@
 
 // #define ENCODER_I2C Wire
 // #define ENCODER_ADDR 0x36 // not used in this file, but this is the hard coded I2C address for the encoder
-#define CS_ENCODER //TODO: which pin
+#define CS_ENCODER 2 //TODO: which pin
 
 // SPI settings for encoder
 #define SPI_SPEED 5000000
@@ -81,6 +81,8 @@ float get_front_pos() {
 	uint16_t read_angle_pkt = 0xFFFF;
 
 	angle_pkt = read_pkt(read_angle_pkt);
+
+	// TODO: error handling
 	
 	float rad_val = value * 2.0 * M_PI / 16384;
 	return rad_val;
@@ -91,6 +93,11 @@ uint16_t get_diagnostics(){
 	uint16_t read_diagnostics_pkt = 0x7FFD;
 	
 	diagnostics_pkt = read_pkt(read_diagnostics_pkt);
+
+	Serial.println("Diagnostics packet:");
+	Serial.println(diagnostics_pkt);
+
+	// TODO: error handling
 
 }
 

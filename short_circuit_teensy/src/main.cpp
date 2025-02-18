@@ -134,17 +134,16 @@ private:
   size_t length;
 };
 
+RateLimit debug_pkg_rate {100};
+RateLimit sensor_pkg_rate {50};
+RateLimit soft_time_rate{100};
+
 void loop()
 {
   static History<uint32_t, LOG_COUNT> loop_time {};
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
-  RateLimit debug_pkg_rate {100};
-  RateLimit sensor_pkg_rate {50};
-  RateLimit soft_time_rate{100};
-
-  
 
   uint32_t loop_start = millis();
 

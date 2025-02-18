@@ -424,6 +424,7 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
+      debug_packet.encoder_pos = encoder::e_raw_angle();
       host_comms::nand_send_debug(debug_packet);
     }
 

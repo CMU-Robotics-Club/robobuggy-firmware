@@ -23,7 +23,7 @@ struct NANDDebugInfo {
 	bool tx12_connected;// TX12 connected (done)
 	steering::Status steering_alarm; // unsigned char (done)
 	uint8_t rc_uplink;// RC uplink quality (done)
-	uint8_t padding[2];
+	uint8_t padding[6];
 };
 
 struct NANDUKF {

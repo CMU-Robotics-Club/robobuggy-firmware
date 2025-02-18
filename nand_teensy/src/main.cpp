@@ -362,6 +362,8 @@ void loop()
 
     host_comms::poll();
 
+    static int rfm69_timeout = 0;
+
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 
@@ -421,6 +423,7 @@ void loop()
       debug_packet.steering_alarm = steering::alarm_triggered();
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
+      debug_packet.rfm69_timeout_cnt = rfm69_timeout;
       host_comms::nand_send_debug(debug_packet);
     }
 
@@ -510,6 +513,7 @@ void loop()
         int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
+        ++rfm69_timeout;
       }
       int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);

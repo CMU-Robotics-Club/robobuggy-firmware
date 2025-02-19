@@ -78,7 +78,7 @@ double avg_speed() {
 
 float get_front_pos() {
 	struct encoder_spi angle_pkt;
-	uint16_t read_angle_pkt = 0xFFFF;
+	uint16_t read_angle_pkt = 0x3FFF;
 
 	angle_pkt = read_pkt(read_angle_pkt);
 
@@ -153,7 +153,7 @@ double rear_speed(double steering_angle) {
 
 void init() {
 	// Init SPI
-	pinMode(CS_ENCODER, OUTPUT)
+	pinMode(CS_ENCODER, OUTPUT);
 	// Main SPI pins enabled by default
 	SPI.begin(); 
 	

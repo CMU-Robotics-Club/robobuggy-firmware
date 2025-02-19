@@ -76,15 +76,28 @@ double avg_speed() {
 	return speed; // v=r*omega
 }
 
+bool calc_parity(uint16_t value) {
+	uint16_t parity_error = value ^ (value>>8);
+	parity_error = parity_error ^ (parity_error>>4);
+	parity_error = parity_error ^ (parity_error>>2);
+	parity_error = (parity_error ^ (parity_error>>1)) & 0x01;
+	return parity_error;
+}
+
 float get_front_pos() {
 	struct encoder_spi angle_pkt;
 	uint16_t read_angle_pkt = 0x3FFF;
+	read_angle_pkt = read_angle_pkt | (0x1 << 14); // read command
+	bool parity = calc_parity(read_angle_pkt);
+	read_angle_pkt = read_angle_pkt | ((parity?0x1:0x0) << 15); // parity calculation
 
 	angle_pkt = read_pkt(read_angle_pkt);
 
 	// TODO: error handling
+
+	int value = angle_pkt.pkt_val & 0x3FFF;
 	
-	float rad_val = value * 2.0 * M_PI / 16384;
+	float rad_val = (value<<1) * M_PI / 16384;
 	return rad_val;
 }
 
@@ -95,10 +108,10 @@ uint16_t get_diagnostics(){
 	diagnostics_pkt = read_pkt(read_diagnostics_pkt);
 
 	Serial.println("Diagnostics packet:");
-	Serial.println(diagnostics_pkt);
-
-	// TODO: error handling
-
+	Serial.printf("%i\n",diagnostics_pkt.pkt_val);
+	Serial.printf("%i\n",diagnostics_pkt.error_val);
+	Serial.printf("%i\n",diagnostics_pkt.recv_error);
+	Serial.printf("%i\n",diagnostics_pkt.parity_error);
 }
 
 struct encoder_spi read_pkt(uint16_t rd_pkt) {
@@ -131,7 +144,7 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 	parity_error = parity_error ^ (parity_error>>2);
 	parity_error = (parity_error ^ (parity_error>>1)) & 0x01;
 
-	out_struct = {value, error_value, recv_error, parity_error};
+	out_struct = {value, error_value, *(bool *)(&recv_error), *(bool *)(&parity_error)};
 
 
 	return out_struct;

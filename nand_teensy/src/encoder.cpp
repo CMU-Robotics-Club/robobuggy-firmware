@@ -1,4 +1,5 @@
 #include "encoder.h"
+#include "AS5048A.h"
 // #include "AS5600.h"
 
 #include <Arduino.h>
@@ -33,6 +34,7 @@ float positions_rad[HISTORY_LEN] = {0};
 unsigned long long times_us[HISTORY_LEN] = {0};
 int history_index = 0;
 int prev_time = 0; // time most recent call took place
+AS5048A enc = AS5048A(CS_ENCODER);
 
 int prev_time_millis() {
 	return prev_time;
@@ -85,7 +87,7 @@ bool calc_parity(uint16_t value) {
 }
 
 float get_front_pos() {
-	struct encoder_spi angle_pkt;
+	/*struct encoder_spi angle_pkt;
 	uint16_t read_angle_pkt = 0x3FFF;
 	read_angle_pkt = read_angle_pkt | (0x1 << 14); // read command
 	bool parity = calc_parity(read_angle_pkt);
@@ -98,11 +100,12 @@ float get_front_pos() {
 	int value = angle_pkt.pkt_val & 0x3FFF;
 	
 	float rad_val = (value<<1) * M_PI / 16384;
-	return rad_val;
+	return rad_val;*/
+	return enc.getRotationInRadians();
 }
 
 uint16_t get_diagnostics(){
-	struct encoder_spi diagnostics_pkt;
+	/*struct encoder_spi diagnostics_pkt;
 	uint16_t read_diagnostics_pkt = 0x7FFD;
 	
 	diagnostics_pkt = read_pkt(read_diagnostics_pkt);
@@ -111,7 +114,9 @@ uint16_t get_diagnostics(){
 	Serial.printf("%i\n",diagnostics_pkt.pkt_val);
 	Serial.printf("%i\n",diagnostics_pkt.error_val);
 	Serial.printf("%i\n",diagnostics_pkt.recv_error);
-	Serial.printf("%i\n",diagnostics_pkt.parity_error);
+	Serial.printf("%i\n",diagnostics_pkt.parity_error);*/
+	Serial.printf("%s\n", enc.getDiagnostic());
+	return -1;
 }
 
 struct encoder_spi read_pkt(uint16_t rd_pkt) {
@@ -166,9 +171,10 @@ double rear_speed(double steering_angle) {
 
 void init() {
 	// Init SPI
-	pinMode(CS_ENCODER, OUTPUT);
+	//pinMode(CS_ENCODER, OUTPUT);
+	enc.begin();
 	// Main SPI pins enabled by default
-	SPI.begin(); 
+	//SPI.begin(); 
 	
 }
 

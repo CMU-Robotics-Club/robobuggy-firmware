@@ -146,7 +146,7 @@ void setup()
   Serial.println("NAND Booting Up!");
 
   // Workaround to set the status LED pin as an output
-  pinMode(29, OUTPUT);
+  /*pinMode(29, OUTPUT);
   digitalWrite(29, LOW);
 
   pinMode(STATUS_LED_PIN, OUTPUT);
@@ -183,7 +183,7 @@ void setup()
 
   delay(1000);
 
-  steering::calibrate();
+  steering::calibrate();*/
 }
 
 bool led_state = false;
@@ -300,7 +300,7 @@ void loop()
   /*             CSV Format                  */
   /* timestamp, type of data, <rest of data> */
 
-  RateLimit radio_tx_limit { 200 };
+  /*RateLimit radio_tx_limit { 200 };
 
   GpsUpdate last_gps_data { 0 };
   bool fresh_gps_data = false;
@@ -343,7 +343,7 @@ void loop()
   uint32_t last_predict_timestamp;
 
   double heading_rate = 0.0;
-
+  */
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
     /* ================================================ */
@@ -351,7 +351,7 @@ void loop()
     /* ================================================ */
 
     // Status LED
-    Rgb rgb;
+    /*Rgb rgb;
     if (kalman_init) {
       rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
     } else {
@@ -524,11 +524,11 @@ void loop()
       Serial.printf("SEQ      : %d\n", aaa);
       Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
       Serial.printf("Average radio send time: %f\n", radio_send_history.avg());
-      */
-    }
+      
+    }*/
 
     // send bogus gps data over the RFM69 radio if we do not have fresh gps data!!
-    if (radio_tx_limit.ready() && !fresh_gps_data) {
+    /*if (radio_tx_limit.ready() && !fresh_gps_data) {
       radio_tx_limit.reset();
       int radio_t1 = millis();
       if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
@@ -585,7 +585,7 @@ void loop()
       rt_packet.time = millis();
       rt_packet.soft_time = host_comms::software_time();
       host_comms::send_timestamp(rt_packet);
-    }
+    }*/
 
   }
 }

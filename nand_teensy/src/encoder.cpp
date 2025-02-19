@@ -104,6 +104,26 @@ float get_front_pos() {
 	return enc.getRotationInRadians();
 }
 
+uint16_t rawRot() {
+	return enc.getRawRotation();
+}
+
+uint16_t state() {
+	return enc.getState();
+}
+
+uint16_t gain() {
+	return enc.getGain();
+}
+
+
+
+double rotRad() {
+	return enc.getRotationInRadians();
+}
+
+
+
 uint16_t get_diagnostics(){
 	/*struct encoder_spi diagnostics_pkt;
 	uint16_t read_diagnostics_pkt = 0x7FFD;

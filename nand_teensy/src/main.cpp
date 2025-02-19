@@ -145,6 +145,12 @@ void setup()
   Serial.begin(115200);
   Serial.println("NAND Booting Up!");
 
+  Serial.println("Encoder starting initalization");
+  encoder::init();
+  Serial.println("Encoder initalized");
+  Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
+
+
   // Workaround to set the status LED pin as an output
   /*pinMode(29, OUTPUT);
   digitalWrite(29, LOW);
@@ -346,6 +352,10 @@ void loop()
   */
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
+    Serial.printf("Row rotation: %i\n",encoder::rawRot);
+    Serial.printf("State: %i\n",encoder::state());
+    Serial.printf("Gain: %i\n",encoder::gain());
+    Serial.printf("Position in radians: %d",encoder::rotRad());
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */

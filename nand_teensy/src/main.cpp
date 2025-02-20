@@ -352,10 +352,13 @@ void loop()
   */
   while (1) {
     unsigned long loop_update_elapsed_ms = millis();
-    Serial.printf("Row rotation: %i\n",encoder::rawRot);
-    Serial.printf("State: %i\n",encoder::state());
-    Serial.printf("Gain: %i\n",encoder::gain());
-    Serial.printf("Position in radians: %d",encoder::rotRad());
+      Serial.println("in loop!");
+    //Serial.printf("Row rotation: %i\n",encoder::rawRot);
+//    Serial.printf("State: %i\n",encoder::state());
+//    Serial.printf("Gain: %i\n",encoder::gain());
+//    Serial.printf("Position in radians: %d\n\n",encoder::rotRad());
+      Serial.printf("Front position: %d\n",encoder::raw_front_pos());
+      encoder::get_diagnostics();
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */

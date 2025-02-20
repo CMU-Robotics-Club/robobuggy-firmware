@@ -7,12 +7,10 @@
 #include <SPI.h>
 
 
-// #define ENCODER_I2C Wire
-// #define ENCODER_ADDR 0x36 // not used in this file, but this is the hard coded I2C address for the encoder
 #define CS_ENCODER 2 //TODO: which pin
 
 // SPI settings for encoder
-#define SPI_SPEED 5000000
+#define SPI_SPEED 500000
 SPISettings settings_enc(SPI_SPEED, MSBFIRST, SPI_MODE1); 
 
 #define DIAMETER_M (0.180)
@@ -29,12 +27,11 @@ namespace encoder {
 		bool parity_error;
 	};
 
-
 float positions_rad[HISTORY_LEN] = {0};
 unsigned long long times_us[HISTORY_LEN] = {0};
 int history_index = 0;
 int prev_time = 0; // time most recent call took place
-AS5048A enc = AS5048A(CS_ENCODER);
+// AS5048A enc { CS_ENCODER , true};
 
 int prev_time_millis() {
 	return prev_time;
@@ -86,8 +83,8 @@ bool calc_parity(uint16_t value) {
 	return parity_error;
 }
 
-float get_front_pos() {
-	/*struct encoder_spi angle_pkt;
+int raw_front_pos() {
+	struct encoder_spi angle_pkt;
 	uint16_t read_angle_pkt = 0x3FFF;
 	read_angle_pkt = read_angle_pkt | (0x1 << 14); // read command
 	bool parity = calc_parity(read_angle_pkt);
@@ -97,13 +94,16 @@ float get_front_pos() {
 
 	// TODO: error handling
 
-	int value = angle_pkt.pkt_val & 0x3FFF;
-	
-	float rad_val = (value<<1) * M_PI / 16384;
-	return rad_val;*/
-	return enc.getRotationInRadians();
+	int value = angle_pkt.pkt_val;// & 0x3FFF;
+	return value;
 }
 
+float get_front_pos() {
+	int value = encoder::raw_front_pos();
+	float rad_val = (value<<1) * M_PI / 16384;
+	return rad_val;
+}
+/*
 uint16_t rawRot() {
 	return enc.getRawRotation();
 }
@@ -120,12 +120,12 @@ uint16_t gain() {
 
 double rotRad() {
 	return enc.getRotationInRadians();
-}
+}*/
 
 
 
 uint16_t get_diagnostics(){
-	/*struct encoder_spi diagnostics_pkt;
+	struct encoder_spi diagnostics_pkt;
 	uint16_t read_diagnostics_pkt = 0x7FFD;
 	
 	diagnostics_pkt = read_pkt(read_diagnostics_pkt);
@@ -134,8 +134,7 @@ uint16_t get_diagnostics(){
 	Serial.printf("%i\n",diagnostics_pkt.pkt_val);
 	Serial.printf("%i\n",diagnostics_pkt.error_val);
 	Serial.printf("%i\n",diagnostics_pkt.recv_error);
-	Serial.printf("%i\n",diagnostics_pkt.parity_error);*/
-	Serial.printf("%s\n", enc.getDiagnostic());
+	Serial.printf("%i\n",diagnostics_pkt.parity_error);
 	return -1;
 }
 
@@ -154,11 +153,16 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 
 	//read
 	SPI.transfer16(rd_pkt);
+	digitalWrite(CS_ENCODER, HIGH);
+	digitalWrite(CS_ENCODER, LOW);
 	value = SPI.transfer16(clr_errorflag_pkt); // error_value returned next frame (if applicable)
+	digitalWrite(CS_ENCODER, HIGH);
 
 	if (value & errorflag_mask){
 		recv_error = 1;
+		digitalWrite(CS_ENCODER, LOW);
 		error_value = SPI.transfer16(0); // 0x0001 - framing, 0x0002 - command invalid, 0x0003 - parity error
+		digitalWrite(CS_ENCODER, HIGH);
 	}
 
 	digitalWrite (CS_ENCODER, HIGH);
@@ -191,10 +195,10 @@ double rear_speed(double steering_angle) {
 
 void init() {
 	// Init SPI
-	//pinMode(CS_ENCODER, OUTPUT);
-	enc.begin();
+	pinMode(CS_ENCODER, OUTPUT);
+//	enc.begin();
 	// Main SPI pins enabled by default
-	//SPI.begin(); 
+	SPI.begin(); 
 	
 }
 

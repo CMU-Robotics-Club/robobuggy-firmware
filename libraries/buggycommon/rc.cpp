@@ -82,6 +82,7 @@ namespace rc
 	 */
 	bool operator_ready()
 	{
+		//Serial.printf("Channel 9: %d\n",rc_controller.getChannel(CHANNEL_BRAKE_9));
 		if (connected())
 		{
 			return (rc_controller.getChannel(CHANNEL_BRAKE_9) > 1500);

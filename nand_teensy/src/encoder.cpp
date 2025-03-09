@@ -38,7 +38,15 @@ double front_speed() {
 	times_us[history_index] = micros();
 
 	int prev_index = (history_index + 1) % HISTORY_LEN;
-	float speed = -DIAMETER_M / 2.0 * 1e6 * (positions_rad[history_index] - positions_rad[prev_index]) / (times_us[history_index] - times_us[prev_index]);
+	int currPos = positions_rad[history_index];
+	int prevPos = positions_rad[prev_index];
+	// rollover: if we cross from a large angle back around to 0
+	if (prevPos > 270 && prevPos < 360 && currPos > 0 && currPos < 90) currPos += 360;
+	// rollover: if we cross from a small angle backwards to 0
+	if (currPos > 270 && currPos < 360 && prevPos > 0 && prevPos < 90) prevPos += 360;
+	
+	
+	float speed = -DIAMETER_M / 2.0 * 1e6 * (currPos - prevPos) / (times_us[history_index] - times_us[prev_index]);
 	// Serial.println(times_us[history_index] - times_us[prev_index]);
 	// Serial.println(positions_rad[history_index] - positions_rad[prev_index]);
 
@@ -93,7 +101,11 @@ int raw_front_pos() {
 
 float get_front_pos() {
 	int value = encoder::raw_front_pos();
-	float rad_val = (value<<1) * M_PI / 16384;
+	// this is a 14 bit encoder
+	// there are 360/(2^14 - 1) degrees per tick 
+	// this means there are 45.5 ish ticks per degree
+	// so we multiple 45.5 * 360 = 16383 to make math work
+	float rad_val = (value<<1) * M_PI / 16383;
 	return rad_val;
 }
 

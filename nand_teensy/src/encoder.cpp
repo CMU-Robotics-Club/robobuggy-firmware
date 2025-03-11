@@ -44,9 +44,9 @@ double front_speed() {
 	if (prevPos > 270 && prevPos < 360 && currPos > 0 && currPos < 90) currPos += 360;
 	// rollover: if we cross from a small angle backwards to 0
 	if (currPos > 270 && currPos < 360 && prevPos > 0 && prevPos < 90) prevPos += 360;
-	
-	
-	float speed = -DIAMETER_M / 2.0 * 1e6 * (currPos - prevPos) / (times_us[history_index] - times_us[prev_index]);
+	float rad_speed = (currPos-prevPos)/(times_us[history_index] - times_us[prev_index]);
+	Serial.printf("radial speed: %d\n",rad_speed);
+	float speed = -DIAMETER_M / 2.0 * 1e6 * rad_speed;
 	// Serial.println(times_us[history_index] - times_us[prev_index]);
 	// Serial.println(positions_rad[history_index] - positions_rad[prev_index]);
 

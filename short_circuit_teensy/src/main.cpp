@@ -28,8 +28,7 @@
 #define STEERING_ALARM_PIN 40
 #define LIMIT_SWITCH_RIGHT_PIN 8
 #define LIMIT_SWITCH_LEFT_PIN 7
-#define CENTER_STEP_OFFSET 150
-
+#define CENTER_STEP_OFFSET -4
 #define STATUS_LED_PIN 19
 
 // Start with steps per revolution of the stepper,

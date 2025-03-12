@@ -25,7 +25,7 @@
 */
 
 #include "gps.h"
-#include "buggyradio.h"
+//#include "buggyradio.h"
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
@@ -179,7 +179,7 @@ void setup()
 
   gps_init();
 
-  radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
+  //radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   host_comms::init();
 
@@ -522,12 +522,12 @@ void loop()
       fresh_gps_data = false;
       radio_tx_limit.reset();
       int radio_t1 = millis();
-      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix)) {
+      /*if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix)) {
         int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
         ++rfm69_timeout;
-      }
+      }*/
       int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 
@@ -548,12 +548,12 @@ void loop()
     if (radio_tx_limit.ready() && !fresh_gps_data) {
       radio_tx_limit.reset();
       int radio_t1 = millis();
-      if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
+      /*if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
         int radio_tF = millis() - radio_t1;
         Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
       }
-      else Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
+      else*/ Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
       int radio_tF = millis() - radio_t1;
         if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 

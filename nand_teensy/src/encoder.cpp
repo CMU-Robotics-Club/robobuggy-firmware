@@ -38,15 +38,18 @@ double front_speed() {
 	times_us[history_index] = micros();
 
 	int prev_index = (history_index + 1) % HISTORY_LEN;
-	int currPos = positions_rad[history_index];
-	int prevPos = positions_rad[prev_index];
+	float currPos = positions_rad[history_index];
+	float prevPos = positions_rad[prev_index];
 	// rollover: if we cross from a large angle back around to 0
-	if (prevPos > 270 && prevPos < 360 && currPos > 0 && currPos < 90) currPos += 360;
+	if (prevPos > 3*PI/2 && prevPos < 2*PI && currPos > 0 && currPos < PI/2) currPos += 2*PI;
 	// rollover: if we cross from a small angle backwards to 0
-	if (currPos > 270 && currPos < 360 && prevPos > 0 && prevPos < 90) prevPos += 360;
-	float rad_speed = (currPos-prevPos)/(times_us[history_index] - times_us[prev_index]);
-	Serial.printf("radial speed: %d\n",rad_speed);
-	float speed = -DIAMETER_M / 2.0 * 1e6 * rad_speed;
+	if (currPos > 3*PI/2 && currPos < 2*PI && prevPos > 0 && prevPos < PI/2) prevPos += 2*PI;
+	float rad_speed = (currPos-prevPos)/((times_us[history_index] - times_us[prev_index])/1e6);
+	/*Serial.printf("radial speed: %f\n",rad_speed);
+	Serial.printf("curPos: %f\n", currPos);
+	Serial.printf("prevPos: %f\n", prevPos);
+	Serial.printf("Time diff: %f\n", (times_us[history_index] - times_us[prev_index])/1e6);*/
+	float speed = DIAMETER_M / 2.0  * rad_speed;
 	// Serial.println(times_us[history_index] - times_us[prev_index]);
 	// Serial.println(positions_rad[history_index] - positions_rad[prev_index]);
 
@@ -133,6 +136,7 @@ uint16_t get_diagnostics(){
 }
 
 struct encoder_spi read_pkt(uint16_t rd_pkt) {
+	
 	uint16_t clr_errorflag_pkt = 1<<14 | 1; //0x8001
 	uint16_t errorflag_mask = 1<<14;
 
@@ -141,16 +145,23 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 	uint16_t value = 0;
 	uint16_t error_value = 0;
 	struct encoder_spi out_struct;
-
+	out_struct = {0};
+	//return out_struct;
 	SPI.beginTransaction(settings_enc);
+	Serial.println("begun transaction");
 	digitalWrite (CS_ENCODER, LOW);
-
+	Serial.println("Wrote low");
 	//read
 	SPI.transfer16(rd_pkt);
+	Serial.println("Transfer16");
 	digitalWrite(CS_ENCODER, HIGH);
+	Serial.println("Wrote high");
 	delayMicroseconds(1);
+	Serial.println("delayed 1 us");
 	digitalWrite(CS_ENCODER, LOW);
+	Serial.println("wrote low");
 	value = SPI.transfer16(clr_errorflag_pkt); // error_value returned next frame (if applicable)
+	Serial.printf("Rx val of: %x\n",value);
 	digitalWrite(CS_ENCODER, HIGH);
 	delayMicroseconds(1);
 
@@ -158,6 +169,7 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 		recv_error = 1;
 		digitalWrite(CS_ENCODER, LOW);
 		error_value = SPI.transfer16(0); // 0x0001 - framing, 0x0002 - command invalid, 0x0003 - parity error
+		Serial.printf("Rx error val of: %x\n", error_value);
 		digitalWrite(CS_ENCODER, HIGH);
 		delayMicroseconds(1);
 	}

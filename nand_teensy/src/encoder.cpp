@@ -5,11 +5,11 @@
 #define CS_ENCODER 2 // Chip select pin
 
 // SPI settings for encoder
-#define SPI_SPEED 500000
+#define SPI_SPEED 1 // Lowest SPI speed ~1MHz
 SPISettings settings_enc(SPI_SPEED, MSBFIRST, SPI_MODE1); 
 
 #define DIAMETER_M (0.180)
-#define HISTORY_LEN 1000
+#define HISTORY_LEN 10000
 #define NUM_VALS_AVG 5
 
 namespace encoder {
@@ -150,10 +150,11 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 	SPI.beginTransaction(settings_enc);
 	Serial.println("begun transaction");
 	digitalWrite (CS_ENCODER, LOW);
+	delayMicroseconds(1);
 	Serial.println("Wrote low");
 	//read
 	SPI.transfer16(rd_pkt);
-	Serial.println("Transfer16");
+	Serial.printf("sending %d\n",rd_pkt);
 	digitalWrite(CS_ENCODER, HIGH);
 	Serial.println("Wrote high");
 	delayMicroseconds(1);
@@ -162,18 +163,19 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 	Serial.println("wrote low");
 	value = SPI.transfer16(clr_errorflag_pkt); // error_value returned next frame (if applicable)
 	Serial.printf("Rx val of: %x\n",value);
+	delayMicroseconds(1);
 	digitalWrite(CS_ENCODER, HIGH);
 	delayMicroseconds(1);
 
-	if (value & errorflag_mask){
-		recv_error = 1;
-		digitalWrite(CS_ENCODER, LOW);
-		error_value = SPI.transfer16(0); // 0x0001 - framing, 0x0002 - command invalid, 0x0003 - parity error
-		Serial.printf("Rx error val of: %x\n", error_value);
-		digitalWrite(CS_ENCODER, HIGH);
-		delayMicroseconds(1);
-	}
-
+// 	if (value & errorflag_mask){
+// 		recv_error = 1;
+// 		digitalWrite(CS_ENCODER, LOW);
+// 		error_value = SPI.transfer16(0); // 0x0001 - framing, 0x0002 - command invalid, 0x0003 - parity error
+// 		Serial.printf("Rx error val of: %x\n", error_value);
+// 		digitalWrite(CS_ENCODER, HIGH);
+// 		delayMicroseconds(1);
+// 	}
+// 
 	digitalWrite (CS_ENCODER, HIGH);
 	delayMicroseconds(1);
 	SPI.endTransaction();

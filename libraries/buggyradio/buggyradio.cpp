@@ -43,7 +43,7 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
         }
     }
 
-    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb9_6Fd19_2)) {
+    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb2_4Fd4_8)) {
         while (1) {
             Serial.println("setModem failed");
             delay(100);

@@ -6,7 +6,7 @@ UKF::UKF(double wheelbase, double zeroth_sigma_point_weight, state_cov_matrix_t 
 {
   this->wheelbase = wheelbase;
   this->zeroth_sigma_point_weight = zeroth_sigma_point_weight;
-  this->speed = 0;
+  // this->speed = 0;
   this->process_noise = process_noise;
   this->gps_noise = gps_noise;
 }
@@ -137,9 +137,10 @@ void UKF::generate_sigmas(state_vector_t mean, state_cov_matrix_t covariance, st
 state_vector_t UKF::dynamics(state_vector_t state, input_vector_t input)
 {
   state_vector_t x;
-  x(0, 0) = this->speed * cos(state(2, 0));
-  x(1, 0) = this->speed * sin(state(2, 0));
-  x(2, 0) = this->speed * tan(input(0, 0)) / this->wheelbase;
+  x(0, 0) = state(3, 0) * cos(state(2, 0));
+  x(1, 0) = state(3, 0) * sin(state(2, 0));
+  x(2, 0) = state(3, 0) * tan(input(0, 0)) / this->wheelbase;
+  x(3, 0) = 0.0;
   return x;
 }
 
@@ -164,10 +165,10 @@ measurement_vector_t UKF::state_to_measurement(state_vector_t vector)
   return m;
 }
 
-void UKF::set_speed(double speed)
-{
-  this->speed = speed;
-}
+// void UKF::set_speed(double speed)
+// {
+//   this->speed = speed;
+// }
 
 void UKF::set_gps_noise(double accuracy)
 {
@@ -182,8 +183,8 @@ void UKF::set_gps_noise(double accuracy)
 void UKF::predict(input_vector_t input, double dt)
 {
   // Serial.printf("dt: %f\n", dt);
-  if (abs(this->speed) > MOVING_THRESHOLD)
-  {
+  // if (abs(this->curr_state_est(3, 0)) > MOVING_THRESHOLD)
+  // {
     state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
     double state_weights[2 * STATE_SPACE_DIM + 1];
     this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
@@ -208,7 +209,7 @@ void UKF::predict(input_vector_t input, double dt)
     }
 
     this->curr_state_cov += this->process_noise * dt;
-  }
+  // }
 }
 
 void UKF::update(measurement_vector_t measurement)

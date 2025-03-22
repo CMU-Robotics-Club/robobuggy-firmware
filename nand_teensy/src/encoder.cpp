@@ -147,6 +147,7 @@ struct encoder_spi read_pkt(uint16_t rd_pkt) {
 	struct encoder_spi out_struct;
 	out_struct = {0};
 	//return out_struct;
+	digitalWrite(CS_ENCODER, HIGH);
 	SPI.beginTransaction(settings_enc);
 	Serial.println("begun transaction");
 	digitalWrite (CS_ENCODER, LOW);
@@ -198,7 +199,9 @@ double rear_speed(double steering_angle) {
 void init() {
 	// Init SPI
 	pinMode(CS_ENCODER, OUTPUT);
+	digitalWrite(CS_ENCODER, HIGH);
 	SPI.begin(); 
+	delay(1000);
 }
 
 }

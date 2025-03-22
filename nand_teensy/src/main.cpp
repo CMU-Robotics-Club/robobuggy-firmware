@@ -29,7 +29,7 @@
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
-#include "encoder.h"
+//#include "encoder.h"
 #include "sd_logging.h"
 #include "host_comms.h"
 #include "status_led.h"
@@ -146,9 +146,9 @@ void setup()
   Serial.println("NAND Booting Up!");
 
   Serial.println("Encoder starting initalization");
-  encoder::init();
-  Serial.println("Encoder initalized");
-  Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
+  //encoder::init();
+  //Serial.println("Encoder initalized");
+  //Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
 
 
   // Workaround to set the status LED pin as an output
@@ -182,8 +182,6 @@ void setup()
   //radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
   host_comms::init();
-
-  encoder::init();
 
   // sd_logging::init();
 
@@ -338,9 +336,10 @@ void loop()
     1.0 / 3.0,
     // Process noise,
     state_cov_matrix_t{
-        {0.0001, 0.0, 0.0},
-        {0.0, 0.0001, 0.0},
-        {0.0, 0.0, 0.01}},
+        {0.0001, 0.0, 0.0, 0.0},
+        {0.0, 0.0001, 0.0, 0.0},
+        {0.0, 0.0, 0.01, 0.0},
+        {0.0, 0.0, 0.0, 1.0}},
     // GPS noise,
     measurement_cov_matrix_t{
         {0.01, 0.0},
@@ -356,9 +355,6 @@ void loop()
 //    Serial.printf("State: %i\n",encoder::state());
 //    Serial.printf("Gain: %i\n",encoder::gain());
 //    Serial.printf("Position in radians: %d\n\n",encoder::rotRad());
-      Serial.printf("Front speed: %f\n",encoder::front_speed());
-      encoder::get_diagnostics();
-      //delay(100);
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
@@ -436,17 +432,17 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.encoder_pos = encoder::get_front_pos();
+      debug_packet.encoder_pos = 0;//encoder::get_front_pos();
       host_comms::nand_send_debug(debug_packet);
     }
 
     uint32_t cur_time = micros();
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
-    filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
-    int i2c_time = encoder::prev_time_millis();
-    if(i2c_time>=5) {
+    //filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
+    //int i2c_time = encoder::prev_time_millis();
+    /*if(i2c_time>=5) {
       Serial.printf("First encoder time: %d\n",i2c_time);
-    }
+    }*/
     if (kalman_init) {
       filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
     }
@@ -479,11 +475,11 @@ void loop()
         filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
 
-      serial_log(millis(), encoder::rear_speed(steering::current_angle_degrees()), steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
-      i2c_time = encoder::prev_time_millis();
+      serial_log(millis(), 0/*encoder::rear_speed(steering::current_angle_degrees())*/, steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
+      /*i2c_time = encoder::prev_time_millis();
       if(i2c_time>=5) {
         Serial.printf("Second encoder time :%d\n",i2c_time);
-      }
+      }*/
       // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
 
       // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
@@ -508,10 +504,10 @@ void loop()
     host_comms::nand_send_raw_gps(raw_gps_packet);
   }
 
-    i2c_time = encoder::prev_time_millis();
+    /*i2c_time = encoder::prev_time_millis();
     if(i2c_time>=5) {
       Serial.printf("Third encoder time: %d\n",i2c_time);
-    }
+    }*/
 
     static int last_failed = millis();
 
@@ -592,7 +588,7 @@ void loop()
       ukf_packet.northern = filter.curr_state_est(1,0); 
 	    ukf_packet.heading = filter.curr_state_est(2,0);;
 	    ukf_packet.heading_rate = heading_rate; 
-	    ukf_packet.front_speed = encoder::front_speed();
+	    ukf_packet.front_speed = filter.curr_state_est(3,0);//encoder::front_speed();
 	    ukf_packet.timestamp = millis();
       host_comms::nand_send_ukf(ukf_packet);
     }

@@ -4,13 +4,14 @@
 
 /**
  * @brief STATE SPACE
- * Vector space of dimension 3.
- * First parameter represents x-location.
- * Second parameter represents y-location.
- * Third parameter represents heading in radians.
+ * Vector space of dimension 4.
+ * First state variable represents x-location.
+ * Second state variable represents y-location.
+ * Third state variable represents heading in radians.
+ * Fourth state variable represents buggy velocity in m/s.
  * 0 is positive along the x-axis, increasing CCW.
  */
-#define STATE_SPACE_DIM 3
+#define STATE_SPACE_DIM 4
 typedef Eigen::Matrix<double, STATE_SPACE_DIM, 1> state_vector_t;
 typedef Eigen::Matrix<double, STATE_SPACE_DIM, STATE_SPACE_DIM> state_cov_matrix_t;
 
@@ -50,8 +51,8 @@ private:
 public:
   UKF(double wheelbase, double zeroth_sigma_point_weight, state_cov_matrix_t process_noise, measurement_cov_matrix_t gps_noise);
 
-  double speed;
-  void set_speed(double speed);
+  // double speed;
+  // void set_speed(double speed);
   /**
    * @brief Sets the UKF's internal gps measurement covariance matrix.
    * 
@@ -75,10 +76,11 @@ public:
    * Initial estimations for state and covariance.
    * 
    */
-  state_vector_t curr_state_est{{0, 0, PI}}; 
-  state_cov_matrix_t curr_state_cov{{1e-1, 0, 0},
-                                    {0, 1e-1, 0},
-                                    {0, 0, 1e-1}};
+  state_vector_t curr_state_est{{0, 0, PI, 0}}; 
+  state_cov_matrix_t curr_state_cov{{1e-1, 0, 0, 0},
+                                    {0, 1e-1, 0, 0},
+                                    {0, 0, 1e-1, 0},
+                                    {0, 0, 0, 1e-1}};
 };
 
 state_vector_t get_col(state_cov_matrix_t A, int i);

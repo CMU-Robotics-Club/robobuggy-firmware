@@ -28,7 +28,7 @@
 #define STEERING_ALARM_PIN 40
 #define LIMIT_SWITCH_RIGHT_PIN 8
 #define LIMIT_SWITCH_LEFT_PIN 7
-#define CENTER_STEP_OFFSET -4
+#define CENTER_STEP_OFFSET 187
 #define STATUS_LED_PIN 19
 
 // Start with steps per revolution of the stepper,
@@ -164,6 +164,7 @@ void loop()
 
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
   steering::set_goal_angle(steering_command);
+  if (millis() % 1000 == 0) Serial.printf("STEERING COMMAND %f\n", STEPS_PER_DEGREE*steering_command);
 
   
 
@@ -248,8 +249,8 @@ void loop()
     if (std::optional<uint8_t> length = radio_receive(buf)) {
       Packet *p = (Packet *)buf;
       if (p->tag == GPS_X_Y) {
-        Serial.printf("S: %u X: %lf Y: %lf T: %u F: %u\n", p->seq, p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.gps_seq, (unsigned)p->gps_x_y.fix);
-        Serial.printf("RSSI: %i dBm\n", (int)radio_last_rssi());
+        //Serial.printf("S: %u X: %lf Y: %lf T: %u F: %u\n", p->seq, p->gps_x_y.x, p->gps_x_y.y, p->gps_x_y.gps_seq, (unsigned)p->gps_x_y.fix);
+        //Serial.printf("RSSI: %i dBm\n", (int)radio_last_rssi());
         host_comms::SCRadioRx nand;
         nand.nand_east = p->gps_x_y.x;
         nand.nand_north = p->gps_x_y.y;

@@ -29,4 +29,7 @@ namespace steering {
 
 	int left_step_limit();
 	int right_step_limit();
+
+	// Uses current stepper position as an offset, saves offset to EEPROM
+	void make_offset();
 }

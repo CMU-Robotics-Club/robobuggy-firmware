@@ -25,4 +25,10 @@ namespace rc {
 	// Returns true if the set offset switch has just been flipped
 	// Only triggers on rising edge of switch
 	bool temp_offset_switch();
+
+	// returns true if swtich F on TX12 (channel 6) is in high position
+	bool offset_switch();
+        
+        // returns true if button A on TX12 (channel 11) is pressed down
+	bool offset_button();
 }

@@ -203,7 +203,7 @@ namespace steering
         current_position -= offset;
         LEFT_STEPPER_LIMIT -= offset;
         RIGHT_SETPPER_LIMIT -= offset;
-        save_offset((uint32_t)offset);
+        save_offset((uint32_t)(offset + load_offset());
 	}
 
     float current_angle_degrees()

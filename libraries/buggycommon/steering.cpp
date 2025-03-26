@@ -138,10 +138,20 @@ namespace steering
         temporary_offset = degrees+temporary_offset;
     }
 
+    int32_t load_offset() {
+        uint32_t value = (
+            (EEPROM.read(0)) |
+            (EEPROM.read(1) << 8) | 
+            (EEPROM.read(2) << 16) | 
+            (EEPROM.read(3) << 24));
+        return (value==0xFFFFFFFF)?0:(int32_t)value;
+    }
+
+
     /**
      * @brief The steering motor performs the calibration sequence by rotating to both of the limit switches,
      * and then updating the step counter.
-     * This function must be called after init() but before moving the buggy.
+     * This function must be called after init() but before moving the buggy
      */
     void calibrate()
     {
@@ -167,7 +177,7 @@ namespace steering
         RIGHT_STEPPER_LIMIT = goal;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
-        int offset = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + center_step_offset;
+        int offset = load_offset();
         goal_position -= offset;
         current_position -= offset;
         LEFT_STEPPER_LIMIT -= offset;
@@ -178,6 +188,23 @@ namespace steering
         // Center the steering again
         set_goal_angle(0.0);
     }
+
+	void save_offsest(uint32_t offset) {
+		EEPROM.write(0, (uint8_t)offset);
+		EEPROM.write(1, (uint8_t)(offset >> 8));
+		EEPROM.write(2, (uint8_t)(offset >> 16));
+		EEPROM.write(3, (uint8_t)(offset >> 24));
+	}
+
+	void make_offset() {
+		if(!offset_switch() && !offset_button()) return;
+		int32_t offset = current_position;
+        goal_position -= offset;
+        current_position -= offset;
+        LEFT_STEPPER_LIMIT -= offset;
+        RIGHT_SETPPER_LIMIT -= offset;
+        save_offset((uint32_t)offset);
+	}
 
     float current_angle_degrees()
     {

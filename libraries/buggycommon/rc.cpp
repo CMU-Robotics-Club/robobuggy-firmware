@@ -22,6 +22,7 @@ namespace rc
 #define CHANNEL_SWITCH_B 7
 #define CHANNEL_SWITCH_C 8
 #define CHANNEL_BRAKE_9 9
+#define CHANNEL_CALIB_11 11
 
 	ArduinoCRSF rc_controller;
 	bool offset_switch_prev = false;
@@ -145,12 +146,16 @@ namespace rc
 		return rc_controller.getChannel(CHANNEL_SWITCH_E);
 	}
 
-	bool temp_offset_switch()
+	bool offset_switch()
 	{
-		bool offset_switch = (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
-		bool edge = offset_switch && !offset_switch_prev;
-		offset_switch_prev = offset_switch;
-		return edge;
+		return (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
 	}
+
+	bool offset_button()
+	{
+		return (rc_controller.getChannel(CHANNEL_CALIB_11) > 1750);
+	}
+
+
 
 } // namespace rc

@@ -521,8 +521,6 @@ void loop()
         last_failed = millis();
         ++rfm69_timeout;
       }
-      int radio_tF = millis() - radio_t1;
-        if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 
       radio_send_history.push(radio_send_elapsed);
 
@@ -547,8 +545,6 @@ void loop()
         last_failed = millis();
       }
       else Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
-      int radio_tF = millis() - radio_t1;
-        if(radio_tF>5) Serial.printf("Radio success: %d\n",radio_tF);
 
       radio_send_history.push(radio_send_elapsed);
     }

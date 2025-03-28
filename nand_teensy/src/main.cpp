@@ -407,7 +407,6 @@ void loop()
           double z = sensorValue.un.gyroscope.z;
 
           heading_rate = z;
-          Serial.printf("UPDATED HEADING RATE %f\n", heading_rate);
         }
       } else {
         int imu_tF = millis() - imu_t1;
@@ -449,9 +448,10 @@ void loop()
     elapsedMillis gps_update_elapsed = {};
     if (auto gps_coord = gps_update()) {
       int gps_tF = millis()-gps_t1;
+      /*
       if(gps_tF>=5){
         Serial.printf("GPS Time: %dms\n", gps_tF);
-      }
+      } */
 
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");

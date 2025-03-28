@@ -136,7 +136,6 @@ namespace steering
             (EEPROM.read(1) << 8) | 
             (EEPROM.read(2) << 16) | 
             (EEPROM.read(3) << 24));
-        Serial.printf("Loaded offset %d\n", value);
         return (value==0xFFFFFFFF)?0:(int32_t)value;
     }
 
@@ -187,7 +186,6 @@ namespace steering
 		EEPROM.write(1, (uint8_t)(offset >> 8));
 		EEPROM.write(2, (uint8_t)(offset >> 16));
 		EEPROM.write(3, (uint8_t)(offset >> 24));
-        Serial.printf("Written offset %d\n", offset);
 	}
 
 	void update_offset() {

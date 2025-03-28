@@ -77,7 +77,7 @@ void setup()
 
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE, CENTER_STEP_OFFSET);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
   status_led::init(STATUS_LED_PIN);
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
@@ -166,9 +166,7 @@ void loop()
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
   steering::set_goal_angle(steering_command);
 
-  
-
-  if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
+  if (rc::offset_button() && rc::offset_switch) steering::update_offset();
 
   if (rc::use_autonomous_steering()) {
     if (host_comms::message_age() > 1000) {

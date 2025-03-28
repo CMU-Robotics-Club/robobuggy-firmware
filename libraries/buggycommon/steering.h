@@ -7,7 +7,7 @@ namespace steering {
 		alarm,
 	};
 	// This begins a background timer interrupt that will send pulses on the stepper pins.
-	void init(int pulse_pin, int dir_pin, int alarm_pin, int left_stepper_switch, int right_stepper_switch, float steps_per_degree, int center_step_offset);
+	void init(int pulse_pin, int dir_pin, int alarm_pin, int left_stepper_switch, int right_stepper_switch, float steps_per_degree);
 
 	// Determine the left and right angle limits and then center the wheel.
 	// This will block until the calibration is done.
@@ -31,5 +31,5 @@ namespace steering {
 	int right_step_limit();
 
 	// Uses current stepper position as an offset, saves offset to EEPROM
-	void make_offset();
+	void update_offset();
 }

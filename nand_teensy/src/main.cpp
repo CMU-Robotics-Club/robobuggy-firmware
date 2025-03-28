@@ -54,7 +54,6 @@ using status_led::Rgb;
 #define STEERING_ALARM_PIN 39
 #define LIMIT_SWITCH_RIGHT_PIN 7
 #define LIMIT_SWITCH_LEFT_PIN 8
-#define CENTER_STEP_OFFSET 0
 
 // Start with steps per revolution of the stepper,
 // divide by 360 to get steps per degree of the stepper,
@@ -163,7 +162,7 @@ void setup()
 
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE, CENTER_STEP_OFFSET);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
   status_led::init(STATUS_LED_PIN);
 
@@ -375,8 +374,8 @@ void loop()
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 
-    if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
-
+    if (rc::offset_button() && rc::offset_switch) steering::update_offset();
+    
     brake::Status brake_command = brake::Status::Stopped;
     if (rc::operator_ready() && !(steering::alarm_triggered()==steering::Status::alarm)) {
       // Only roll if:

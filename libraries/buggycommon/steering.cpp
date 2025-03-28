@@ -1,5 +1,6 @@
 #include "steering.h"
 #include <Arduino.h>
+#include <EEPROM.h>
 
 namespace steering
 {
@@ -9,8 +10,6 @@ namespace steering
     static int left_stepper_switch_pin = -1;
     static int right_stepper_switch_pin = -1;
     static float steps_per_degree = 0.0;
-    static float temporary_offset = 0.0;
-    static int center_step_offset = 0;
 
 
 #define STEPS_PER_REV 1000 // steps per rotation
@@ -79,8 +78,7 @@ namespace steering
         int alarm_pin_,
         int left_stepper_switch_pin_,
         int right_stepper_switch_pin_,
-        float steps_per_degree_,
-        int center_step_offset_
+        float steps_per_degree_
     ) {
         pulse_pin = pulse_pin_;
         dir_pin = dir_pin_;
@@ -88,7 +86,6 @@ namespace steering
         left_stepper_switch_pin = left_stepper_switch_pin_;
         right_stepper_switch_pin = right_stepper_switch_pin_;
         steps_per_degree = steps_per_degree_;
-        center_step_offset = center_step_offset_;
 
         pinMode(left_stepper_switch_pin, INPUT_PULLUP);
         pinMode(right_stepper_switch_pin, INPUT_PULLUP);
@@ -130,12 +127,7 @@ namespace steering
 
     void set_goal_angle(float degrees)
     {
-        set_goal_step(steps_per_degree * (degrees+temporary_offset));
-    }
-
-    void set_offset(float degrees) 
-    {
-        temporary_offset = degrees+temporary_offset;
+        set_goal_step(steps_per_degree * degrees);
     }
 
     int32_t load_offset() {
@@ -144,6 +136,7 @@ namespace steering
             (EEPROM.read(1) << 8) | 
             (EEPROM.read(2) << 16) | 
             (EEPROM.read(3) << 24));
+        Serial.printf("Loaded offset %d\n", value);
         return (value==0xFFFFFFFF)?0:(int32_t)value;
     }
 
@@ -177,11 +170,11 @@ namespace steering
         RIGHT_STEPPER_LIMIT = goal;
         Serial.printf("Determined right limit (%d)\n", RIGHT_STEPPER_LIMIT);
 
-        int offset = load_offset();
-        goal_position -= offset;
-        current_position -= offset;
-        LEFT_STEPPER_LIMIT -= offset;
-        RIGHT_STEPPER_LIMIT -= offset;
+        int middle = (LEFT_STEPPER_LIMIT + RIGHT_STEPPER_LIMIT) / 2 + load_offset();
+        goal_position -= middle;
+        current_position -= middle;
+        LEFT_STEPPER_LIMIT -= middle;
+        RIGHT_STEPPER_LIMIT -= middle;
 
         Serial.println("Calibration finished.");
 
@@ -189,21 +182,24 @@ namespace steering
         set_goal_angle(0.0);
     }
 
-	void save_offsest(uint32_t offset) {
+	void write_offset(uint32_t offset) {
 		EEPROM.write(0, (uint8_t)offset);
 		EEPROM.write(1, (uint8_t)(offset >> 8));
 		EEPROM.write(2, (uint8_t)(offset >> 16));
 		EEPROM.write(3, (uint8_t)(offset >> 24));
+        Serial.printf("Written offset %d\n", offset);
 	}
 
-	void make_offset() {
-		if(!offset_switch() && !offset_button()) return;
+	void update_offset() {
+        cli();
 		int32_t offset = current_position;
         goal_position -= offset;
         current_position -= offset;
         LEFT_STEPPER_LIMIT -= offset;
-        RIGHT_SETPPER_LIMIT -= offset;
-        save_offset((uint32_t)(offset + load_offset());
+        RIGHT_STEPPER_LIMIT -= offset;
+        sei();
+        write_offset((uint32_t)(offset));
+        set_goal_angle(0.0);
 	}
 
     float current_angle_degrees()

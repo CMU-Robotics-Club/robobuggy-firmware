@@ -29,6 +29,8 @@ namespace rc
 
 	static uint8_t rxbuf[1024];
 
+	bool prev_offset_button_state = false;
+
 	/**
 	 * @brief Initializes hardware.  Should be called in the main setup() function.
 	 */
@@ -153,8 +155,22 @@ namespace rc
 
 	bool offset_button()
 	{
-		return (rc_controller.getChannel(CHANNEL_CALIB_11) > 1750);
+		// this isn't exactly pretty code, but basically the reason I have this in here is so that
+		// this function only returns true on a "rising edge" press of this offset button
+
+		bool curr_state = rc_controller.getChannel(CHANNEL_CALIB_11) > 1750;
+
+		if (!curr_state) {
+			prev_offset_button_state = false;
+			return false;
+		} else if (!prev_offset_button_state) {
+			prev_offset_button_state = true;
+			return true;
+		} else {
+			return false;
+		}
 	}
+
 
 
 

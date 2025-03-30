@@ -67,6 +67,7 @@ std::optional<GpsUpdate> gps_update() {
         static bool led_state;
         digitalWrite(LED_BUILTIN, led_state);
         led_state = !led_state;
+        gps.flushHPPOSLLH();
       }
     }
 

@@ -345,9 +345,12 @@ void loop()
   uint32_t last_predict_timestamp;
 
   double heading_rate = 0.0;
+
+  elapsedMicros time;
   
   while (1) {
-    unsigned long loop_update_elapsed_ms = millis();
+    uint32_t loop_update_elapsed_ms = micros();
+    time = 0;
     //Serial.printf("Row rotation: %i\n",encoder::rawRot);
 //    Serial.printf("State: %i\n",encoder::state());
 //    Serial.printf("Gain: %i\n",encoder::gain());
@@ -569,10 +572,7 @@ void loop()
 
     status_led::set_color(rgb);
 
-    unsigned long now_ms = millis();
-    if (now_ms - loop_update_elapsed_ms > 10) {
-      Serial.println(now_ms - loop_update_elapsed_ms);
-    }
+
 
     // send packet with UKF info
     if(ukf_packet_send_limit.ready()) {
@@ -593,6 +593,9 @@ void loop()
       host_comms::send_timestamp(rt_packet);
     }
 
+    if (time > 5000) {
+      Serial.printf("Long cycle time (microseconds): %lu\n", (unsigned long)time);
+    }
   }
 }
 

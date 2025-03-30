@@ -22,7 +22,7 @@ void gps_init() {
     delay(1000);
   }
 
-  gps.setI2COutput(COM_TYPE_UBX); bc
+  gps.setI2COutput(COM_TYPE_UBX);
   // bool setAutoHPPOSLLH(bool enabled, bool implicitUpdate, uint16_t maxWait = defaultMaxWait); // Enable/disable automatic HPPOSLLH reports at the navigation frequency, with implicitUpdate == false accessing stale data will not issue parsing of data in the rxbuffer of your interface, instead you have to call checkUblox when you want to perform an update
   gps.setAutoHPPOSLLH(true);
 

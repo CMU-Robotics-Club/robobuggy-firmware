@@ -375,7 +375,7 @@ void loop()
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
     steering::set_goal_angle(steering_command);
 
-    if (rc::offset_button() && rc::offset_switch) steering::update_offset();
+    if (rc::offset_button() && rc::offset_switch()) steering::update_offset();
     
     brake::Status brake_command = brake::Status::Stopped;
     if (rc::operator_ready() && !(steering::alarm_triggered()==steering::Status::alarm)) {

@@ -94,9 +94,10 @@ struct SCRadioRx {
 };
 
 struct Roundtrip {
+	// 64 bits
+	int64_t soft_time;
 	// 32 bits
 	int time;
-	float soft_time;
 };
 
 
@@ -115,7 +116,7 @@ uint32_t message_age();
 
 double steering_angle();
 
-float software_time();
+int64_t software_time();
 
 AlarmStatus alarm_status();
 

@@ -589,12 +589,13 @@ void loop()
     if(software_roundtrip.ready()) {
       host_comms::Roundtrip rt_packet;
       rt_packet.time = millis();
+      rt_packet.cycle_time = (int64_t) time;
       rt_packet.soft_time = host_comms::software_time();
       host_comms::send_timestamp(rt_packet);
     }
 
     if (time > 5000) {
-      Serial.printf("Long cycle time (microseconds): %lu\n", (unsigned long)time);
+      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)time);
     }
   }
 }

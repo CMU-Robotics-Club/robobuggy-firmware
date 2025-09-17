@@ -96,6 +96,8 @@ struct SCRadioRx {
 struct Roundtrip {
 	// 64 bits
 	int64_t soft_time;
+	// 64 bits
+	int64_t cycle_time; // the amount of microseconds (us) that the most recent cycle has taken.
 	// 32 bits
 	int time;
 };

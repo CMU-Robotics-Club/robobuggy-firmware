@@ -43,7 +43,11 @@ void radio_init(int pin_cs, int pin_int, int pin_rst) {
         }
     }
 
-    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb9_6Fd19_2)) {
+    if (!rf69->setModemConfig(RH_RF69::GFSK_Rb4_8Fd9_6)) {
+    /*	GFSK_Rb2Fd5,	    < GFSK, Whitening, Rb = 2kbs,    Fd = 5kHz
+        GFSK_Rb2_4Fd4_8,    < GFSK, Whitening, Rb = 2.4kbs,  Fd = 4.8kHz
+        GFSK_Rb4_8Fd9_6,    < GFSK, Whitening, Rb = 4.8kbs,  Fd = 9.6kHz
+        GFSK_Rb9_6Fd19_2,   < GFSK, Whitening, Rb = 9.6kbs,  Fd = 19.2kHz */
         while (1) {
             Serial.println("setModem failed");
             delay(100);

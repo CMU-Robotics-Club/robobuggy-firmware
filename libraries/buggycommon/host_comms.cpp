@@ -180,7 +180,7 @@ void init() {
 static uint32_t LAST_MESSAGE = 0;
 
 static double STEERING_ANGLE = 0.0;
-static float SOFT_TIME = 0;
+static int64_t SOFT_TIME = 0;
 
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
@@ -202,7 +202,7 @@ void poll() {
             ALARM_STATUS = (AlarmStatus)parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else if (parser.msg_type==MessageType::Soft_Timestamp) {
-            float *st = (float *)&parser.msg_buf[0];
+            int64_t *st = (int64_t *)&parser.msg_buf[0];
             SOFT_TIME = *st;
             LAST_MESSAGE = millis();
         } else {
@@ -223,7 +223,7 @@ AlarmStatus alarm_status() {
     return ALARM_STATUS;
 }
 
-float software_time() {
+int64_t software_time() {
     return SOFT_TIME;
 }
 

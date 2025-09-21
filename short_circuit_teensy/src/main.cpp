@@ -76,7 +76,7 @@ void setup()
 
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE, CENTER_STEP_OFFSET);
+  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
   status_led::init(STATUS_LED_PIN);
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
@@ -137,19 +137,19 @@ RateLimit debug_pkg_rate {100};
 RateLimit sensor_pkg_rate {50};
 RateLimit soft_time_rate{100};
 
+elapsedMicros elapsed_loop_micros;
+
 void loop()
 {
+  elapsed_loop_micros = 0;
   static History<uint32_t, LOG_COUNT> loop_time {};
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
 
-  uint32_t loop_start = millis();
-
   rc::update();
 
   host_comms::poll();
-
 
   Rgb blue   = { 0x00, 0x00, 0xFF };
   Rgb orange = { 0xFF, 0x80, 0x00 };
@@ -166,9 +166,7 @@ void loop()
   steering::set_goal_angle(steering_command);
   if (millis() % 1000 == 0) Serial.printf("STEERING COMMAND %f\n", STEPS_PER_DEGREE*steering_command);
 
-  
-
-  if (rc::temp_offset_switch()) steering::set_offset(rc::steering_angle()); 
+  if (rc::offset_button() && rc::offset_switch()) steering::update_offset();
 
   if (rc::use_autonomous_steering()) {
     if (host_comms::message_age() > 1000) {
@@ -317,7 +315,11 @@ void loop()
     host_comms::Roundtrip soft_time;
     soft_time.time = millis();
     soft_time.soft_time = host_comms::software_time();
+    soft_time.cycle_time = (int64_t) elapsed_loop_micros;
     host_comms::send_timestamp(soft_time);
+  }
+  if (elapsed_loop_micros > 3000) {
+    Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
   }
 
   /*

@@ -22,11 +22,15 @@ namespace rc
 #define CHANNEL_SWITCH_B 7
 #define CHANNEL_SWITCH_C 8
 #define CHANNEL_BRAKE_9 9
+#define CHANNEL_CALIB_11 11
+#define CHANNEL_CALIB_12 12
 
 	ArduinoCRSF rc_controller;
 	bool offset_switch_prev = false;
 
 	static uint8_t rxbuf[1024];
+
+	bool prev_offset_button_state = false;
 
 	/**
 	 * @brief Initializes hardware.  Should be called in the main setup() function.
@@ -145,12 +149,30 @@ namespace rc
 		return rc_controller.getChannel(CHANNEL_SWITCH_E);
 	}
 
-	bool temp_offset_switch()
+	bool offset_switch()
 	{
-		bool offset_switch = (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
-		bool edge = offset_switch && !offset_switch_prev;
-		offset_switch_prev = offset_switch;
-		return edge;
+		return (rc_controller.getChannel(CHANNEL_SWITCH_F) > 1750);
 	}
+
+	bool offset_button()
+	{
+		// this isn't exactly pretty code, but basically the reason I have this in here is so that
+		// this function only returns true on a "rising edge" press of this offset button
+
+		bool curr_state = rc_controller.getChannel(CHANNEL_CALIB_11) > 1750;
+
+		if (!curr_state) {
+			prev_offset_button_state = false;
+			return false;
+		} else if (!prev_offset_button_state && rc_controller.getChannel(CHANNEL_CALIB_12) > 1750) {
+			prev_offset_button_state = true;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+
+
 
 } // namespace rc

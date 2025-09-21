@@ -138,19 +138,19 @@ RateLimit debug_pkg_rate {100};
 RateLimit sensor_pkg_rate {50};
 RateLimit soft_time_rate{100};
 
+elapsedMicros elapsed_loop_micros;
+
 void loop()
 {
+  elapsed_loop_micros = 0;
   static History<uint32_t, LOG_COUNT> loop_time {};
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
   /* ================================================ */
 
-  uint32_t loop_start = millis();
-
   rc::update();
 
   host_comms::poll();
-
 
   Rgb blue   = { 0x00, 0x00, 0xFF };
   Rgb orange = { 0xFF, 0x80, 0x00 };
@@ -315,7 +315,11 @@ void loop()
     host_comms::Roundtrip soft_time;
     soft_time.time = millis();
     soft_time.soft_time = host_comms::software_time();
+    soft_time.cycle_time = (int64_t) elapsed_loop_micros;
     host_comms::send_timestamp(soft_time);
+  }
+  if (elapsed_loop_micros > 3000) {
+    Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
   }
 
   /*

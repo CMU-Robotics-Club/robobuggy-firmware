@@ -11,6 +11,10 @@ enum PacketType : uint32_t {
     STEER_ANGLE
 };
 
+/**
+ * @brief TODO: WRITE COMMENTS
+ * also give it a better structure name ffs
+ */
 struct Packet {
     PacketType tag;
     uint32_t seq; // increments by one with every *radio* message sent

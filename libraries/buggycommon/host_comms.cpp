@@ -227,6 +227,7 @@ int64_t software_time() {
     return SOFT_TIME;
 }
 
+// TODO: consider changing all the "send packet" functions from pass by value into pass by reference for optimization.
 void nand_send_debug(NANDDebugInfo info) {
     Crc16 checksum = {};
 

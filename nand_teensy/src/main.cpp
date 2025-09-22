@@ -63,8 +63,6 @@ const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (32.0 / 15.0);
 
 #define BNO_085_INT 20
 
-#define RADIO_TX_PERIOD_MS 100
-
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
 
@@ -99,6 +97,9 @@ uint64_t positivePow(uint64_t base, uint64_t power)
   return result;
 }
 
+/**
+ * @brief Configure the IMU report type
+ */
 void setReports(void) {
   Serial.println("Setting desired reports");
   /*if (!bno08x.enableReport(SH2_ACCELEROMETER)) {
@@ -166,6 +167,7 @@ void setup()
 
   status_led::init(STATUS_LED_PIN);
 
+  // Configuration for I2C bus
   Wire.begin();
   Wire.setClock(400000);
 
@@ -188,9 +190,6 @@ void setup()
 }
 
 bool led_state = false;
-
-uint64_t last_gps_time = 0;
-uint64_t last_local_time = millis();
 
 class RateLimit {
 public:
@@ -259,6 +258,9 @@ private:
   size_t length;
 };
 
+/**
+ * @brief Helper function for printing UKF data
+ */
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov) {
   return;
   Serial.printf("%9.3f ", time_ms / 1000.0);
@@ -303,8 +305,14 @@ void loop()
 
   RateLimit radio_tx_limit { 200 };
 
+  /**
+   * @brief Variable for storing the most recent data from the GPS
+   */
   GpsUpdate last_gps_data { 0 };
   bool fresh_gps_data = false;
+  /**
+   * @brief Counter/index for tracking the number of GPS readings
+   */
   int gps_sequence_number = 0;
 
   History<uint32_t, 10> gps_time_history {};
@@ -312,11 +320,10 @@ void loop()
   History<uint32_t, 10> radio_send_history {};
 
   RateLimit imu_poll_limit { 5 };
-  RateLimit software_roundtrip { 5 };
-  RateLimit ukf_packet_send_limit { 10 };
-  // NOT IN USE // RateLimit bnya_telem_limit { 10 };
-  RateLimit debug_packet_send_limit { 50 };
-  RateLimit raw_gps_packet_send_limit { 250 };
+  RateLimit timing_pkt_send_rate { 5 };
+  RateLimit ukf_pkt_send_rate { 10 };
+  RateLimit debug_pkt_send_rate { 50 };
+  RateLimit gps_pkt_send_rate { 250 };
 
   Rgb  dark_green = { 0x00, 0xD0, 0x00 };
   Rgb light_green = { 0x00, 0xFF, 0x20 };
@@ -342,15 +349,14 @@ void loop()
         {0.01, 0.0},
         {0.0, 0.01}});
   bool kalman_init = false;
-  uint32_t last_predict_timestamp;
+  uint32_t last_predict_timestamp; // the timestamp at which the UKF predict step was run most recently
 
   double heading_rate = 0.0;
 
-  elapsedMicros time;
+  elapsedMicros elapsed_loop_micros;
   
   while (1) {
-    uint32_t loop_update_elapsed_ms = micros();
-    time = 0;
+    elapsed_loop_micros = 0;
     //Serial.printf("Row rotation: %i\n",encoder::rawRot);
 //    Serial.printf("State: %i\n",encoder::state());
 //    Serial.printf("Gain: %i\n",encoder::gain());
@@ -417,7 +423,7 @@ void loop()
       }
     }
 
-    if(debug_packet_send_limit.ready()) {
+    if(debug_pkt_send_rate.ready()) {
       host_comms::NANDDebugInfo debug_packet;
       debug_packet.brake_status = brake_command;
       debug_packet.rc_steering_angle = rc::steering_angle();
@@ -435,7 +441,7 @@ void loop()
       host_comms::nand_send_debug(debug_packet);
     }
 
-    uint32_t cur_time = micros();
+    uint32_t cur_time = micros(); // timing variable for UKF
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
     //filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
     //int i2c_time = encoder::prev_time_millis();
@@ -447,15 +453,8 @@ void loop()
     }
     last_predict_timestamp = cur_time;
 
-    int gps_t1 = millis();
-    elapsedMillis gps_update_elapsed = {};
+    elapsedMillis gps_update_elapsed = 0; // timer for timing how long reading from the GPS takes
     if (auto gps_coord = gps_update()) {
-      int gps_tF = millis()-gps_t1;
-      /*
-      if(gps_tF>=5){
-        Serial.printf("GPS Time: %dms\n", gps_tF);
-      } */
-
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->x;
@@ -487,12 +486,12 @@ void loop()
     }
     else
     {
-      int gps_tF = millis()-gps_t1;
+      int gps_tF = gps_update_elapsed;
       if(gps_tF>=5){
         Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
-  if (raw_gps_packet_send_limit.ready()) {
+  if (gps_pkt_send_rate.ready()) {
     host_comms::NANDRawGPS raw_gps_packet;
     raw_gps_packet.eastern = last_gps_data.x;
     raw_gps_packet.northern = last_gps_data.y;
@@ -509,6 +508,7 @@ void loop()
       Serial.printf("Third encoder time: %d\n",i2c_time);
     }*/
 
+    // TODO cleanup
     static int last_failed = millis();
 
     int t1 = millis();
@@ -575,18 +575,18 @@ void loop()
 
 
     // send packet with UKF info
-    if(ukf_packet_send_limit.ready()) {
+    if(ukf_pkt_send_rate.ready()) {
       host_comms::NANDUKF ukf_packet;
       ukf_packet.eastern = filter.curr_state_est(0,0);
       ukf_packet.northern = filter.curr_state_est(1,0); 
-	    ukf_packet.heading = filter.curr_state_est(2,0);;
+	    ukf_packet.heading = filter.curr_state_est(2,0);
 	    ukf_packet.heading_rate = heading_rate; 
 	    ukf_packet.front_speed = filter.curr_state_est(3,0);//encoder::front_speed();
 	    ukf_packet.timestamp = millis();
       host_comms::nand_send_ukf(ukf_packet);
     }
 
-    if(software_roundtrip.ready()) {
+    if(timing_pkt_send_rate.ready()) {
       host_comms::Roundtrip rt_packet;
       rt_packet.time = millis();
       rt_packet.cycle_time = (int64_t) time;
@@ -594,8 +594,8 @@ void loop()
       host_comms::send_timestamp(rt_packet);
     }
 
-    if (time > 5000) {
-      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)time);
+    if (elapsed_loop_micros > 5000) {
+      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }
   }
 }

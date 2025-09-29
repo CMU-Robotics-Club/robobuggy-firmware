@@ -320,7 +320,7 @@ void loop()
   History<uint32_t, 10> radio_send_history {};
 
   RateLimit imu_poll_limit { 5 };
-  RateLimit timing_pkt_send_rate { 5 };
+  RateLimit timing_pkt_send_rate { 100 };
   RateLimit ukf_pkt_send_rate { 10 };
   RateLimit debug_pkt_send_rate { 50 };
   RateLimit gps_pkt_send_rate { 250 };
@@ -375,7 +375,6 @@ void loop()
     rc::update();
 
     host_comms::poll();
-
     static int rfm69_timeout = 0;
 
     float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
@@ -396,6 +395,7 @@ void loop()
     }
     brake::set(brake_command);
 
+    elapsedMicros imu_elapsed_micros = 0;
     // IMU code
     if (imu_poll_limit.ready()) {
       if (bno08x.wasReset()) {
@@ -421,6 +421,10 @@ void loop()
         int imu_tF = millis() - imu_t1;
         if(imu_tF > 5) Serial.printf("IMU no event, time: %d\n",imu_tF);
       }
+    }
+
+    if (imu_elapsed_micros > 10) {
+      Serial.printf("IMU Time:\t %lu\n", (uint64_t)imu_elapsed_micros);
     }
 
     if(debug_pkt_send_rate.ready()) {
@@ -453,7 +457,7 @@ void loop()
     }
     last_predict_timestamp = cur_time;
 
-    elapsedMillis gps_update_elapsed = 0; // timer for timing how long reading from the GPS takes
+    elapsedMicros gps_update_elapsed = 0; // timer for timing how long reading from the GPS takes
     if (auto gps_coord = gps_update()) {
       if (!kalman_init && gps_coord->accuracy < 50.0) {
         Serial.println("GPS accuracy OK, initializing filter");
@@ -487,7 +491,7 @@ void loop()
     else
     {
       int gps_tF = gps_update_elapsed;
-      if(gps_tF>=5){
+      if(gps_tF>=5000){
         Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
@@ -503,46 +507,55 @@ void loop()
     host_comms::nand_send_raw_gps(raw_gps_packet);
   }
 
-    /*i2c_time = encoder::prev_time_millis();
-    if(i2c_time>=5) {
-      Serial.printf("Third encoder time: %d\n",i2c_time);
-    }*/
+  if (gps_update_elapsed > 1) {
+    Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
+  }
 
-    // TODO cleanup
-    static int last_failed = millis();
+  /*i2c_time = encoder::prev_time_millis();
+  if(i2c_time>=5) {
+    Serial.printf("Third encoder time: %d\n",i2c_time);
+  }*/
 
-    int t1 = millis();
+  // TODO cleanup
+  /**
+   * @brief The timestamp (millis) at which the most recent radio send failure occured.
+   */
+  static int last_failed = millis();
 
-    elapsedMillis radio_send_elapsed = {};
-    if (radio_tx_limit.ready() || fresh_gps_data) {
-      fresh_gps_data = false;
-      radio_tx_limit.reset();
-      int radio_t1 = millis();
-      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix)) {
-        int radio_tF = millis() - radio_t1;
-        if(radio_tF>5) Serial.printf("Radio failed: %d\n",radio_tF);
-        last_failed = millis();
-        ++rfm69_timeout;
-      }
+  int t1 = millis();
 
-      radio_send_history.push(radio_send_elapsed);
-
-      static int aaa =0;
-      ++aaa;
-
-      /*
-      Serial.printf("SEQ: %d\n", gps_sequence_number);
-      Serial.printf("SEQ      : %d\n", aaa);
-      Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
-      Serial.printf("Average radio send time: %f\n", radio_send_history.avg());*/
-      
+  elapsedMicros radio_send_elapsed = 0;
+  if (radio_tx_limit.ready() || fresh_gps_data)
+  {
+    fresh_gps_data = false;
+    radio_tx_limit.reset();
+    int radio_t1 = millis();
+    if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix, (uint8_t)rc::use_autonomous_steering()))
+    {
+      int radio_tF = millis() - radio_t1;
+      if (radio_tF > 5)
+        Serial.printf("Radio failed: %d\n", radio_tF);
+      last_failed = millis();
+      ++rfm69_timeout;
     }
+
+    radio_send_history.push(radio_send_elapsed);
+
+    static int aaa = 0;
+    ++aaa;
+
+    /*
+    Serial.printf("SEQ: %d\n", gps_sequence_number);
+    Serial.printf("SEQ      : %d\n", aaa);
+    Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
+    Serial.printf("Average radio send time: %f\n", radio_send_history.avg());*/
+  }
 
     // send bogus gps data over the RFM69 radio if we do not have fresh gps data!!
     if (radio_tx_limit.ready() && !fresh_gps_data) {
       radio_tx_limit.reset();
       int radio_t1 = millis();
-      if (!radio_send_gps(0, 0, gps_sequence_number, 213)) {
+      if (!radio_send_gps(0, 0, gps_sequence_number, 213, 0)) {
         int radio_tF = millis() - radio_t1;
         Serial.printf("Radio failed: %d\n",radio_tF);
         last_failed = millis();
@@ -567,6 +580,10 @@ void loop()
       rgb = ((millis() % 500) > 250) ? dark_red : black;
     }
 
+    if (radio_send_elapsed > 10) {
+      Serial.printf("Radio send (us):\t%lu\n", (uint64_t) radio_send_elapsed);
+    }
+
 
     // send all of the bnyah serial packets
 
@@ -589,7 +606,7 @@ void loop()
     if(timing_pkt_send_rate.ready()) {
       host_comms::Roundtrip rt_packet;
       rt_packet.time = millis();
-      rt_packet.cycle_time = (int64_t) time;
+      rt_packet.cycle_time = (int64_t) elapsed_loop_micros;
       rt_packet.soft_time = host_comms::software_time();
       host_comms::send_timestamp(rt_packet);
     }

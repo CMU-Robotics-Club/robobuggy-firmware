@@ -73,7 +73,7 @@ bool radio_transmit(const uint8_t *data, size_t size) {
 
 static int radio_seq_number = 0;
 
-bool radio_send_gps(double x, double y, uint32_t gps_seq_number, uint8_t fix) {
+bool radio_send_gps(double x, double y, uint32_t gps_seq_number, uint8_t fix, uint8_t auton) {
     Packet p{};
     p.tag = GPS_X_Y;
     p.seq = radio_seq_number++;
@@ -81,6 +81,7 @@ bool radio_send_gps(double x, double y, uint32_t gps_seq_number, uint8_t fix) {
     p.gps_x_y.y = y;
     p.gps_x_y.gps_seq = gps_seq_number;
     p.gps_x_y.fix = fix;
+    p.gps_x_y.auton = auton;
     return radio_transmit((uint8_t*)&p, sizeof(p));
 }
 

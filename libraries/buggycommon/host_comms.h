@@ -90,7 +90,8 @@ struct SCRadioRx {
 	uint32_t gps_seq;
 	// 8 bits
 	uint8_t nand_fix;
-	uint8_t padding[3];
+	uint8_t nand_auton;
+	uint8_t padding[2];
 };
 
 struct Roundtrip {

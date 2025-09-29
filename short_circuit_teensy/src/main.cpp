@@ -284,6 +284,7 @@ void loop()
         nand_pkt.nand_north = p->gps_x_y.y;
         nand_pkt.gps_seq = p->gps_x_y.gps_seq;
         nand_pkt.nand_fix = p->gps_x_y.fix;
+        nand_pkt.nand_auton = p->gps_x_y.auton;
         host_comms::sc_send_nand_pos(nand_pkt);
         //host_comms::send_nand_odometry(p->gps_x_y.x, p->gps_x_y.y, p->seq, p->gps_x_y.gps_seq);
         //nand_fix = p->gps_x_y.fix;

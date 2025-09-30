@@ -179,7 +179,8 @@ void init() {
 
 static uint32_t LAST_MESSAGE = 0;
 
-static double STEERING_ANGLE = 0.0;
+static SteeringMessage STEERING_MESSAGE = {0, 0};
+
 static int64_t SOFT_TIME = 0;
 
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
@@ -190,7 +191,7 @@ void poll() {
     while (parser.update()) {
         // We got a new packet
         if (parser.msg_type == MessageType::Soft_Angle) {
-            memcpy(&STEERING_ANGLE, parser.msg_buf, sizeof(STEERING_ANGLE));
+            STEERING_MESSAGE = *(SteeringMessage*)&parser.msg_buf[0];
             LAST_MESSAGE = millis();
         } else if (parser.msg_type == MessageType::Soft_Brake) {
             // TODO: decide on a format
@@ -216,7 +217,11 @@ uint32_t message_age() {
 }
 
 double steering_angle() {
-    return STEERING_ANGLE;
+    return STEERING_MESSAGE.steering_angle;
+}
+
+uint32_t ukf_steering_timestamp() {
+    return STEERING_MESSAGE.ukf_steering_timestamp;
 }
 
 AlarmStatus alarm_status() {

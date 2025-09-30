@@ -7,5 +7,7 @@
 			"path": "libraries"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"editor.formatOnSave": true
+	}
 }

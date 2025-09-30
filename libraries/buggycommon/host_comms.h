@@ -34,7 +34,7 @@ struct NANDUKF {
 	double heading_rate; // positive when accelerating in CCW direction
 	double front_speed; // speed of the front wheel
 	// 32 bits
-	int timestamp; // teensy timestamp
+	uint32_t timestamp; // teensy timestamp, in MICROseconds!
 };
 
 struct NANDRawGPS {
@@ -103,6 +103,10 @@ struct Roundtrip {
 	int time;
 };
 
+struct SteeringMessage {
+	double steering_angle;
+	uint32_t ukf_steering_timestamp; // the timestamp (in micros) of when the ukf packet corresponding to this command was sent
+};
 
 enum AlarmStatus : uint8_t {
 	Ok      = 0,
@@ -118,6 +122,9 @@ void poll();
 uint32_t message_age();
 
 double steering_angle();
+
+// Returns the timestamp in micros at which the UKF packet corresponding to this command was sent to software
+uint32_t ukf_steering_timestamp();
 
 int64_t software_time();
 

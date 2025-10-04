@@ -160,6 +160,8 @@ RateLimit sensor_pkt_send_rate {50};
  */
 RateLimit timing_packet_send_rate{100};
 
+RateLimit color_print_rate {100};
+
 elapsedMicros elapsed_loop_micros;
 void loop()
 {
@@ -186,7 +188,6 @@ void loop()
 
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
   steering::set_goal_angle(steering_command);
-  if (millis() % 1000 == 0) Serial.printf("STEERING COMMAND %f\n", STEPS_PER_DEGREE*steering_command);
 
   if (rc::offset_button() && rc::offset_switch()) steering::update_offset();
 
@@ -243,6 +244,8 @@ void loop()
   }
 
   status_led::set_color(status_color);
+  if (color_print_rate.ready())
+  Serial.printf("Red: %x Green %x Blue %x\n",status_color.r, status_color.g, status_color.b);
 
   brake::Status brake_command = brake::Status::Stopped;
   //Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());

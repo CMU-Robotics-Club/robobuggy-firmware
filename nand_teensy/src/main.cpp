@@ -287,13 +287,17 @@ private:
  */
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
-  return;
-  Serial.printf("%9.3f ", time_ms / 1000.0);
-  Serial.printf("% 6.3f ", speed_mps);
-  Serial.printf("% 6.3f ", degrees(steering_rad));
-  Serial.printf("% 12.3f ", state_est(0, 0));
-  Serial.printf("% 12.3f ", state_est(1, 0));
-  Serial.printf("% 7.3f ", degrees(state_est(2, 0)));
+  double heading = degrees(state_est(2, 0));
+  heading += 360;
+  fmod(heading, 360);
+  heading += 360;
+
+  Serial.printf("time: %9.3f ", time_ms / 1000.0);
+  // Serial.printf("speed: % 6.3f ", speed_mps);
+  Serial.printf("steering: % 6.3f ", degrees(steering_rad));
+  Serial.printf("x: % 12.3f ", state_est(0, 0));
+  Serial.printf("y: % 12.3f ", state_est(1, 0));
+  Serial.printf("heading: % 7.3f ", degrees(state_est(2, 0)));
   Serial.printf("%6.3e ", state_cov(0, 0));
   Serial.printf("%6.3e ", state_cov(1, 1));
   Serial.printf("%6.3e ", state_cov(2, 2));
@@ -413,7 +417,7 @@ void loop()
     if (control_latency_print_limit.ready())
     {
       uint32_t control_latency = micros() - host_comms::ukf_steering_timestamp();
-      Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
+      // Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
     }
 
     if (rc::offset_button() && rc::offset_switch())

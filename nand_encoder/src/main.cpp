@@ -26,12 +26,12 @@ private:
   int last_time = millis();
 };
 
-RateLimit enc_read_limit {100};
+RateLimit enc_read_limit {10};
 RateLimit serial_send_limit {100};
 
 void setup() {
   encoder::init();
-  Serial1.begin(115200);
+  Serial.begin(115200);
 }
 
 void loop() {
@@ -39,8 +39,8 @@ void loop() {
     encoder::get_pos();
   }
   if(serial_send_limit.ready()) {
-    Serial1.printf("%c%c%c%c",0xAA,0xFF,0x00,0x55);
-    Serial1.printf("%d",encoder::get_speed());
-    Serial1.flush();
+    // Serial.printf("%c%c%c%c",0xAA,0xFF,0x00,0x55);
+    Serial.println(encoder::get_speed());
+    Serial.flush();
   }
 }

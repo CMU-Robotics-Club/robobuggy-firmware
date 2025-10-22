@@ -36,7 +36,7 @@ namespace encoder {
     }
 
     angle_time *read_buffer(size_t index_) {
-        size_t index = index_ % BUFFER_SIZE;
+        size_t index = (index_ + BUFFER_SIZE) % BUFFER_SIZE;
         return &ang_buffer[index];
     }
 
@@ -70,10 +70,10 @@ namespace encoder {
     }
 
     double get_speed() {
-        angle_time *cur = read_buffer(buf_index);
-        angle_time *prev = read_buffer(buf_index+1);
+        angle_time *cur = read_buffer(buf_index-1);
+        angle_time *prev = read_buffer(buf_index-2);
         double dist = scale(cur->a.angle)-scale(prev->a.angle);
-        double time = (double)(cur->time - prev->time) * 1000.0;
+        double time = (double)(cur->time - prev->time) / 1000.0;
         return dist / time;
     }
 }

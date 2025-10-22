@@ -35,12 +35,19 @@ void setup() {
 }
 
 void loop() {
+  bool writes_good = false;
   if(enc_read_limit.ready()) {
     encoder::get_pos();
   }
   if(serial_send_limit.ready()) {
     // Serial.printf("%c%c%c%c",0xAA,0xFF,0x00,0x55);
-    Serial.println(encoder::get_speed());
-    Serial.flush();
+    if(!writes_good) {
+      if(encoder::buf_writes > 100) writes_good = true;
+      Serial.println(encoder::get_speed());
+      Serial.flush();
+    } else {
+      Serial.println(encoder::get_speed());
+      Serial.flush();
+    }
   }
 }

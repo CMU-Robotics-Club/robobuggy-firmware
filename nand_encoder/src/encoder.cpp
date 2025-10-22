@@ -14,6 +14,7 @@ namespace encoder {
     angles_t int_ang;
     angle_time ang_buffer[BUFFER_SIZE];
     size_t buf_index;
+    size_t buf_writes;
 
     void init() {
         Wire.begin();
@@ -25,12 +26,14 @@ namespace encoder {
             ang_buffer->a.raw_angle = 0;
             ang_buffer->time = 0;
         }
+        buf_writes = 0;
     }
 
     void write_buffer() {
         ang_buffer[buf_index].a = int_ang;
         ang_buffer[buf_index].time = millis();
         ++buf_index;
+        ++buf_writes
         if(buf_index >= BUFFER_SIZE) buf_index = 0;
     }
 

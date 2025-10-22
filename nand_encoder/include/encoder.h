@@ -16,4 +16,5 @@ namespace encoder {
     void get_pos();
     void pos(angles_t *a);
     double get_speed();
+    size_t buf_writes;
 }

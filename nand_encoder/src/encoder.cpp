@@ -6,7 +6,7 @@
 #define FIX_REGISTER 0x0E
 #define QUANTITY 2
 #define STOP true
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 100
 #define RAW_SCALE 4096.0
 #define ANG_SCALE 360.0
 

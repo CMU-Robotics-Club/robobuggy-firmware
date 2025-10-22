@@ -75,6 +75,7 @@ namespace encoder {
         angle_time *cur = read_buffer(buf_index-1);
         angle_time *prev = read_buffer(buf_index);
         int ang_dif = cur->a.angle - prev->a.angle; // maybe try raw_angle instead?
+        // if ang_dif is -ve, add RAW_SCALE?
         double dist = scale(ang_dif); // try ang_dif % RAW_SCALE
         double time = (double)(cur->time - prev->time) / 1000.0;
         return dist / time;

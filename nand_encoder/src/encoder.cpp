@@ -8,8 +8,7 @@
 #define STOP true
 #define BUFFER_SIZE 100
 #define RAW_SCALE 4096.0
-#define ANG_SCALE 360.0
-
+#define CIRCUMFERENCE 0.5186
 
 namespace encoder {
     angles_t int_ang;
@@ -65,8 +64,8 @@ namespace encoder {
     }
 
     long double scale(int raw) {
-        double s = (double)raw / RAW_SCALE;
-        return s * ANG_SCALE;
+        double s = (double)raw / RAW_SCALE; // s is the fraction of a full spin
+        return s * CIRCUMFERENCE; // multiply by circumference to get arc length, which is dist over ground
     }
 
     double get_speed() {

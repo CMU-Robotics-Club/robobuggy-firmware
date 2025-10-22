@@ -71,7 +71,7 @@ namespace encoder {
 
     double get_speed() {
         angle_time *cur = read_buffer(buf_index-1);
-        angle_time *prev = read_buffer(buf_index-2);
+        angle_time *prev = read_buffer(buf_index);
         double dist = scale(cur->a.angle)-scale(prev->a.angle);
         double time = (double)(cur->time - prev->time) / 1000.0;
         return dist / time;

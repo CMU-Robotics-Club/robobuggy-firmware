@@ -8,6 +8,7 @@
 #define STOP true
 #define BUFFER_SIZE 100
 #define RAW_SCALE 4096.0
+#define RAW_SCALE_INT 4096
 #define CIRCUMFERENCE 0.5186
 
 namespace encoder {
@@ -33,7 +34,7 @@ namespace encoder {
         ang_buffer[buf_index].a = int_ang;
         ang_buffer[buf_index].time = millis();
         ++buf_index;
-        ++buf_writes
+        ++buf_writes;
         if(buf_index >= BUFFER_SIZE) buf_index = 0;
     }
 
@@ -74,10 +75,13 @@ namespace encoder {
     double get_speed() {
         angle_time *cur = read_buffer(buf_index-1);
         angle_time *prev = read_buffer(buf_index);
-        int ang_dif = cur->a.angle - prev->a.angle; // maybe try raw_angle instead?
-        // if ang_dif is -ve, add RAW_SCALE?
-        double dist = scale(ang_dif); // try ang_dif % RAW_SCALE
+        int ang_dif = cur->a.angle - prev->a.angle;
+        double dist = scale((ang_dif+RAW_SCALE_INT)%RAW_SCALE_INT);
         double time = (double)(cur->time - prev->time) / 1000.0;
         return dist / time;
+    }
+
+    size_t get_buf_writes() {
+        return buf_writes;
     }
 }

@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <cstdint>
 #include <Wire.h>
+#pragma once
 
 namespace encoder {
     struct angles {
@@ -14,7 +15,7 @@ namespace encoder {
     };
     void init();
     void get_pos();
-    void pos(angles_t *a);
+    void get_ang(angles_t *a);
     double get_speed();
-    size_t buf_writes;
+    size_t get_buf_writes();
 }

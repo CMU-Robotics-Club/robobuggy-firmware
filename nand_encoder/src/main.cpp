@@ -42,9 +42,12 @@ void loop() {
   if(serial_send_limit.ready()) {
     // Serial.printf("%c%c%c%c",0xAA,0xFF,0x00,0x55);
     if(!writes_good) {
-      if(encoder::buf_writes > 100) writes_good = true;
-      Serial.println(encoder::get_speed());
-      Serial.flush();
+      //Serial.println(encoder::get_buf_writes());
+      if(encoder::get_buf_writes() > 100){
+        writes_good = true;
+        Serial.println(encoder::get_speed());
+        Serial.flush();
+      }
     } else {
       Serial.println(encoder::get_speed());
       Serial.flush();

@@ -163,9 +163,9 @@ void setup()
     Serial.print(CrashReport);
   }
 
-  rc::init(RC_SERIAL);
-  brake::init(BRAKE_RELAY_PIN);
-  steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
+  // rc::init(RC_SERIAL);
+  // brake::init(BRAKE_RELAY_PIN);
+  // steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
   status_led::init(STATUS_LED_PIN);
 
@@ -185,11 +185,11 @@ void setup()
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 
-  host_comms::init();
+  // host_comms::init();
 
   delay(1000);
 
-  steering::calibrate();
+  // steering::calibrate();
 }
 
 bool led_state = false;
@@ -287,6 +287,7 @@ private:
  */
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
+  return;
   double heading = degrees(state_est(2, 0));
   heading += 360;
   fmod(heading, 360);
@@ -406,37 +407,37 @@ void loop()
       rgb = Rgb{0x80, 0x80, 0x00};
     }
 
-    rc::update();
+    // rc::update();
 
-    host_comms::poll();
+    // host_comms::poll();
     static int rfm69_timeout = 0;
 
-    float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
-    steering::set_goal_angle(steering_command);
+    // float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc::steering_angle();
+    // steering::set_goal_angle(steering_command);
 
-    if (control_latency_print_limit.ready())
-    {
-      uint32_t control_latency = micros() - host_comms::ukf_steering_timestamp();
-      // Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
-    }
+    // if (control_latency_print_limit.ready())
+    // {
+    //   uint32_t control_latency = micros() - host_comms::ukf_steering_timestamp();
+    //   // Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
+    // }
 
-    if (rc::offset_button() && rc::offset_switch())
-      steering::update_offset();
+    // if (rc::offset_button() && rc::offset_switch())
+    //   steering::update_offset();
 
-    brake::Status brake_command = brake::Status::Stopped;
-    if (rc::operator_ready() && !(steering::alarm_triggered() == steering::Status::alarm))
-    {
-      // Only roll if:
-      // 1. The person holding the controller is holding down the buttons actively
-      // 2. The steering servo is still working
-      brake_command = brake::Status::Rolling;
+    // brake::Status brake_command = brake::Status::Stopped;
+    // if (rc::operator_ready() && !(steering::alarm_triggered() == steering::Status::alarm))
+    // {
+    //   // Only roll if:
+    //   // 1. The person holding the controller is holding down the buttons actively
+    //   // 2. The steering servo is still working
+    //   brake_command = brake::Status::Rolling;
 
-      if (rc::use_autonomous_steering())
-      {
-        rgb = Rgb{0x00, 0x00, 0xFF};
-      }
-    }
-    brake::set(brake_command);
+    //   if (rc::use_autonomous_steering())
+    //   {
+    //     rgb = Rgb{0x00, 0x00, 0xFF};
+    //   }
+    // }
+    // brake::set(brake_command);
 
     elapsedMicros imu_elapsed_micros = 0;
     // IMU code
@@ -479,24 +480,24 @@ void loop()
       // Serial.printf("IMU Time:\t %lu\n", (uint64_t)imu_elapsed_micros);
     }
 
-    if (debug_pkt_send_rate.ready())
-    {
-      host_comms::NANDDebugInfo debug_packet;
-      debug_packet.brake_status = brake_command;
-      debug_packet.rc_steering_angle = rc::steering_angle();
-      debug_packet.steering_angle = host_comms::steering_angle();
-      debug_packet.true_stepper_pos = steering::current_angle_degrees();
-      debug_packet.operator_ready = rc::operator_ready();
-      debug_packet.use_auton_steering = rc::use_autonomous_steering();
-      debug_packet.tx12_connected = rc::connected();
-      debug_packet.rc_uplink = rc::link_statistics().uplink_Link_quality;
-      debug_packet.steering_alarm = steering::alarm_triggered();
-      debug_packet.timestamp = millis();
-      debug_packet.heading_rate = heading_rate;
-      debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.encoder_pos = 0; // encoder::get_front_pos();
-      host_comms::nand_send_debug(debug_packet);
-    }
+    // if (debug_pkt_send_rate.ready())
+    // {
+    //   host_comms::NANDDebugInfo debug_packet;
+    //   debug_packet.brake_status = brake_command;
+    //   debug_packet.rc_steering_angle = rc::steering_angle();
+    //   debug_packet.steering_angle = host_comms::steering_angle();
+    //   debug_packet.true_stepper_pos = steering::current_angle_degrees();
+    //   debug_packet.operator_ready = rc::operator_ready();
+    //   debug_packet.use_auton_steering = rc::use_autonomous_steering();
+    //   debug_packet.tx12_connected = rc::connected();
+    //   debug_packet.rc_uplink = rc::link_statistics().uplink_Link_quality;
+    //   debug_packet.steering_alarm = steering::alarm_triggered();
+    //   debug_packet.timestamp = millis();
+    //   debug_packet.heading_rate = heading_rate;
+    //   debug_packet.rfm69_timeout_cnt = rfm69_timeout;
+    //   debug_packet.encoder_pos = 0; // encoder::get_front_pos();
+    //   host_comms::nand_send_debug(debug_packet);
+    // }
 
     uint32_t cur_time = micros(); // timing variable for UKF
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
@@ -553,22 +554,22 @@ void loop()
         Serial.printf("GPS not resolved: %dms\n", gps_tF);
       }
     }
-    if (gps_pkt_send_rate.ready())
-    {
-      host_comms::NANDRawGPS raw_gps_packet;
-      raw_gps_packet.eastern = last_gps_data.x;
-      raw_gps_packet.northern = last_gps_data.y;
-      raw_gps_packet.accuracy = last_gps_data.accuracy;
-      raw_gps_packet.gps_time = last_gps_data.gps_time;
-      raw_gps_packet.gps_seq_num = gps_sequence_number;
-      raw_gps_packet.timestamp = millis();
-      raw_gps_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
-      host_comms::nand_send_raw_gps(raw_gps_packet);
-    }
+    // if (gps_pkt_send_rate.ready())
+    // {
+    //   host_comms::NANDRawGPS raw_gps_packet;
+    //   raw_gps_packet.eastern = last_gps_data.x;
+    //   raw_gps_packet.northern = last_gps_data.y;
+    //   raw_gps_packet.accuracy = last_gps_data.accuracy;
+    //   raw_gps_packet.gps_time = last_gps_data.gps_time;
+    //   raw_gps_packet.gps_seq_num = gps_sequence_number;
+    //   raw_gps_packet.timestamp = millis();
+    //   raw_gps_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
+    //   host_comms::nand_send_raw_gps(raw_gps_packet);
+    // }
 
-    if (gps_update_elapsed > 1)
+    if (gps_update_elapsed > 1000)
     {
-      // Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
+      Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
     }
 
     /*i2c_time = encoder::prev_time_millis();
@@ -598,6 +599,10 @@ void loop()
         last_failed = millis();
         ++rfm69_timeout;
       }
+      else
+      {
+        // Serial.printf("Sent GPS data over RFM69 radio!\n");
+      }
 
       radio_send_history.push(radio_send_elapsed);
 
@@ -616,6 +621,7 @@ void loop()
     {
       radio_tx_limit.reset();
       int radio_t1 = millis();
+      Serial.printf("hiii\n");
       if (!radio_send_gps(0, 0, gps_sequence_number, 213, 0))
       {
         int radio_tF = millis() - radio_t1;
@@ -623,7 +629,7 @@ void loop()
         last_failed = millis();
       }
       else
-        Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
+        Serial.printf("Sending fake GPS data over RFM69 radio.  Fresh GPS data not available.\n");
 
       radio_send_history.push(radio_send_elapsed);
     }
@@ -654,30 +660,30 @@ void loop()
     status_led::set_color(rgb);
 
     // send packet with UKF info
-    if (ukf_pkt_send_rate.ready())
-    {
-      host_comms::NANDUKF ukf_packet;
-      ukf_packet.eastern = filter.curr_state_est(0, 0);
-      ukf_packet.northern = filter.curr_state_est(1, 0);
-      ukf_packet.heading = filter.curr_state_est(2, 0);
-      ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = filter.curr_state_est(3, 0); // encoder::front_speed();
-      ukf_packet.timestamp = (uint32_t)micros();
-      host_comms::nand_send_ukf(ukf_packet);
-    }
+    // if (ukf_pkt_send_rate.ready())
+    // {
+    //   host_comms::NANDUKF ukf_packet;
+    //   ukf_packet.eastern = filter.curr_state_est(0, 0);
+    //   ukf_packet.northern = filter.curr_state_est(1, 0);
+    //   ukf_packet.heading = filter.curr_state_est(2, 0);
+    //   ukf_packet.heading_rate = heading_rate;
+    //   ukf_packet.front_speed = filter.curr_state_est(3, 0); // encoder::front_speed();
+    //   ukf_packet.timestamp = (uint32_t)micros();
+    //   host_comms::nand_send_ukf(ukf_packet);
+    // }
 
-    if (timing_pkt_send_rate.ready())
-    {
-      host_comms::Roundtrip rt_packet;
-      rt_packet.time = millis();
-      rt_packet.cycle_time = (int64_t)elapsed_loop_micros;
-      rt_packet.soft_time = host_comms::software_time();
-      host_comms::send_timestamp(rt_packet);
-    }
+    // if (timing_pkt_send_rate.ready())
+    // {
+    //   host_comms::Roundtrip rt_packet;
+    //   rt_packet.time = millis();
+    //   rt_packet.cycle_time = (int64_t)elapsed_loop_micros;
+    //   rt_packet.soft_time = host_comms::software_time();
+    //   host_comms::send_timestamp(rt_packet);
+    // }
 
-    if (elapsed_loop_micros > 5000)
+    if (elapsed_loop_micros > 1000)
     {
-      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }
   }
 }

@@ -24,8 +24,11 @@
   Go outside! Wait ~25 seconds and you should see your lat/long
 */
 
-#include "gps.h"
+#include "RateLimit.h"
+#include "History.h"
+
 #include "buggyradio.h"
+#include "gps.h"
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
@@ -194,94 +197,6 @@ void setup()
 
 bool led_state = false;
 
-class RateLimit
-{
-public:
-  int period; // milliseconds
-
-  RateLimit(int _period) : period(_period), last_time(millis()) {}
-
-  bool ready()
-  {
-    int cur_time = millis();
-    if (cur_time - last_time > period)
-    {
-      last_time = cur_time;
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  }
-
-  void reset()
-  {
-    last_time = millis();
-  }
-
-private:
-  int last_time = millis();
-};
-
-template <typename T, size_t Count>
-class History
-{
-public:
-  History() : length(0) {}
-
-  void push(T t)
-  {
-    if (length >= Count)
-    {
-      // History is full, discard an element
-      for (size_t i = 0; i < Count - 1; ++i)
-      {
-        data[i] = std::move(data[i + 1]);
-      }
-      data[Count - 1] = std::move(t);
-    }
-    else
-    {
-      data[length++] = std::move(t);
-    }
-  }
-
-  T max()
-  {
-    if (length == 0)
-    {
-      return {};
-    }
-    else
-    {
-      T m = data[0];
-      for (size_t i = 1; i < length; ++i)
-      {
-        if (m < data[i])
-        {
-          m = data[i];
-        }
-      }
-      return m;
-    }
-  }
-
-  double avg()
-  {
-    double a = 0.0;
-    for (size_t i = 0; i < length; ++i)
-    {
-      a += data[i];
-    }
-    return a / length;
-  }
-
-private:
-  T data[Count];
-  size_t length;
-};
-
 /**
  * @brief Helper function for printing UKF data
  */
@@ -306,29 +221,6 @@ void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector
 
 void loop()
 {
-#if 0
-  int fileNum = 0;
-  char fileName[100];
-  while (true) {
-    snprintf(fileName, 100, "log%d.csv", fileNum);
-
-    if (!SD.exists(fileName)) {
-      break;
-    }
-
-    ++fileNum;
-  }
-  File f = SD.open(fileName, FILE_WRITE);
-  
-  if (!f) {
-    while (1)
-      Serial.println("File not created. Freezing");
-  }
-
-  f.printf("------- BEGIN NEW LOG --------\n");
-
-#endif
-
   /*             CSV Format                  */
   /* timestamp, type of data, <rest of data> */
 
@@ -388,13 +280,11 @@ void loop()
   while (1)
   {
     elapsed_loop_micros = 0;
-    // Serial.printf("Row rotation: %i\n",encoder::rawRot);
-    //    Serial.printf("State: %i\n",encoder::state());
-    //    Serial.printf("Gain: %i\n",encoder::gain());
-    //    Serial.printf("Position in radians: %d\n\n",encoder::rotRad());
+
     /* ================================================ */
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
+
     // Status LED
     Rgb rgb;
     if (kalman_init)
@@ -417,7 +307,7 @@ void loop()
     if (control_latency_print_limit.ready())
     {
       uint32_t control_latency = micros() - host_comms::ukf_steering_timestamp();
-      // Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
+      Serial.printf("UKF Timestamp: %lu\tControl latency: %lu\n", host_comms::ukf_steering_timestamp(), control_latency);
     }
 
     if (rc::offset_button() && rc::offset_switch())
@@ -576,63 +466,13 @@ void loop()
       Serial.printf("Third encoder time: %d\n",i2c_time);
     }*/
 
-    // TODO cleanup
     /**
      * @brief The timestamp (millis) at which the most recent radio send failure occured.
      */
     static int last_failed = millis();
-
-    int t1 = millis();
-
     elapsedMicros radio_send_elapsed = 0;
-    if (radio_tx_limit.ready() || fresh_gps_data)
-    {
-      fresh_gps_data = false;
-      radio_tx_limit.reset();
-      int radio_t1 = millis();
-      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix, (uint8_t)rc::use_autonomous_steering()))
-      {
-        int radio_tF = millis() - radio_t1;
-        if (radio_tF > 5)
-          Serial.printf("Radio failed: %d\n", radio_tF);
-        last_failed = millis();
-        ++rfm69_timeout;
-      }
+    // radio here
 
-      radio_send_history.push(radio_send_elapsed);
-
-      static int aaa = 0;
-      ++aaa;
-
-      /*
-      Serial.printf("SEQ: %d\n", gps_sequence_number);
-      Serial.printf("SEQ      : %d\n", aaa);
-      Serial.printf("Maximum radio send time: %d\n", radio_send_history.max());
-      Serial.printf("Average radio send time: %f\n", radio_send_history.avg());*/
-    }
-
-    // send bogus gps data over the RFM69 radio if we do not have fresh gps data!!
-    if (radio_tx_limit.ready() && !fresh_gps_data)
-    {
-      radio_tx_limit.reset();
-      int radio_t1 = millis();
-      if (!radio_send_gps(0, 0, gps_sequence_number, 213, 0))
-      {
-        int radio_tF = millis() - radio_t1;
-        Serial.printf("Radio failed: %d\n", radio_tF);
-        last_failed = millis();
-      }
-      else
-        Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
-
-      radio_send_history.push(radio_send_elapsed);
-    }
-
-    int tF = millis() - t1;
-    if (tF >= 5)
-    {
-      Serial.printf("Time took for Radio is %dms\n", tF);
-    }
 
     if (millis() - last_failed < 300)
     {

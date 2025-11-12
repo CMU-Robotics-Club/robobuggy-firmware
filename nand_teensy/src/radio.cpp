@@ -5,9 +5,11 @@
 #include "buggyradio.h"
 #include "gps.h"
 
-void send_position_to_sc(RateLimit radio_tx_limit, bool fresh_gps_data, GpsUpdate last_gps_data, int gps_sequence_number,
-                         int &rfm69_timeout, bool use_autonomous_steering, int &last_failed, History<uint32_t, 10> radio_send_history,
-                         elapsedMicros radio_send_elapsed) 
+void send_position_to_sc(RateLimit radio_tx_limit, 
+                         bool fresh_gps_data, GpsUpdate last_gps_data, int gps_sequence_number,
+                         bool use_autonomous_steering, 
+                         int &rfm69_timeout, int &last_failed, 
+                         History<uint32_t, 10> radio_send_history, elapsedMicros radio_send_elapsed) 
 {
     int t1 = millis();
     if (radio_tx_limit.ready() || fresh_gps_data)

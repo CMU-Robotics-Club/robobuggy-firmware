@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-#define CS_ENCODER 2 // Chip select pin
+#define CS_ENCODER 33 // Chip select pin
 
 // SPI settings for encoder
 #define SPI_SPEED 1 // Lowest SPI speed ~1MHz

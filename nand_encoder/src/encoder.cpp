@@ -11,77 +11,76 @@
 #define RAW_SCALE_INT 4096
 #define CIRCUMFERENCE 0.5186
 
-namespace encoder {
-    angles_t int_ang;
-    angle_time ang_buffer[BUFFER_SIZE];
-    size_t buf_index;
-    size_t buf_writes;
+namespace encoder
+{
+    /**
+     * @brief Former value read from encoder, used for calculating speed.
+     */
+    unsigned long last_value;
+    /**
+     * @brief Timestamp (in microseconds) of when last_value was measured.
+     */
+    unsigned long last_micros;
 
-    void init() {
+    bool forward = true; // true = value increases.  false = value decreases.
+
+    void init()
+    {
         Wire.begin();
-        buf_index = 0;
-        int_ang.angle = 0;
-        int_ang.raw_angle = 0;
-        for(size_t i=0;i<BUFFER_SIZE;++i) {
-            ang_buffer->a.angle = 0;
-            ang_buffer->a.raw_angle = 0;
-            ang_buffer->time = 0;
-        }
-        buf_writes = 0;
     }
 
-    void write_buffer() {
-        ang_buffer[buf_index].a = int_ang;
-        ang_buffer[buf_index].time = millis();
-        ++buf_index;
-        ++buf_writes;
-        if(buf_index >= BUFFER_SIZE) buf_index = 0;
+    uint16_t to_degrees(uint16_t value)
+    {
+        return value * 360 / 4096;
     }
 
-    angle_time *read_buffer(size_t index_) {
-        size_t index = (index_ + BUFFER_SIZE) % BUFFER_SIZE;
-        return &ang_buffer[index];
-    }
+    uint16_t get_ticks()
+    {
+        uint16_t raw_value = 0;
+        uint16_t value = 0;
+        // TODO the encoder provides both a "raw angle" and an "angle".
+        // based on the current configuration, they are the same value, but it could be something to look into later.
 
-    void get_pos() {
         Wire.beginTransmission(I2C_ADDRESS);
         Wire.write(RAW_REGISTER); // write register address
         Wire.endTransmission();
         Wire.requestFrom(I2C_ADDRESS, QUANTITY, STOP);
-        int_ang.raw_angle = 0;
-        int_ang.raw_angle |= (Wire.read()&0x0F)<<8; // RAW_ANGLE[11:8]
-        int_ang.raw_angle |= Wire.read();           // RAW_ANGLE[7:0]
+        raw_value |= (Wire.read() & 0x0F) << 8; // RAW_ANGLE[11:8]
+        raw_value |= Wire.read();               // RAW_ANGLE[7:0]
         Wire.beginTransmission(I2C_ADDRESS);
         Wire.write(FIX_REGISTER); // write register address
         Wire.endTransmission();
         Wire.requestFrom(I2C_ADDRESS, QUANTITY, STOP);
-        int_ang.angle = 0;
-        int_ang.angle |= (Wire.read()&0x0F)<<8;     // ANGLE[11:8]
-        int_ang.angle |= Wire.read();               // ANGLE[7:0]
-        write_buffer();
+        value |= (Wire.read() & 0x0F) << 8; // ANGLE[11:8]
+        value |= Wire.read();               // ANGLE[7:0]
+
+        return value;
     }
 
-    void get_ang(angles_t *a) {
-        if(a!=NULL) {
-            memcpy((void *)a, (const void *)&int_ang, sizeof(int_ang));
-        }
+    void update()
+    {
+        last_value = get_ticks();
+        last_micros = micros();
     }
 
-    long double scale(int raw) {
-        double s = (double)raw / RAW_SCALE; // s is the fraction of a full spin
-        return s * CIRCUMFERENCE; // multiply by circumference to get arc length, which is dist over ground
+    uint16_t get_degrees()
+    {
+        return to_degrees(get_ticks());
     }
 
-    double get_speed() {
-        angle_time *cur = read_buffer(buf_index-1);
-        angle_time *prev = read_buffer(buf_index);
-        int ang_dif = cur->a.angle - prev->a.angle;
-        double dist = scale((ang_dif+RAW_SCALE_INT)%RAW_SCALE_INT);
-        double time = (double)(cur->time - prev->time) / 1000.0;
-        return dist / time;
+    double get_degrees_per_second()
+    {
+        unsigned long last_angle = to_degrees(last_value);
+        unsigned long current_angle = (unsigned long)to_degrees(get_ticks());
+        unsigned long current_micros = micros();
+
+        unsigned long d_angle = current_angle - last_angle;
+        unsigned long d_time = current_micros - last_micros;
+        Serial.printf("d_angle: %lu degrees\t d_time: %lu microseconds\n", d_angle, d_time);
+
+        double speed = d_angle / d_time;
+        speed /= 1000000;
+        return speed;
     }
 
-    size_t get_buf_writes() {
-        return buf_writes;
-    }
 }

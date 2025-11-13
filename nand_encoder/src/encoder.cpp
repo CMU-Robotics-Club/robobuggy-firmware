@@ -22,16 +22,19 @@ namespace encoder
      */
     unsigned long last_micros;
 
-    bool forward = true; // true = value increases.  false = value decreases.
-
     void init()
     {
         Wire.begin();
     }
 
-    uint16_t to_degrees(uint16_t value)
+    float to_degrees_int(uint16_t value)
     {
-        return value * 360 / 4096;
+        return (value * 360.0) / 4096.0;
+    }
+
+    float to_degrees_float(float value)
+    {
+        return (value * 360.0) / 4096.0;
     }
 
     uint16_t get_ticks()
@@ -57,29 +60,80 @@ namespace encoder
         return value;
     }
 
-    void update()
+    float get_degrees()
     {
-        last_value = get_ticks();
-        last_micros = micros();
+        return to_degrees_int(get_ticks());
     }
 
-    uint16_t get_degrees()
+    float get_degrees_per_second()
     {
-        return to_degrees(get_ticks());
-    }
-
-    double get_degrees_per_second()
-    {
-        unsigned long last_angle = to_degrees(last_value);
-        unsigned long current_angle = (unsigned long)to_degrees(get_ticks());
+        // save current encoder value and time
+        unsigned long current_value = (unsigned long)get_ticks();
         unsigned long current_micros = micros();
 
-        unsigned long d_angle = current_angle - last_angle;
-        unsigned long d_time = current_micros - last_micros;
-        Serial.printf("d_angle: %lu degrees\t d_time: %lu microseconds\n", d_angle, d_time);
+        // determine which direction we are moving, using the assumption that
+        // the wheel has NOT moved more than 180 degrees (aka 2048 encoder ticks) since the last time this function was called
+        bool forward; // true = value increases over time.  false = value decreases over time.
+        // there are a couple of different cases to consider:
+        if (current_value >= last_value)
+        {
+            forward = true;
+            // check if it "wrapped around"
+            if ((last_value + 4096) - current_value < 2048)
+            {
+                forward = false;
+            }
+        }
+        else if (current_value < last_value)
+        {
+            forward = false;
+            // check if it "wrapped around"
+            if ((current_value + 4096) - last_value < 2048)
+            {
+                forward = true;
+            }
+        }
 
-        double speed = d_angle / d_time;
-        speed /= 1000000;
+        // calculate (signed) change in angle based on direction determined
+        float d_angle;
+        if (forward)
+        {
+            if (last_value > current_value)
+            { // the value wrapped around
+                d_angle = (current_value + 4096) - last_value;
+            }
+            else
+            {
+                d_angle = current_value - last_value;
+            }
+        }
+        else
+        {
+            if (current_value > last_value)
+            { // the value wrapped around
+                d_angle = (last_value + 4096) - current_value;
+            }
+            else
+            {
+                d_angle = last_value - current_value;
+            }
+            d_angle *= -1;
+        }
+        d_angle = to_degrees_float(d_angle);
+
+        float d_time = current_micros - last_micros;
+        float speed = (d_angle * 1000000) / d_time;
+
+        // Serial.print("d_angle: ");
+        // Serial.print(d_angle);
+        // Serial.print("\tspeed: ");
+        // Serial.print(speed);
+        // Serial.println();
+
+        // update state for the next time this function is called
+        last_value = current_value;
+        last_micros = current_micros;
+
         return speed;
     }
 

@@ -35,6 +35,8 @@ private:
 RateLimit enc_read_limit{100};
 RateLimit serial_send_limit{100};
 
+float speed;
+
 void setup()
 {
   encoder::init();
@@ -43,15 +45,13 @@ void setup()
 
 void loop()
 {
-  bool writes_good = false;
   if (enc_read_limit.ready())
   {
-    encoder::get_degrees_per_second();
-    encoder::update();
+    speed = encoder::get_degrees_per_second();
   }
   if (serial_send_limit.ready())
   {
     Serial.print("encoder speed: ");
-    Serial.println(encoder::get_degrees_per_second());
+    Serial.println(speed);
   }
 }

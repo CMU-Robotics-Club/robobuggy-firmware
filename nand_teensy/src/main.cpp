@@ -46,14 +46,14 @@ using status_led::Rgb;
 #define RFM69_INT 36
 #define RFM69_RST 37
 
-#define RC_SERIAL Serial6
-#define BRAKE_RELAY_PIN 26
+#define RC_SERIAL Serial2
+#define BRAKE_RELAY_PIN 22
 
-#define STEERING_PULSE_PIN 27 // pin for stepper pulse
+#define STEERING_PULSE_PIN 23 // pin for stepper pulse
 #define STEERING_DIR_PIN 38   // pin for stepper direction
-#define STEERING_ALARM_PIN 39
-#define LIMIT_SWITCH_RIGHT_PIN 7
-#define LIMIT_SWITCH_LEFT_PIN 8
+#define STEERING_ALARM_PIN 21
+#define LIMIT_SWITCH_RIGHT_PIN 32
+#define LIMIT_SWITCH_LEFT_PIN 31
 
 // Start with steps per revolution of the stepper,
 // divide by 360 to get steps per degree of the stepper,
@@ -61,7 +61,7 @@ using status_led::Rgb;
 // and finally multiply by the belt ratio to get steps per degree of the wheel.
 const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (32.0 / 15.0);
 
-#define BNO_085_INT 20
+#define BNO_085_INT 34
 
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
@@ -140,7 +140,7 @@ void setReports(void)
   */
 }
 
-#define STATUS_LED_PIN 16
+#define STATUS_LED_PIN 4
 
 void setup()
 {
@@ -566,9 +566,9 @@ void loop()
       host_comms::nand_send_raw_gps(raw_gps_packet);
     }
 
-    if (gps_update_elapsed > 1)
+    if (gps_update_elapsed > 1000)
     {
-      // Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
+      Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
     }
 
     /*i2c_time = encoder::prev_time_millis();
@@ -598,6 +598,10 @@ void loop()
         last_failed = millis();
         ++rfm69_timeout;
       }
+      else
+      {
+        // Serial.printf("Sent GPS data over RFM69 radio!\n");
+      }
 
       radio_send_history.push(radio_send_elapsed);
 
@@ -623,7 +627,7 @@ void loop()
         last_failed = millis();
       }
       else
-        Serial.printf("BNYAAAAHH RADIO SENT!!!!!!!!");
+        Serial.printf("Sending fake GPS data over RFM69 radio.  Fresh GPS data not available.\n");
 
       radio_send_history.push(radio_send_elapsed);
     }
@@ -675,9 +679,9 @@ void loop()
       host_comms::send_timestamp(rt_packet);
     }
 
-    if (elapsed_loop_micros > 5000)
+    if (elapsed_loop_micros > 1000)
     {
-      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }
   }
 }

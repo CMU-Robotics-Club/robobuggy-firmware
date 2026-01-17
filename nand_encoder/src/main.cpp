@@ -42,19 +42,26 @@ RateLimit serial_send_limit{SERIAL_PRINT_PERIOD_MS};
 
 float speed;
 float speed_filter[FILTER_BUFFER_SIZE];
+
 int filter_idx;
 float speed_filter_sum;
 
 void setup()
 {
-  encoder::init();
+  //pinMode(3, OUTPUT);
+  //digitalWrite(3, HIGH);
   Serial.begin(115200);
+  Serial1.begin(115200);
+  Serial.print("init enc");
+  encoder::init();
   filter_idx = 0;
   speed_filter_sum = 0;
 }
 
 void loop()
 {
+  //Serial1.println("encoder ready");
+  //Serial.println("we're alive");
   if (enc_read_limit.ready())
   {
     speed = encoder::get_degrees_per_second();
@@ -72,5 +79,12 @@ void loop()
     Serial.print(speed);
     Serial.print("\tfiltered speed: ");
     Serial.println(speed_filter_sum/FILTER_BUFFER_SIZE);
+
+    Serial1.print("encoder pos: ");
+    Serial1.print(encoder::get_degrees());
+    Serial1.print("\tencoder speed: ");
+    Serial1.print(speed);
+    Serial1.print("\tfiltered speed: ");
+    Serial1.println(speed_filter_sum/FILTER_BUFFER_SIZE);
   }
 }

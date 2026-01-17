@@ -24,7 +24,9 @@ namespace encoder
 
     void init()
     {
+        Serial.println("starting wire");
         Wire.begin();
+        Serial.println("we started wire");
     }
 
     float to_degrees_int(uint16_t value)

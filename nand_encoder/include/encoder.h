@@ -7,6 +7,19 @@ namespace encoder
 {
 
     /**
+     * @brief struct to hold information about errors, both in encoder and I2C; includes whether
+     * position written to, most recent packet sent, and error code.
+     */
+    struct errorHold{
+        boolean isWritten;
+        uint32_t i2cError;
+        uint32_t recentPacket;
+        // what should be error for AS5600? Might be values in STATUS register, 0x0B
+        // for STATUS, error if bit 3 or bit 4 is high
+
+    };
+
+    /**
      * @brief Initializes the encoder module and I2C communication.
      * Must be called once during setup before using other encoder functions.
      */

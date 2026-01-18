@@ -46,6 +46,7 @@ using status_led::Rgb;
 #define RFM69_INT 36
 #define RFM69_RST 37
 
+#define ENCODER_SERIAL Serial6
 #define RC_SERIAL Serial2
 #define BRAKE_RELAY_PIN 22
 

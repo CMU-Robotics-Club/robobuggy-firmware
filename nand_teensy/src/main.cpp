@@ -140,7 +140,10 @@ void setReports(void)
   */
 }
 
-#define STATUS_LED_PIN 4
+#define STATUS_LED_PIN0 4
+#define STATUS_LED_PIN1 5
+#define STATUS_LED_PIN2 6
+#define STATUS_LED_NUM 3
 
 void setup()
 {
@@ -156,7 +159,10 @@ void setup()
   pinMode(29, OUTPUT);
   digitalWrite(29, LOW);
 
-  pinMode(STATUS_LED_PIN, OUTPUT);
+  pinMode(STATUS_LED_PIN0, OUTPUT);
+  pinMode(STATUS_LED_PIN1, OUTPUT);
+  pinMode(STATUS_LED_PIN2, OUTPUT);
+
 
   if (CrashReport)
   {
@@ -167,7 +173,8 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
-  status_led::init(STATUS_LED_PIN);
+  int[3] Status_LED_Arr = {STATUS_LED_PIN0, STATUS_LED_PIN1, STATUS_LED_PIN2};
+  status_led::init(&Status_LED_Arr, STATUS_LED_NUM);
 
   // Configuration for I2C bus
   Wire.begin();

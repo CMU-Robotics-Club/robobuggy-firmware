@@ -5,6 +5,7 @@
  * This file declares functions in the encoder namespace that allow I2C 
  * communication with the AS5600 encoder module and compute speed.
  *
+ * @author Delaynie McMillan
  * @author Alden Grover
  * @author Anna Delale-O'Connor
  * @date 1/12/2026

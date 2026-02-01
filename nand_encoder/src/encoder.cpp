@@ -6,6 +6,7 @@
  * the AS5600 over I2C, which outputs the current wheel position. Further
  * functions are used to convert to degrees and compute instantaneous speed.
  *
+ * @author Delaynie McMillan
  * @author Alden Grover
  * @author Anna Delale-O'Connor
  * @date 1/12/2026

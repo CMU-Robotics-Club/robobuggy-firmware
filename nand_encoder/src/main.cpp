@@ -7,6 +7,7 @@
  * It also runs a moving average filter on the speed to send a temporally
  * smoothed value in packets.
  *
+ * @author Delaynie McMillan
  * @author Alden Grover
  * @author Anna Delale-O'Connor
  * @date 1/12/2026
@@ -72,6 +73,7 @@ void write_error_packet()
 /**
  * @note Blocking if encoder fails to initialize purposes.
  * This should probably not be the case outside of testing.
+ * TODO: maybe implement handshake with Teensy
  */
 void setup()
 {
@@ -85,6 +87,7 @@ void setup()
     write_error_packet();
     Serial.println("ERROR: Failed init");
   }
+  Serial.println("Encoder initialized");
   filter_idx = 0;
   speed_filter_sum = 0;
 }

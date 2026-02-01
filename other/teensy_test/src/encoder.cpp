@@ -2,27 +2,21 @@
  * @file encoder.cpp
  * @brief Implementation for the encoder namespace on the Teensy
  *
- * This file implements a state machine to read UART packets from the Seeed Studio XIAO connected to the AS5600 encoder module. It also implements getter functions for the encoder data.
+ * This file implements a state machine to read UART packets from the Seeed Studio XIAO connected to the AS5600 encoder module. It also implements getter functions for the encoder data. Check README for packet structure explanation.
  *
- * Packet structure:
- * - Sync word: Denotes the start of each packet (uint8_t, 4 bytes)
- * - Header: The type of message ('S' for speed, 'E' for error) (char, 1 byte)
- * - Payload:
- *   - Speed in deg/sec (float, 4 bytes), or
- *   - Error code ('I' for init error, 'C' for comm error) (char, 1 byte)
  *
  * @author Alden Grover
  * @author Garrison Chan
  * @author Anna Delale-O'Connor
  * @date 1/12/2026
- * 
+ *
  * @author Sanjay Ravishankar
  * @date 1/26/2026 - Moved code from main codebase into this PlatformIO project
  * for unit testing
- * 
+ *
  * @author Sanjay Ravishankar
- * @date 1/31/2026 - Reduced blocking behavior on payload reading, implemented
- * error packet reading, added documentation
+ * @date 1/31/2026 - Reduced to three main states, reduced blocking behavior on
+ * payload reading, implemented error packets, added documentation
  */
 
 #include <Arduino.h>
@@ -47,8 +41,12 @@ namespace encoder
   float speed = 0;          // Filtered speed in degrees/sec
   char error = '\0';
 
+  /**
+   * TODO: maybe implement handshake with XIAO
+   */
   void init()
   {
+    Serial.println("[encoder.cpp] Establishing serial connection to XIAO...");
     COMM_SERIAL.begin(COMM_BAUDRATE);
   }
 
@@ -57,7 +55,7 @@ namespace encoder
    * for each byte that was read. There are three possible states: sync word,
    * header, and payload. The current state must be finished before moving
    * on to the next.
-   * 
+   *
    * States:
    * - Sync word: check that the 4 sync word bytes are received in the correct
    *   order, accounting for overlapping or incorrect packets.
@@ -68,7 +66,7 @@ namespace encoder
    *     - Error packet: check that the error is 'I' for if the XIAO could not
    *       connect to the AS5600 over I2C at all (init error), or 'C' if the
    *       I2C failed after initialization (comm error).
-   * 
+   *
    * @note Print statements for errors/warning may want to be removed after debug
    */
   void poll()
@@ -143,9 +141,7 @@ namespace encoder
 
   bool get_speed(float *s)
   {
-    if (!s) // Safety check
-      return false;
-    if (error != '\0')
+    if (!(s && error == '\0'))
       return false;
     *s = speed;
     return true;

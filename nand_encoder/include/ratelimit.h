@@ -4,6 +4,7 @@
  *
  * This file defines the RateLimit class for a simple rate limiter
  *
+ * @author Delaynie McMillan
  * @author Alden Grover
  * @author Anna Delale-O'Connor
  * @date 1/12/2026

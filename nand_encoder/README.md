@@ -1,0 +1,1 @@
+This PlatformIO project runs on the XIAO to communicate with the AS5600 encoder over I2C.

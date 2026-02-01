@@ -1,0 +1,1 @@
+This PlatformIO project is for testing the UART state machine on the Teensy to communicate with the XIAO for encoder packets.

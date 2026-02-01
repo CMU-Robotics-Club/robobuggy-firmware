@@ -132,7 +132,6 @@ namespace encoder
             Serial.println("[encoder.cpp] Error packet: Failed comm");
           else // Invalid header
             Serial.println("[encoder.cpp] Error: received invalid error byte");
-          header = '\0';
           state = State::SyncWord;
         };
         break;

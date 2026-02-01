@@ -2,7 +2,8 @@
  * @file encoder.h
  * @brief Header file for the encoder namespace on the Teensy
  * 
- * This file declares functions in the encoder namespace that create an interface for the encoder microcontroller and to read encoder data.
+ * This file declares functions in the encoder namespace that create 
+ * an interface for the encoder microcontroller and to read encoder data.
  * 
  * @author Sanjay Ravishankar
  * @date 1/31/2026

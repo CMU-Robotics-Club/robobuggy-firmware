@@ -7,6 +7,9 @@
  * 
  * @author Sanjay Ravishankar
  * @date 1/31/2026
+ * 
+ * @author Sanjay Ravishankar
+ * @date 2/10/2026 - Added reporting for when packets aren't found
  */
 
 #pragma once
@@ -34,4 +37,10 @@ namespace encoder
      * @return If the operation worked
      */
     bool get_speed(float *s);
+
+    /**
+     * @brief Used for making sure packets are being received 
+     * @return How long ago the last packet was received in ms
+     */
+    long lastPacket();
 }

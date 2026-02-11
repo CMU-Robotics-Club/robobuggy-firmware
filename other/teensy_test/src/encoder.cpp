@@ -17,6 +17,9 @@
  * @author Sanjay Ravishankar
  * @date 1/31/2026 - Reduced to three main states, reduced blocking behavior on
  * payload reading, implemented error packets, added documentation
+ *
+ * @author Sanjay Ravishankar
+ * @date 2/10/2026 - Added reporting for when packets aren't found
  */
 
 #include <Arduino.h>
@@ -24,6 +27,7 @@
 
 namespace encoder
 {
+  elapsedMillis lastPacketReceived;
   enum class State
   {
     SyncWord,
@@ -132,6 +136,7 @@ namespace encoder
             Serial.println("[encoder.cpp] Error: received invalid error byte");
           state = State::SyncWord;
         };
+        lastPacketReceived = 0;
         break;
       default:
         break;
@@ -145,5 +150,10 @@ namespace encoder
       return false;
     *s = speed;
     return true;
+  }
+
+  long lastPacket()
+  {
+    return lastPacketReceived;
   }
 }

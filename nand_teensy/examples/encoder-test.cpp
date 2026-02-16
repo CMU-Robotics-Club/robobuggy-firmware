@@ -35,7 +35,7 @@ void loop()
   encoder::poll();
   if (encoder::lastPacket() > 100) // ms
   {
-    Serial.println("[main.cpp] Error, packets not found!");
+    Serial.println("Error, packets not found!");
     return;
   }
   if (elapsedTime >= 50) // Delay interval of 50ms to simulate other operations

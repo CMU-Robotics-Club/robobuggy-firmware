@@ -21,7 +21,7 @@
 #include "encoder.h"
 
 elapsedMillis elapsedTime = 0;
-float speed;
+double speed;
 
 void setup()
 {

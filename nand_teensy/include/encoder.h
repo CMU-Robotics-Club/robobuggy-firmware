@@ -30,19 +30,19 @@ namespace encoder
     void poll();
 
     /**
-     * @brief Gets the speed as a float
-     * @param[in,out] s: The float pointer for the current front wheel 
-     * speed in degrees/sec
-     * @return If the operation worked
+     * @brief Gets the front wheel speed in degrees/sec
+     * @param[in,out] s: The double pointer for the speed
+     * @return If the operation was successful
      */
-    bool front_speed(float *s);
+    bool front_speed(double *s);
 
     /**
-     * @brief Computes the rear wheel speed given the steering angle
+     * @brief Computes the rear wheel speed in degrees/sec given the steering angle
+     * @param[in,out] s: The double pointer for the speed
      * @param[in] steering_angle: The current steering angle in degrees
-     * @return The rear wheel speed in degrees/sec
+     * @return If the operation was successful
      */
-    double rear_speed(double steering_angle);
+    bool rear_speed(double *s, double steering_angle);
 
     /**
      * @brief Used for making sure packets are being received 

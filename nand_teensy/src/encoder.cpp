@@ -2,9 +2,9 @@
  * @file encoder.cpp
  * @brief Implementation for the encoder namespace on the Teensy
  *
- * This file implements a state machine to read UART packets from 
- * the Seeed Studio XIAO connected to the AS5600 encoder module. 
- * It also implements getter functions for the encoder data. 
+ * This file implements a state machine to read UART packets from
+ * the Seeed Studio XIAO connected to the AS5600 encoder module.
+ * It also implements getter functions for the encoder data.
  * See nand_teensy/examples/encoder-test.cpp for usage.
  *
  * @author Alden Grover
@@ -34,7 +34,9 @@ namespace encoder
   uint8_t byte;
   char header = '\0';
   uint8_t payload[4] = {0}; // For speed
-  float speed = 0;          // Filtered speed in degrees/sec
+  // Filtered speed in degrees/sec
+  // Float instead of double since XIAO SAMD doesn't have double precision
+  float speed = 0;
   char error = '\0';
 
   /**
@@ -136,29 +138,33 @@ namespace encoder
     }
   }
 
-  bool front_speed(float *s)
+  bool front_speed(double *s)
   {
     if (!(s && error == '\0'))
       return false;
-    *s = speed;
+    *s = (double)speed;
     return true;
   }
 
+  /**
+   * TODO: Add valid input range to steering_angle (like -90 to 90 degrees)
+   */
+  bool rear_speed(double *s, double steering_angle)
+  {
+    if (!(s && error == '\0'))
+      return false;
+    double front_speed_val;
+    if (front_speed(&front_speed_val))
+    {
+      steering_angle *= M_PI / 180.0;
+      *s = front_speed_val * cos(steering_angle);
+      return true;
+    }
+    return false;
+  }
+  
   long lastPacket()
   {
     return lastPacketReceived;
-  }
-
-  /**
-   * @note This function assumes that the rear wheel speed is the same as 
-   * the front wheel speed multiplied by the cosine of the steering angle. 
-   * This is a simplification and may not be accurate for all steering angles 
-   * or vehicle dynamics, but it should be sufficient for small steering 
-   * angles and low speeds.
-   */
-  double rear_speed(double steering_angle)
-  {
-    steering_angle *= M_PI / 180.0;
-	  return front_speed() * cos(steering_angle);
   }
 }

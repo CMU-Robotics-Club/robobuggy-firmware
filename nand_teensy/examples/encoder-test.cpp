@@ -1,14 +1,20 @@
 /**
- * @file main.cpp
- * @brief Main test file for reading encoder data on the Teensy
- *
- * This file imports the encoder interface to test init, poll and get_speed.
- *
+ * @file encoder-test.cpp
+ * @brief Test file for the encoder namespace on the Teensy
+ * 
+ * This file tests the encoder namespace by printing the speed to the serial
+ * monitor every 50ms. It also checks that packets are being received and prints
+ * an error if they aren't.
+ * 
+ * Packet structure:
+ - Sync word: Denotes the start of each packet (uint8_t, 4 bytes)
+ - Header: The type of message ('S' for speed, 'E' for error) (char, 1 byte)
+ - Payload:
+    - Speed in deg/sec (float, 4 bytes), or
+    - Error code ('I' for init error, 'C' for comm error) (char, 1 byte)
+ * 
  * @author Sanjay Ravishankar
- * @date 1/31/2026
- *
- * @author Sanjay Ravishankar
- * @date 2/10/2026 - Added reporting for when packets aren't found
+ * @date 2/16/2026
  */
 
 #include <Arduino.h>

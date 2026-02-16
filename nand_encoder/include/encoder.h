@@ -48,7 +48,8 @@ namespace encoder
      * @return If the operation worked
      *
      * IMPORTANT: This function must be called periodically for accurate readings.
-     * This function assumes that the wheel has not rotated *more* than 180 degrees since the last call of this function.
+     * This function assumes that the wheel has not rotated *more* than 
+     * 180 degrees since the last call of this function.
      */
     bool get_degrees_per_second(float *dps_ptr);
 }

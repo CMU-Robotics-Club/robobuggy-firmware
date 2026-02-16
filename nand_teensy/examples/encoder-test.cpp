@@ -40,7 +40,7 @@ void loop()
   }
   if (elapsedTime >= 50) // Delay interval of 50ms to simulate other operations
   {
-    if (encoder::get_speed(&speed))
+    if (encoder::front_speed(&speed))
       Serial.println(speed, 3); // Format to 3 decimal places
     elapsedTime = 0;
   }

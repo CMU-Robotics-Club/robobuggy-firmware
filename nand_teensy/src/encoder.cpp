@@ -136,7 +136,7 @@ namespace encoder
     }
   }
 
-  bool get_speed(float *s)
+  bool front_speed(float *s)
   {
     if (!(s && error == '\0'))
       return false;

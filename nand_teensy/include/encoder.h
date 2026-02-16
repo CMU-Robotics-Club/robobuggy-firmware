@@ -35,7 +35,7 @@ namespace encoder
      * speed in degrees/sec
      * @return If the operation worked
      */
-    bool get_speed(float *s);
+    bool front_speed(float *s);
 
     /**
      * @brief Computes the rear wheel speed given the steering angle

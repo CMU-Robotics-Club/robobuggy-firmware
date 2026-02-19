@@ -28,8 +28,8 @@
 #include "History.h"
 #include "State.h"
 
-#include "buggyradio.h"
 #include "gps.h"
+#include "buggyradio.h"
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
@@ -50,14 +50,15 @@ using status_led::Rgb;
 #define RFM69_INT 36
 #define RFM69_RST 37
 
-#define RC_SERIAL Serial6
-#define BRAKE_RELAY_PIN 26
+#define ENCODER_SERIAL Serial6
+#define RC_SERIAL Serial2
+#define BRAKE_RELAY_PIN 22
 
-#define STEERING_PULSE_PIN 27 // pin for stepper pulse
+#define STEERING_PULSE_PIN 23 // pin for stepper pulse
 #define STEERING_DIR_PIN 38   // pin for stepper direction
-#define STEERING_ALARM_PIN 39
-#define LIMIT_SWITCH_RIGHT_PIN 7
-#define LIMIT_SWITCH_LEFT_PIN 8
+#define STEERING_ALARM_PIN 21
+#define LIMIT_SWITCH_RIGHT_PIN 32
+#define LIMIT_SWITCH_LEFT_PIN 31
 
 // Start with steps per revolution of the stepper,
 // divide by 360 to get steps per degree of the stepper,
@@ -65,7 +66,7 @@ using status_led::Rgb;
 // and finally multiply by the belt ratio to get steps per degree of the wheel.
 const float STEPS_PER_DEGREE = (1000.0 / 360.0) * 10.0 * (32.0 / 15.0);
 
-#define BNO_085_INT 20
+#define BNO_085_INT 34
 
 Adafruit_BNO08x bno08x;
 sh2_SensorValue_t sensorValue;
@@ -149,7 +150,7 @@ void process_ukf(State state, UKF filter);
 void process_gps(State state, History<uint32_t, 10> gps_time_history);
 void process_buggy_radio(State state, RateLimit radio_tx_limit, History<uint32_t, 10> radio_send_history);
 
-#define STATUS_LED_PIN 16
+#define STATUS_LED_PIN 4
 
 void setup()
 {
@@ -208,6 +209,7 @@ bool led_state = false;
  */
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
+  return;
   double heading = degrees(state_est(2, 0));
   heading += 360;
   fmod(heading, 360);
@@ -401,7 +403,7 @@ void loop()
 
     if (elapsed_loop_micros > 5000)
     {
-      Serial.printf("Long cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }
   }
 }

@@ -8,16 +8,19 @@
 
 #define GPS_I2C Wire
 #define GPS_I2C_ADDRESS 0x42
-namespace UTM {
-    static inline void LLtoUTM(const double Lat, const double Long,
-                               double &UTMNorthing, double &UTMEasting,
-                               char *UTMZone);
+namespace UTM
+{
+  static inline void LLtoUTM(const double Lat, const double Long,
+                             double &UTMNorthing, double &UTMEasting,
+                             char *UTMZone);
 }
 
 SFE_UBLOX_GNSS gps;
 
-void gps_init() {
-  while (!gps.begin(GPS_I2C, GPS_I2C_ADDRESS)) {
+void gps_init()
+{
+  while (!gps.begin(GPS_I2C, GPS_I2C_ADDRESS))
+  {
     Serial.println(F("u-blox GNSS not detected. Retrying..."));
     delay(1000);
   }
@@ -27,54 +30,65 @@ void gps_init() {
   gps.setAutoHPPOSLLH(true);
 
   byte rate;
-  if (gps.getNavigationFrequency(&rate)) {
+  if (gps.getNavigationFrequency(&rate))
+  {
     Serial.printf("Navigation rate is %d\n", (int)rate);
-  } else {
+  }
+  else
+  {
     Serial.println("Failed to get navigation rate?");
   }
 }
 
-std::optional<GpsUpdate> gps_update() {
-    bool got_update = false;
-    GpsUpdate update {};
+std::optional<GpsUpdate> gps_update()
+{
+  bool got_update = false;
+  GpsUpdate update{};
 
-    static int last_update = millis();
+  static int last_update = millis();
 
-    if (millis() - last_update > 100) {
-      last_update = millis();
+  if (millis() - last_update > 100)
+  {
+    last_update = millis();
 
-      if (gps.getHPPOSLLH()) {
-        /*long latitude_mdeg = myGPS.getLatitude();
-        long longitude_mdeg = myGPS.getLongitude();*/
+    bool gpsgethpposllh = gps.getHPPOSLLH();
+    // Serial.printf("gps.getHPPOSLLH returned %d\n", gpsgethpposllh);
+    if (gpsgethpposllh)
+    {
+      /*long latitude_mdeg = myGPS.getLatitude();
+      long longitude_mdeg = myGPS.getLongitude();*/
 
-        double latitude  = (gps.getHighResLatitude() / 1e7) + (gps.getHighResLatitudeHp() / 1e9); // multiply since getLat returns deg*10^-7, mdeg is 10^-3
-        double longitude = (gps.getHighResLongitude() / 1e7) + (gps.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
-        double accuracy = (gps.getHorizontalAccuracy() / 10.0);
+      double latitude = (gps.getHighResLatitude() / 1e7) + (gps.getHighResLatitudeHp() / 1e9);    // multiply since getLat returns deg*10^-7, mdeg is 10^-3
+      double longitude = (gps.getHighResLongitude() / 1e7) + (gps.getHighResLongitudeHp() / 1e9); // multiply since getLong returns deg*10^-7, mdeg is 10^-3
+      double accuracy = (gps.getHorizontalAccuracy() / 10.0);
 
-        double x = 0;
-        double y = 0;
-        char r[] = "T";
+      double x = 0;
+      double y = 0;
+      char r[] = "T";
 
-        UTM::LLtoUTM(latitude, longitude, y, x, r);
+      UTM::LLtoUTM(latitude, longitude, y, x, r);
 
-        got_update = true;
-        update.x = x;
-        update.y = y;
-        update.accuracy = accuracy;
-        update.gps_time = 0;
-        update.fix = 0/*gps.getFixType()*/;
+      got_update = true;
+      update.x = x;
+      update.y = y;
+      update.accuracy = accuracy;
+      update.gps_time = 0;
+      update.fix = 0 /*gps.getFixType()*/;
 
-        static bool led_state;
-        digitalWrite(LED_BUILTIN, led_state);
-        led_state = !led_state;
-        gps.flushHPPOSLLH();
-      }
+      static bool led_state;
+      digitalWrite(LED_BUILTIN, led_state);
+      led_state = !led_state;
+      gps.flushHPPOSLLH();
     }
+  }
 
-    if (got_update) {
-        return { update };
-    } else {
-        return std::nullopt;
+  if (got_update)
+  {
+    return {update};
+  }
+  else
+  {
+    return std::nullopt;
   }
 }
 // converts day:hour:minute:second:nanosecond to absolute time in nanoseconds
@@ -82,23 +96,21 @@ std::optional<GpsUpdate> gps_update() {
 uint64_t gps_time_millis()
 {
 
-  uint64_t n_hun  = gps.getNanosecond();
-  uint64_t n_sec  = gps.getSecond();
-  uint64_t n_min  = gps.getMinute();
+  uint64_t n_hun = gps.getNanosecond();
+  uint64_t n_sec = gps.getSecond();
+  uint64_t n_min = gps.getMinute();
   uint64_t n_hour = gps.getHour();
-  uint64_t n_day  = gps.getDay(); 
+  uint64_t n_day = gps.getDay();
 
   uint64_t total_time =
-    n_hun +
-    n_sec * 100ull +
-    n_min * (100ull * 60ull) +
-    n_hour * (100ull * 60ull * 60ull) +
-    n_day * (100ull * 60ull * 60ull * 24ull);
+      n_hun +
+      n_sec * 100ull +
+      n_min * (100ull * 60ull) +
+      n_hour * (100ull * 60ull * 60ull) +
+      n_day * (100ull * 60ull * 60ull * 24ull);
 
   return 10ull * total_time;
 }
-
-
 
 namespace UTM
 {

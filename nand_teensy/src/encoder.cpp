@@ -45,7 +45,7 @@ namespace encoder
   void init()
   {
     Serial.println("[encoder.cpp] Establishing serial connection to XIAO...");
-    COMM_SERIAL.begin(COMM_BAUDRATE);
+    ENCODER_SERIAL.begin(COMM_BAUDRATE);
   }
 
   /**
@@ -69,9 +69,9 @@ namespace encoder
    */
   void poll()
   {
-    while (COMM_SERIAL.available())
+    while (ENCODER_SERIAL.available())
     {
-      byte = COMM_SERIAL.read();
+      byte = ENCODER_SERIAL.read();
       switch (state)
       {
       case State::SyncWord:

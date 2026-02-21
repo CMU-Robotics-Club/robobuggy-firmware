@@ -12,7 +12,7 @@
 
 #pragma once
 #include <Arduino.h>
-#define COMM_SERIAL Serial6
+#define ENCODER_SERIAL Serial6
 #define COMM_BAUDRATE 115200
 
 namespace encoder

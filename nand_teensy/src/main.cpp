@@ -29,7 +29,7 @@
 #include "steering.h"
 #include "rc.h"
 #include "brake.h"
-// #include "encoder.h"
+#include "encoder.h"
 #include "sd_logging.h"
 #include "host_comms.h"
 #include "status_led.h"
@@ -46,7 +46,6 @@ using status_led::Rgb;
 #define RFM69_INT 36
 #define RFM69_RST 37
 
-#define ENCODER_SERIAL Serial6
 #define RC_SERIAL Serial2
 #define BRAKE_RELAY_PIN 22
 
@@ -169,6 +168,8 @@ void setup()
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
   status_led::init(STATUS_LED_PIN);
+
+  encoder::init();
 
   // Configuration for I2C bus
   Wire.begin();
@@ -351,6 +352,7 @@ void loop()
   History<uint32_t, 10> radio_send_history{};
 
   RateLimit imu_poll_limit{5};
+  RateLimit encoder_poll_limit{20};
   RateLimit timing_pkt_send_rate{100};
   RateLimit ukf_pkt_send_rate{10};
   RateLimit debug_pkt_send_rate{50};
@@ -383,6 +385,7 @@ void loop()
   uint32_t last_predict_timestamp; // the timestamp at which the UKF predict step was run most recently
 
   double heading_rate = 0.0;
+  double front_speed = 0.0;
 
   elapsedMicros elapsed_loop_micros;
 
@@ -478,6 +481,17 @@ void loop()
     if (imu_elapsed_micros > 10)
     {
       // Serial.printf("IMU Time:\t %lu\n", (uint64_t)imu_elapsed_micros);
+    }
+
+    if (encoder_poll_limit.ready()) {
+      encoder::poll();
+      long last_encoder_packet = encoder::lastPacket();
+      if (last_encoder_packet > 100) {
+        Serial.printf("Have not received encoder packet in %l ms!\n", last_encoder_packet);
+      }
+      if (encoder::front_speed(&front_speed)) {
+        // Serial.println(front_speed, 3);
+      };
     }
 
     if (debug_pkt_send_rate.ready())
@@ -666,7 +680,7 @@ void loop()
       ukf_packet.northern = filter.curr_state_est(1, 0);
       ukf_packet.heading = filter.curr_state_est(2, 0);
       ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = filter.curr_state_est(3, 0); // encoder::front_speed();
+      ukf_packet.front_speed = front_speed; // filter.curr_state_est(3, 0); 
       ukf_packet.timestamp = (uint32_t)micros();
       host_comms::nand_send_ukf(ukf_packet);
     }
@@ -680,7 +694,7 @@ void loop()
       host_comms::send_timestamp(rt_packet);
     }
 
-    if (elapsed_loop_micros > 1000)
+    if (elapsed_loop_micros > 10000)
     {
       Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }

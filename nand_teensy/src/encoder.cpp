@@ -1,207 +1,170 @@
-#include "encoder.h"
+/**
+ * @file encoder.cpp
+ * @brief Implementation for the encoder namespace on the Teensy
+ *
+ * This file implements a state machine to read UART packets from
+ * the Seeed Studio XIAO connected to the AS5600 encoder module.
+ * It also implements getter functions for the encoder data.
+ * See nand_teensy/examples/encoder-test.cpp for usage.
+ *
+ * @author Alden Grover
+ * @author Garrison Chan
+ * @author Anna Delale-O'Connor
+ * @author Sanjay Ravishankar
+ * @date 1/12/2026-2/16/2026
+ */
+
 #include <Arduino.h>
-#include <SPI.h>
+#include "encoder.h"
 
-#define CS_ENCODER 33 // Chip select pin
+namespace encoder
+{
+  elapsedMillis lastPacketReceived;
+  enum class State
+  {
+    SyncWord,
+    Header,
+    Payload
+  };
+  State state = State::SyncWord;
+  const uint8_t SYNC_WORD[] = {0xAA, 0xFF, 0x00, 0x55};
+  const uint8_t SYNC_LEN = sizeof(SYNC_WORD); // Should be 4
+  uint8_t sync_index = 0;
+  uint8_t payload_index = 0;
+  uint8_t byte;
+  char header = '\0';
+  uint8_t payload[4] = {0}; // For speed
+  // Filtered speed in degrees/sec
+  // Float instead of double since XIAO SAMD doesn't have double precision
+  float speed = 0;
+  char error = '\0';
 
-// SPI settings for encoder
-#define SPI_SPEED 1 // Lowest SPI speed ~1MHz
-SPISettings settings_enc(SPI_SPEED, MSBFIRST, SPI_MODE1); 
+  /**
+   * TODO: maybe implement handshake with XIAO
+   */
+  void init()
+  {
+    Serial.println("[encoder.cpp] Establishing serial connection to XIAO...");
+    ENCODER_SERIAL.begin(COMM_BAUDRATE);
+  }
 
-#define DIAMETER_M (0.180)
-#define HISTORY_LEN 10000
-#define NUM_VALS_AVG 5
+  /**
+   * @details Polls the serial buffer and steps through the state machine
+   * for each byte that was read. There are three possible states: sync word,
+   * header, and payload. The current state must be finished before moving
+   * on to the next.
+   *
+   * States:
+   * - Sync word: check that the 4 sync word bytes are received in the correct
+   *   order, accounting for overlapping or incorrect packets.
+   * - Header: check that the header is 'S' for speed or 'E' for error.
+   * - Payload:
+   *     - Speed packet: read 4 bytes into a payload array and then memcpy into
+   *       the speed float for a speed packet.
+   *     - Error packet: check that the error is 'I' for if the XIAO could not
+   *       connect to the AS5600 over I2C at all (init error), or 'C' if the
+   *       I2C failed after initialization (comm error).
+   *
+   * @note Print statements for errors/warning may want to be removed after debug
+   */
+  void poll()
+  {
+    while (ENCODER_SERIAL.available())
+    {
+      byte = ENCODER_SERIAL.read();
+      switch (state)
+      {
+      case State::SyncWord:
+        if (byte == SYNC_WORD[sync_index]) // Bytes in sync
+        {
+          sync_index++;
+          if (sync_index == SYNC_LEN) // Current byte match
+          {
+            // Full match
+            sync_index = 0;
+            state = State::Header;
+          }
+        }
+        else if (byte == SYNC_WORD[0]) // Sync word was cut off and restarted
+        {
+          sync_index = 1;
+          Serial.println("[encoder.cpp] Warning: Sync word was cut off");
+        }
+        else // Mismatch, restart state machine
+        {
+          sync_index = 0;
+          Serial.println("[encoder.cpp] Error: Received invalid sync byte");
+        }
+        break;
+      case State::Header:
+        header = (char)byte;
+        if (header == 'S' || header == 'E') // Valid header
+          state = State::Payload;
+        else // Invalid header, restart state machine
+        {
+          state = State::SyncWord;
+          Serial.println("[encoder.cpp] Error: Received invalid header byte");
+        }
+        break;
+      case State::Payload:
+        if (header == 'S') // Speed packet
+        {
+          payload[payload_index++] = byte;
+          if (payload_index == 4) // Payload received, reset state machine
+          {
+            payload_index = 0;
+            error = '\0';
+            header = '\0';
+            memcpy(&speed, payload, sizeof(speed));
+            state = State::SyncWord;
+          }
+        }
+        else if (header == 'E') // Error packet
+        {
+          error = (char)byte;
+          if (error == 'I')
+            Serial.println("[encoder.cpp] Error packet: Failed init");
+          else if (error == 'C')
+            Serial.println("[encoder.cpp] Error packet: Failed comm");
+          else // Invalid header
+            Serial.println("[encoder.cpp] Error: received invalid error byte");
+          state = State::SyncWord;
+        };
+        lastPacketReceived = 0;
+        break;
+      default:
+        break;
+      }
+    }
+  }
 
-namespace encoder {
+  bool front_speed(double *s)
+  {
+    if (!(s && error == '\0'))
+      return false;
+    *s = (double)speed;
+    return true;
+  }
 
-	struct encoder_spi{
-		uint16_t pkt_val;
-		uint16_t error_val;
-		bool recv_error;	
-		bool parity_error;
-	};
-
-float positions_rad[HISTORY_LEN] = {0};
-unsigned long long times_us[HISTORY_LEN] = {0};
-int history_index = 0;
-int prev_time = 0; // time most recent call took place
-
-int prev_time_millis() {
-	return prev_time;
-}
-
-double front_speed() {
-	int t1 = millis();
-	positions_rad[history_index] = get_front_pos();
-	int tF = millis() - t1;
-	prev_time = tF;
-	times_us[history_index] = micros();
-
-	int prev_index = (history_index + 1) % HISTORY_LEN;
-	float currPos = positions_rad[history_index];
-	float prevPos = positions_rad[prev_index];
-	// rollover: if we cross from a large angle back around to 0
-	if (prevPos > 3*PI/2 && prevPos < 2*PI && currPos > 0 && currPos < PI/2) currPos += 2*PI;
-	// rollover: if we cross from a small angle backwards to 0
-	if (currPos > 3*PI/2 && currPos < 2*PI && prevPos > 0 && prevPos < PI/2) prevPos += 2*PI;
-	float rad_speed = (currPos-prevPos)/((times_us[history_index] - times_us[prev_index])/1e6);
-	/*Serial.printf("radial speed: %f\n",rad_speed);
-	Serial.printf("curPos: %f\n", currPos);
-	Serial.printf("prevPos: %f\n", prevPos);
-	Serial.printf("Time diff: %f\n", (times_us[history_index] - times_us[prev_index])/1e6);*/
-	float speed = DIAMETER_M / 2.0  * rad_speed;
-	// Serial.println(times_us[history_index] - times_us[prev_index]);
-	// Serial.println(positions_rad[history_index] - positions_rad[prev_index]);
-
-	history_index = prev_index;
-	return speed; // v=r*omega
-	// when getAngularSpeed returns radians per second, builtin_front_speed returns meters per second
-	//NOTE: current orientation of the magnet and therefore sign of the getAngularSpeed function
-	//		is currently untested, so the wheel rolling forward may result in a negative angular
-	//		speed value.
-}
-
-//TODO: finish changing
-double avg_speed() {
-	int t1 = millis();
-	positions_rad[history_index] = get_front_pos();
-	int tF = millis() - t1;
-	prev_time = tF;
-	times_us[history_index] = micros();
-
-	int prev_index = (history_index + 1) % HISTORY_LEN;
-	
-	float speed = -DIAMETER_M / 2.0 * 1e6 * (positions_rad[history_index] - positions_rad[prev_index]) / (times_us[history_index] - times_us[prev_index]);
-	// Serial.println(times_us[history_index] - times_us[prev_index]);
-	// Serial.println(positions_rad[history_index] - positions_rad[prev_index]);
-
-	history_index = prev_index;
-	return speed; // v=r*omega
-}
-
-bool calc_parity(uint16_t value) {
-	uint16_t parity_error = value ^ (value>>8);
-	parity_error = parity_error ^ (parity_error>>4);
-	parity_error = parity_error ^ (parity_error>>2);
-	parity_error = (parity_error ^ (parity_error>>1)) & 0x01;
-	return parity_error;
-}
-
-int raw_front_pos() {
-	struct encoder_spi angle_pkt;
-	uint16_t read_angle_pkt = 0x3FFF;
-	read_angle_pkt = read_angle_pkt | (0x1 << 14); // read command
-	bool parity = calc_parity(read_angle_pkt);
-	read_angle_pkt = read_angle_pkt | ((parity?0x1:0x0) << 15); // parity calculation
-
-	angle_pkt = read_pkt(read_angle_pkt);
-
-	// TODO: error handling
-
-	int value = angle_pkt.pkt_val & 0x3FFF;
-	return value;
-}
-
-float get_front_pos() {
-	int value = encoder::raw_front_pos();
-	// this is a 14 bit encoder
-	// there are 360/(2^14 - 1) degrees per tick 
-	// this means there are 45.5 ish ticks per degree
-	// so we multiple 45.5 * 360 = 16383 to make math work
-	float rad_val = (value<<1) * M_PI / 16383;
-	return rad_val;
-}
-
-uint16_t get_diagnostics(){
-	struct encoder_spi diagnostics_pkt;
-	uint16_t read_diagnostics_pkt = 0x7FFD;
-	
-	diagnostics_pkt = read_pkt(read_diagnostics_pkt);
-
-	Serial.println("Diagnostics packet:");
-	Serial.printf("\tGain: %i\n", diagnostics_pkt.pkt_val & 0x00FF);
-	if (diagnostics_pkt.pkt_val & 0x0400)
-		Serial.printf("\tToo high!\n");
-	if (diagnostics_pkt.pkt_val & 0x0800)
-		Serial.printf("\tToo low!\n");
-	if (diagnostics_pkt.recv_error)
-	{
-		Serial.printf("\tParity Error (sent to encoder)\n", diagnostics_pkt.error_val & 0x4);
-		Serial.printf("\tCommand Error\n", diagnostics_pkt.error_val & 0x2);
-		Serial.printf("\tFraming Error\n", diagnostics_pkt.error_val & 0x1);
-	}
-	if (diagnostics_pkt.parity_error)
-		Serial.printf("\tParity Error (received from encoder)\n");
-	return -1;
-}
-
-struct encoder_spi read_pkt(uint16_t rd_pkt) {
-	
-	uint16_t clr_errorflag_pkt = 1<<14 | 1; //0x8001
-	uint16_t errorflag_mask = 1<<14;
-
-	uint16_t recv_error = 0;
-	uint16_t parity_error = 0;
-	uint16_t value = 0;
-	uint16_t error_value = 0;
-	struct encoder_spi out_struct;
-	out_struct = {0};
-	//return out_struct;
-	digitalWrite(CS_ENCODER, HIGH);
-	SPI.beginTransaction(settings_enc);
-	Serial.println("begun transaction");
-	digitalWrite (CS_ENCODER, LOW);
-	delayMicroseconds(1);
-	Serial.println("Wrote low");
-	//read
-	SPI.transfer16(rd_pkt);
-	Serial.printf("sending %d\n",rd_pkt);
-	digitalWrite(CS_ENCODER, HIGH);
-	Serial.println("Wrote high");
-	delayMicroseconds(1);
-	Serial.println("delayed 1 us");
-	digitalWrite(CS_ENCODER, LOW);
-	Serial.println("wrote low");
-	value = SPI.transfer16(clr_errorflag_pkt); // error_value returned next frame (if applicable)
-	Serial.printf("Rx val of: %x\n",value);
-	delayMicroseconds(1);
-	digitalWrite(CS_ENCODER, HIGH);
-	delayMicroseconds(1);
-
-// 	if (value & errorflag_mask){
-// 		recv_error = 1;
-// 		digitalWrite(CS_ENCODER, LOW);
-// 		error_value = SPI.transfer16(0); // 0x0001 - framing, 0x0002 - command invalid, 0x0003 - parity error
-// 		Serial.printf("Rx error val of: %x\n", error_value);
-// 		digitalWrite(CS_ENCODER, HIGH);
-// 		delayMicroseconds(1);
-// 	}
-// 
-	digitalWrite (CS_ENCODER, HIGH);
-	delayMicroseconds(1);
-	SPI.endTransaction();
-
-	parity_error = value ^ (value>>8);
-	parity_error = parity_error ^ (parity_error>>4);
-	parity_error = parity_error ^ (parity_error>>2);
-	parity_error = (parity_error ^ (parity_error>>1)) & 0x01;
-
-	out_struct = {value, error_value, *(bool *)(&recv_error), *(bool *)(&parity_error)};
-
-	return out_struct;
-}
-
-double rear_speed(double steering_angle) {
-	steering_angle *= M_PI / 180.0;
-	return front_speed() * cos(steering_angle);
-}
-
-void init() {
-	// Init SPI
-	pinMode(CS_ENCODER, OUTPUT);
-	digitalWrite(CS_ENCODER, HIGH);
-	SPI.begin(); 
-	delay(1000);
-}
-
+  /**
+   * TODO: Add valid input range to steering_angle (like -90 to 90 degrees)
+   */
+  bool rear_speed(double *s, double steering_angle)
+  {
+    if (!(s && error == '\0'))
+      return false;
+    double front_speed_val;
+    if (front_speed(&front_speed_val))
+    {
+      steering_angle *= M_PI / 180.0;
+      *s = front_speed_val * cos(steering_angle);
+      return true;
+    }
+    return false;
+  }
+  
+  long lastPacket()
+  {
+    return lastPacketReceived;
+  }
 }

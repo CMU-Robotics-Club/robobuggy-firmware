@@ -117,7 +117,7 @@ void setup_radio()
 #ifndef LORA_FIXED_FREQ
   int state = radio.begin(channels[channel_indices[0]], 125.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
 #else
-  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 8, RADIOLIB_SX127X_SYNC_WORD, 20, 8, 0);
+  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 8, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
 #endif
 
   if (state == RADIOLIB_ERR_NONE)
@@ -135,25 +135,12 @@ void setup_radio()
   // set output power to 10 dBm (accepted range is -3 - 17 dBm)
   // NOTE: 20 dBm value allows high power operation, but transmission
   //       duty cycle MUST NOT exceed 1%
-
   /*
-  if (radio.setOutputPower(20) == RADIOLIB_ERR_INVALID_OUTPUT_POWER)
-  {
-    while (true) {
+  if (radio.setOutputPower(10) == RADIOLIB_ERR_INVALID_OUTPUT_POWER) {
     Serial.println(F("Selected output power is invalid for this module!"));
-      delay(1000);
-    }
+    while (true);
   }
-    */
-
-  if (radio.setCurrentLimit(0) == RADIOLIB_ERR_INVALID_CURRENT_LIMIT)
-  {
-    while (true)
-    {
-      Serial.println(F("Selected current limit is invalid for this module!"));
-      delay(1000);
-    }
-  };
+  */
 
   // set the CRC to be used
   state = radio.setCRC(true);

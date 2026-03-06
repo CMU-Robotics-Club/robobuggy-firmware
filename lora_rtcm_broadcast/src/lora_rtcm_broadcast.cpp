@@ -43,6 +43,18 @@ typedef struct
 // DIO0 pin:  26
 // RESET pin: 25
 // DIO1 pin:  27
+
+// DON'T FORGET TO INCLUDE THE OTHER SPI CONNECTIONS:
+// These pinouts are implictly defined *somewhere* deep in the Arduino libraries.
+// SCLK pin:  
+// SDI pin:   
+// SDO pin:   
+
+// Also the RX and TX enable pins:
+// You can see where these pins are defined in the call to the radio.setRfSwitchPins(8, 9) function below.
+// RXEN:      8
+// TXEN:      9
+
 SX1276 radio = new Module(10, 26, 25, 27);
 
 // Create circular buffer to dispatch data

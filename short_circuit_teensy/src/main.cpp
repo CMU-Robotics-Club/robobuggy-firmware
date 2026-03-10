@@ -244,8 +244,8 @@ void loop()
   }
 
   status_led::set_color(status_color);
-  if (color_print_rate.ready())
-  Serial.printf("Red: %x Green %x Blue %x\n",status_color.r, status_color.g, status_color.b);
+  /*if (color_print_rate.ready())
+  Serial.printf("Red: %x Green %x Blue %x\n",status_color.r, status_color.g, status_color.b);*/
 
   brake::Status brake_command = brake::Status::Stopped;
   //Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());

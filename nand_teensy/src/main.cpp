@@ -485,13 +485,17 @@ void loop()
       // Serial.printf("IMU Time:\t %lu\n", (uint64_t)imu_elapsed_micros);
     }
 
-    if (encoder_poll_limit.ready()) {
+    if (encoder_poll_limit.ready())
+    {
       encoder::poll();
       long last_encoder_packet = encoder::lastPacket();
-      if (last_encoder_packet > 100) {
+      if (last_encoder_packet > 100)
+      {
         Serial.printf("Have not received encoder packet in %l ms!\n", last_encoder_packet);
+        front_speed = -1;
       }
-      if (encoder::front_speed(&front_speed)) {
+      if (encoder::front_speed(&front_speed))
+      {
         // Serial.println(front_speed, 3);
       };
     }
@@ -511,7 +515,7 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.encoder_pos = 0; // encoder::get_front_pos();
+      debug_packet.front_wheel_speed = front_speed;
       host_comms::nand_send_debug(debug_packet);
     }
 
@@ -681,8 +685,14 @@ void loop()
       ukf_packet.eastern = filter.curr_state_est(0, 0);
       ukf_packet.northern = filter.curr_state_est(1, 0);
       ukf_packet.heading = filter.curr_state_est(2, 0);
+
+      ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
+      ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
+      ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
+      ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
+
       ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = front_speed; // filter.curr_state_est(3, 0); 
+      ukf_packet.front_speed = front_speed; // filter.curr_state_est(3, 0);
       ukf_packet.timestamp = (uint32_t)micros();
       host_comms::nand_send_ukf(ukf_packet);
     }

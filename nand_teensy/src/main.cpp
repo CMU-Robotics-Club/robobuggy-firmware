@@ -140,7 +140,7 @@ void setReports(void)
   */
 }
 
-#define STATUS_LED_PIN 4
+#define STATUS_LED_PIN 35
 
 void setup()
 {
@@ -289,6 +289,8 @@ private:
  */
 void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
+  return;
+
   double heading = degrees(state_est(2, 0));
   heading += 360;
   fmod(heading, 360);
@@ -581,9 +583,9 @@ void loop()
       host_comms::nand_send_raw_gps(raw_gps_packet);
     }
 
-    if (gps_update_elapsed > 1000)
+    if (gps_update_elapsed > 4000)
     {
-      Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
+      // Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
     }
 
     /*i2c_time = encoder::prev_time_millis();

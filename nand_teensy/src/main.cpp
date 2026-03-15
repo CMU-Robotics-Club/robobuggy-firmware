@@ -686,10 +686,18 @@ void loop()
       ukf_packet.northern = filter.curr_state_est(1, 0);
       ukf_packet.heading = filter.curr_state_est(2, 0);
 
-      ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
-      ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
-      ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
-      ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
+      if (kalman_init) {
+        ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
+        ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
+        ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
+        ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
+      } else {
+        ukf_packet.eastern_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.northern_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.heading_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
+
+      }
 
       ukf_packet.heading_rate = heading_rate;
       ukf_packet.front_speed = front_speed; // filter.curr_state_est(3, 0);

@@ -50,13 +50,14 @@ namespace host_comms
 		double eastern;	   // position eastern
 		double northern;   // position northern
 		double accuracy;   // accuracy of gps position
-		uint64_t gps_time; // GPS time
 		// 32 bits
 		int gps_seq_num; // gps seqence number
 		int timestamp;	 // teensy timestamp
 		// 8 bits
-		uint8_t fix_type; // RTK fix type
-		uint8_t padding[3];
+		uint8_t gps_SIV; // Number of satellites used in fix
+		uint8_t gps_fix; // 0=no fix, 1=dead reckoning, 2=2D, 3=3D, 4=GNSS, 5=Time fix
+		uint8_t rtk_fix; // 0, 1 or 2 for no RTK, float RTK, or fixed RTK solution, respectively
+		uint8_t padding[5];
 	};
 
 	void nand_send_debug(NANDDebugInfo info);

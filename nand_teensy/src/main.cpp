@@ -156,8 +156,6 @@ void setup()
   pinMode(29, OUTPUT);
   digitalWrite(29, LOW);
 
-  pinMode(STATUS_LED_PIN, OUTPUT);
-
   if (CrashReport)
   {
     Serial.print(CrashReport);
@@ -167,8 +165,10 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
-  //status_led::init(STATUS_LED_PIN);
-  status_led::init(35, 40);
+  pinMode(STATUS_LED_PIN, OUTPUT);
+  pinMode(34, OUTPUT);
+  pinMode(40, OUTPUT);
+  status_led::init(34, 35, 40);
 
   encoder::init();
 

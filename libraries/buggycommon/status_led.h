@@ -9,7 +9,7 @@ struct Rgb {
     uint8_t b;
 };
 
-void init(int pin1, int pin2);
+void init(int pin1, int pin2, int pin3);
 
 void set_color(Rgb rgb);
 

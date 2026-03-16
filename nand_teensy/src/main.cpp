@@ -580,10 +580,11 @@ void loop()
       raw_gps_packet.eastern = last_gps_data.x;
       raw_gps_packet.northern = last_gps_data.y;
       raw_gps_packet.accuracy = last_gps_data.accuracy;
-      raw_gps_packet.gps_time = last_gps_data.gps_time;
+      raw_gps_packet.gps_SIV = last_gps_data.gps_SIV;
       raw_gps_packet.gps_seq_num = gps_sequence_number;
       raw_gps_packet.timestamp = millis();
-      raw_gps_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
+      raw_gps_packet.gps_fix = last_gps_data.gps_fix;
+      raw_gps_packet.rtk_fix = last_gps_data.rtk_fix;
       host_comms::nand_send_raw_gps(raw_gps_packet);
     }
 
@@ -611,7 +612,7 @@ void loop()
       fresh_gps_data = false;
       radio_tx_limit.reset();
       int radio_t1 = millis();
-      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix, (uint8_t)rc::use_autonomous_steering()))
+      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.rtk_fix, (uint8_t)rc::use_autonomous_steering()))
       {
         int radio_tF = millis() - radio_t1;
         if (radio_tF > 5)

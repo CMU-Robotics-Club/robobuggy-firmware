@@ -61,8 +61,9 @@ std::optional<GpsUpdate> gps_update() {
         update.x = x;
         update.y = y;
         update.accuracy = accuracy;
-        update.gps_time = 0;
-        update.fix = 0/*gps.getFixType()*/;
+        update.gps_SIV = gps.getSIV(/* uint16_t maxWait (ms) */);
+        update.gps_fix = gps.getFixType(/* uint16_t maxWait (ms) */);
+        update.rtk_fix = gps.getCarrierSolutionType(/* uint16_t maxWait (ms) */);
 
         static bool led_state;
         digitalWrite(LED_BUILTIN, led_state);

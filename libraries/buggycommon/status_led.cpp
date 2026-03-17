@@ -3,11 +3,24 @@
 #include <OctoWS2811.h>
 
 #define LEDS_PER_STRIP 30 // LEDs per strip
-#define NUM_PINS 3 // number of LED strips
-#define BYTES_PER_LED 3 // change to 4 if using RGBW
+#define NUM_PINS 3        // number of LED strips
+#define BYTES_PER_LED 3   // change to 4 if using RGBW
 
 namespace status_led
 {
+
+    // Color definitions
+    extern Rgb green = {0x00, 0xFF, 0x00};
+    extern Rgb dark_green = {0x00, 0xD0, 0x00};
+    extern Rgb light_green = {0x00, 0xFF, 0x20};
+    extern Rgb red = {0xFF, 0x00, 0x00};
+    extern Rgb dark_red = {0xD0, 0x00, 0x00};
+    extern Rgb light_red = {0xFF, 0x20, 0x00};
+    extern Rgb orange = {0xFF, 0x80, 0x00};
+    extern Rgb yellow = {0x80, 0x80, 0x00};
+    extern Rgb blue = {0x00, 0x00, 0xFF};
+    extern Rgb black = {0x00, 0x00, 0x00};
+
     // From PaulStoffregen/OctoWS2811/examples/Teensy4_PinList:
     // These buffers need to be large enough for all the pixels.
     // The total number of pixels is "ledsPerStrip * numPins".
@@ -38,7 +51,8 @@ namespace status_led
         if (color.r != last_color.r || color.g != last_color.g || color.b != last_color.b)
         {
             last_color = color;
-            for (int i = 0; i < LEDS_PER_STRIP * NUM_PINS; i++) {
+            for (int i = 0; i < LEDS_PER_STRIP * NUM_PINS; i++)
+            {
                 leds.setPixel(i, color.r, color.g, color.b);
             }
             leds.show();

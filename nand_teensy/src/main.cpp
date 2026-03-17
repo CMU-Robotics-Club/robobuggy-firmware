@@ -40,8 +40,6 @@
 
 #include <Adafruit_BNO08x.h>
 
-using status_led::Rgb;
-
 #define RFM69_CS 10
 #define RFM69_INT 36
 #define RFM69_RST 37
@@ -361,14 +359,6 @@ void loop()
   RateLimit debug_pkt_send_rate{50};
   RateLimit gps_pkt_send_rate{250};
 
-  Rgb dark_green = {0x00, 0xD0, 0x00};
-  Rgb light_green = {0x00, 0xFF, 0x20};
-
-  Rgb dark_red = {0xD0, 0x00, 0x00};
-  Rgb light_red = {0xFF, 0x20, 0x00};
-
-  Rgb black = {0x00, 0x00, 0x00};
-
   UKF filter(
       // Wheelbase (meters)
       1.2,
@@ -403,14 +393,14 @@ void loop()
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
     // Status LED
-    Rgb rgb;
+    status_led::Rgb rgb;
     if (kalman_init)
     {
-      rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
+      rgb = ((millis() % 1000) > 500) ? status_led::dark_green : status_led::light_green;
     }
     else
     {
-      rgb = Rgb{0x80, 0x80, 0x00};
+      rgb = status_led::yellow;
     }
 
     rc::update();
@@ -440,7 +430,7 @@ void loop()
 
       if (rc::use_autonomous_steering())
       {
-        rgb = Rgb{0x00, 0x00, 0xFF};
+        rgb = status_led::blue;
       }
     }
     brake::set(brake_command);
@@ -663,12 +653,12 @@ void loop()
 
     if (millis() - last_failed < 300)
     {
-      rgb = ((millis() % 500) > 250) ? dark_red : light_red;
+      rgb = ((millis() % 500) > 250) ? status_led::dark_red : status_led::light_red;
     }
 
     if (!rc::connected() || (steering::alarm_triggered() == steering::Status::alarm))
     {
-      rgb = ((millis() % 500) > 250) ? dark_red : black;
+      rgb = ((millis() % 500) > 250) ? status_led::dark_red : status_led::black;
     }
 
     if (radio_send_elapsed > 10)

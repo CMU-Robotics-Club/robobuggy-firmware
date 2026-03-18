@@ -125,6 +125,7 @@ void setup_radio()
   // begin radio on home channel
   cbuffer.clear();
   packetCounter = 0;
+  lastByteMillis = millis(); // reset the timer here
   Serial.print("[SX1276] Initializing ... ");
 
 #ifndef LORA_FIXED_FREQ

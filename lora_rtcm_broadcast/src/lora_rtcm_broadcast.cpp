@@ -96,7 +96,7 @@ int packetCounter = 0;
 int transmissionState = RADIOLIB_ERR_NONE;
 
 // timestamp of last received byte over serial
-unsigned long lastByteMicros = 0;
+unsigned long lastByteMillis = 0;
 
 // timestamp of start of last transmission
 unsigned long lastTxMillis = 0;
@@ -123,6 +123,7 @@ void setup_radio()
 {
 
   // begin radio on home channel
+  cbuffer.clear();
   packetCounter = 0;
   Serial.print("[SX1276] Initializing ... ");
 
@@ -256,18 +257,18 @@ void loop()
     if (numBytesRead > 0)
     {
       parse_rtcm(tempByte);
-      lastByteMicros = micros();
+      lastByteMillis = millis();
     }
   }
 
   // check if the radio is malfunctioning
   bool txFrozen = (millis() - lastTxMillis > 1000) && transmittingFlag;
   bool hopFrozen = (hopsCompleted == 1) && !transmittingFlag;
-  if (txFrozen || hopFrozen)
+  if (txFrozen || hopFrozen || (millis() - lastByteMillis) > 3000 || cbuffer.size() > 6)
   {
+    Serial.printf("Problem detected. Buffer size = %d.  Time since last serial message = %d ms.  Restarting radio...", cbuffer.size(), millis() - lastByteMillis);
     radio.reset();
     delay(50);
-    // resetFunc();
     setup_radio();
   }
 

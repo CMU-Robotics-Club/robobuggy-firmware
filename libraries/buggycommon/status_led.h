@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <OctoWS2811.h>
 
 namespace status_led
 {
@@ -22,7 +23,7 @@ namespace status_led
     extern Rgb blue;
     extern Rgb black;
 
-    void init(int pin1, int pin2, int pin3);
+    void init(OctoWS2811 *leds, int leds_per_strip, int num_led_pins);
 
     void set_color(Rgb rgb);
 

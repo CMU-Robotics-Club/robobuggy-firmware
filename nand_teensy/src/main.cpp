@@ -138,7 +138,24 @@ void setReports(void)
   */
 }
 
-#define STATUS_LED_PIN 35
+// From PaulStoffregen/OctoWS2811/examples/Teensy4_PinList:
+// These buffers need to be large enough for all the pixels.
+// The total number of pixels is "ledsPerStrip * numPins".
+// Each pixel needs 3 bytes, so multiply by 3.  An "int" is
+// 4 bytes, so divide by 4.  The array is created using "int"
+// so the compiler will align it to 32 bit memory.
+#define LEDS_PER_STRIP 30 // LEDs per strip
+#define NUM_LED_PINS 3    // number of LED strips
+#define BYTES_PER_LED 3   // change to 4 if using RGBW
+static DMAMEM int displayMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+
+#define STATUS_LED_PIN1 34
+#define STATUS_LED_PIN2 35
+#define STATUS_LED_PIN3 40
+static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2, STATUS_LED_PIN3};
+
+static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
 
 void setup()
 {
@@ -150,10 +167,6 @@ void setup()
   // Serial.println("Encoder initalized");
   // Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
 
-  // Workaround to set the status LED pin as an output
-  pinMode(29, OUTPUT);
-  digitalWrite(29, LOW);
-
   if (CrashReport)
   {
     Serial.print(CrashReport);
@@ -163,10 +176,10 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
-  pinMode(STATUS_LED_PIN, OUTPUT);
-  pinMode(34, OUTPUT);
-  pinMode(40, OUTPUT);
-  status_led::init(34, 35, 40);
+  pinMode(STATUS_LED_PIN1, OUTPUT);
+  pinMode(STATUS_LED_PIN2, OUTPUT);
+  pinMode(STATUS_LED_PIN3, OUTPUT);
+  status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
 
   encoder::init();
 
@@ -678,17 +691,19 @@ void loop()
       ukf_packet.northern = filter.curr_state_est(1, 0);
       ukf_packet.heading = filter.curr_state_est(2, 0);
 
-      if (kalman_init) {
+      if (kalman_init)
+      {
         ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
         ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
         ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
         ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
-      } else {
+      }
+      else
+      {
         ukf_packet.eastern_cov = std::numeric_limits<double>::infinity();
         ukf_packet.northern_cov = std::numeric_limits<double>::infinity();
         ukf_packet.heading_cov = std::numeric_limits<double>::infinity();
         ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
-
       }
 
       ukf_packet.heading_rate = heading_rate;

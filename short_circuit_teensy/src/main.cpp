@@ -28,7 +28,23 @@
 #define STEERING_ALARM_PIN 40
 #define LIMIT_SWITCH_RIGHT_PIN 8
 #define LIMIT_SWITCH_LEFT_PIN 7
+
+// From PaulStoffregen/OctoWS2811/examples/Teensy4_PinList:
+// These buffers need to be large enough for all the pixels.
+// The total number of pixels is "ledsPerStrip * numPins".
+// Each pixel needs 3 bytes, so multiply by 3.  An "int" is
+// 4 bytes, so divide by 4.  The array is created using "int"
+// so the compiler will align it to 32 bit memory.
+#define LEDS_PER_STRIP 30 // LEDs per strip
+#define NUM_LED_PINS 1    // number of LED strips
+#define BYTES_PER_LED 3   // change to 4 if using RGBW
+static DMAMEM int displayMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+
 #define STATUS_LED_PIN 19
+static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN};
+
+static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
 
 /**
  * @brief The number of stepper steps in one degree.
@@ -93,7 +109,9 @@ void setup()
   rc::init(RC_SERIAL);
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
-  status_led::init(STATUS_LED_PIN);
+
+  pinMode(STATUS_LED_PIN, OUTPUT);
+  status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
 
   radio_init(RFM69_CS, RFM69_INT, RFM69_RST);
 

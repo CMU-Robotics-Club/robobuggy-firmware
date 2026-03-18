@@ -123,7 +123,8 @@ void setup_radio()
 {
 
   // begin radio on home channel
-  Serial.print(F("[SX1276] Initializing ... "));
+  packetCounter = 0;
+  Serial.print("[SX1276] Initializing ... ");
 
 #ifndef LORA_FIXED_FREQ
   int state = radio.begin(channels[channel_indices[0]], 125.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
@@ -137,10 +138,12 @@ void setup_radio()
   }
   else
   {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
-    while (true)
-      ;
+
+    Serial.printf("setup failed, code %d", state);
+    Serial.println();
+    Serial.println("Retrying setup in 5 seconds...");
+    delay(5000);
+    return;
   }
 
   // set output power to 10 dBm (accepted range is -3 - 17 dBm)
@@ -161,10 +164,11 @@ void setup_radio()
   }
   else
   {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
-    while (true)
-      ;
+
+    Serial.printf("CRC setup failed, code %d", state);
+    Serial.println("Retrying setup in 5 seconds...");
+    delay(5000);
+    return;
   }
 
 // set hop period in symbols
@@ -281,12 +285,13 @@ void loop()
     }
     else
     {
-      Serial.print(F("failed, code "));
-      Serial.println(transmissionState);
+
+      Serial.printf("transmit failed, code %d", transmissionState);
+      Serial.println();
     }
 
-    Serial.print(F("[SX1276] Items waiting in queue: "));
-    Serial.println(cbuffer.size());
+    Serial.printf("[SX1276] Items waiting in queue: %d", cbuffer.size());
+    Serial.println();
 
 #ifndef LORA_FIXED_FREQ
     // The channel is automatically reset to 0 upon completion
@@ -311,9 +316,9 @@ void loop()
     RadioMessage message = cbuffer.shift();
 
     // send another packet
-    Serial.print(F("[SX1276] Sending another packet of size "));
-    Serial.print(message.length + LORA_HEADER_LENGTH);
-    Serial.println(F("... "));
+
+    Serial.printf("[SX1276] Sending packet number %d of size %d...", packetCounter, message.length + LORA_HEADER_LENGTH);
+    Serial.println();
     transmissionState = radio.startTransmit(&message.header[0], message.length + LORA_HEADER_LENGTH);
   }
 

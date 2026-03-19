@@ -11,7 +11,9 @@
 #define LORA_HEADER_LENGTH 6
 #define LORA_PAYLOAD_LENGTH (255 - LORA_HEADER_LENGTH)
 #define LORA_FIXED_FREQ 902.5 // MHz (902.5 to 927.5 valid in US)
-#define LORA_TRANSMIT_RATE_MS 0
+
+#define LORA_TRANSMIT_RATE_MS 250
+#define RTCM_BUFFER_SIZE 1
 
 typedef struct
 {
@@ -39,7 +41,7 @@ typedef struct
 SX1276 radio = new Module(10, 26, 25, 27);
 
 // Create circular buffer to dispatch data
-CircularBuffer<RadioMessage, 8> cbuffer;
+CircularBuffer<RadioMessage, RTCM_BUFFER_SIZE> cbuffer;
 
 // RTCM Stream Splitter
 RTCMStreamSplitter splitter;
@@ -231,22 +233,17 @@ void loop()
       Serial.println();
     }
 
-    Serial.printf("Items waiting in queue: %d", cbuffer.size());
-    Serial.println();
-
-    // increment the packet counter
-    packetCounter++;
-
-    // load packet
+    // get packet from buffer
     RadioMessage message = cbuffer.pop();
     // delete, and do not send, old packets
     cbuffer.clear();
 
-    // send another packet
-
+    // send packet
     Serial.printf("[%lu ms]\tSending packet number %d of size %d...", millis(), packetCounter, message.length + LORA_HEADER_LENGTH);
     Serial.println();
     lastTxMillis = millis();
+    // increment the packet counter
+    packetCounter++;
     transmissionState = radio.startTransmit(&message.header[0], message.length + LORA_HEADER_LENGTH);
   }
 }

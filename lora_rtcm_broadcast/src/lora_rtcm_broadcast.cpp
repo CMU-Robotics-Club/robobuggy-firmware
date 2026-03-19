@@ -1,24 +1,5 @@
 /*
-   RadioLib SX127x Transmit with Frequency Hopping Example
-
-   This example transmits packets using SX1276 LoRa radio module.
-   Each packet contains up to 256 bytes of data, in the form of:
-    - Arduino String
-    - null-terminated char array (C-string)
-    - arbitrary binary data (byte array)
-
-   Other modules from SX127x/RFM9x family can also be used.
-
-   For default module settings, see the wiki page
-   https://github.com/jgromes/RadioLib/wiki/Default-configuration#sx127xrfm9x---lora-modem
-
-   For full API reference, see the GitHub Pages
-   https://jgromes.github.io/RadioLib/
-
-   SX127x supports FHSS or Frequency Hopping Spread Spectrum.
-   Once a hopping period is set and a transmission is started, the radio
-   will begin triggering interrupts every hop period where the radio frequency
-   is changed to the next channel.
+   RadioLib SX127x Transmit RTCM data received via serial stream.
 */
 
 #include <Arduino.h>
@@ -30,6 +11,7 @@
 #define LORA_HEADER_LENGTH 6
 #define LORA_PAYLOAD_LENGTH (255 - LORA_HEADER_LENGTH)
 #define LORA_FIXED_FREQ 902.5 // MHz (902.5 to 927.5 valid in US)
+#define LORA_TRANSMIT_RATE_MS 0
 
 typedef struct
 {
@@ -65,30 +47,6 @@ RTCMStreamSplitter splitter;
 // flag to indicate that tx is in use
 volatile bool transmittingFlag = false;
 
-// flag to indicate frequency must be changed
-volatile bool fhssChangeFlag = false;
-
-// the channel frequencies can be generated randomly or hard coded
-// NOTE: The frequency list MUST be the same on both sides!
-float channels[] = {902.3, 902.5, 902.7, 902.9,
-                    903.1, 903.3, 903.5, 903.7, 903.9,
-                    904.1, 904.3, 904.5, 904.7, 904.9,
-                    905.1, 905.3, 905.5, 905.7, 905.9,
-                    906.1, 906.3, 906.5, 906.7, 906.9,
-                    907.1, 907.3, 907.5, 907.7, 907.9,
-                    908.1, 908.3, 908.5, 908.7, 908.9,
-                    909.1, 909.3, 909.5, 909.7, 909.9,
-                    910.1, 910.3, 910.5, 910.7, 910.9,
-                    911.1, 911.3, 911.5, 911.7, 911.9,
-                    912.1, 912.3, 912.5, 912.7, 912.9,
-                    913.1, 913.3, 913.5, 913.7, 913.9,
-                    914.1, 914.3, 914.5, 914.7, 914.9};
-int numberOfChannels = sizeof(channels) / sizeof(float);
-uint8_t channel_indices[sizeof(channels) / sizeof(float)];
-
-// counter to keep track of how many frequency hops were performed
-int hopsCompleted = 0;
-
 // counter that increments with each sent packet
 int packetCounter = 0;
 
@@ -104,8 +62,11 @@ unsigned long lastTxMillis = 0;
 // declare reset function at address 0
 void (*resetFunc)(void) = 0;
 
-// this function is called when a complete packet
-// is transmitted by the module
+/**
+ * @brief
+ * this function is called when a complete packet
+ * is transmitted by the module
+ */
 void setTxFlag(void)
 {
   radio.finishTransmit();
@@ -116,9 +77,14 @@ void setTxFlag(void)
 // (at the beginning of each transmission)
 void setFHSSFlag(void)
 {
-  fhssChangeFlag = true;
+  // ignore.  we are not doing frequency hopping.
+  return;
 }
 
+/**
+ * @brief Initialize the radio.
+ *
+ */
 void setup_radio()
 {
 
@@ -173,23 +139,6 @@ void setup_radio()
     return;
   }
 
-// set hop period in symbols
-// this will also enable FHSS
-#ifndef LORA_FIXED_FREQ
-  state = radio.setFHSSHoppingPeriod(9);
-  if (state == RADIOLIB_ERR_NONE)
-  {
-    Serial.println(F("success!"));
-  }
-  else
-  {
-    Serial.print(F("failed, code "));
-    Serial.println(state);
-    while (true)
-      ;
-  }
-#endif
-
   // set the function to call when transmission is finished
   radio.setDio0Action(setTxFlag);
 
@@ -201,25 +150,12 @@ void setup_radio()
   // set the control pins
   radio.setRfSwitchPins(8, 9);
 
-  // set default values
-  hopsCompleted = 0;
   transmittingFlag = false;
 }
 
 void setup()
 {
   Serial.begin(57600);
-
-  // generate LFSR indexes (psuedorandom non-repeating [0, 63])
-  memset(&channel_indices[0], 0, sizeof(channel_indices));
-  channel_indices[1] = 29;
-  for (int i = 2; i < numberOfChannels; i++)
-  {
-    bool mask = channel_indices[i - 1] & 0x1;
-    channel_indices[i] = channel_indices[i - 1] >> 1;
-    if (mask)
-      channel_indices[i] ^= 0x30;
-  }
 
   radio.reset();
   delay(1000);
@@ -234,7 +170,7 @@ void parse_rtcm(byte nextByte)
     unsigned int length = splitter.outputStreamLength;
     if (length > LORA_PAYLOAD_LENGTH)
     {
-      Serial.println(F("[SX1276] RTCM Packet Larger than Max Packet"));
+      Serial.println(F("RTCM Packet Larger than Max Packet"));
       return;
     }
 
@@ -263,21 +199,24 @@ void loop()
   }
 
   // check if the radio is malfunctioning
-  bool txFrozen = (millis() - lastTxMillis > 1000) && transmittingFlag;
-  bool hopFrozen = (hopsCompleted == 1) && !transmittingFlag;
-  if (txFrozen || hopFrozen || (millis() - lastByteMillis) > 3000 || cbuffer.size() > 6)
+  bool txFrozen = (millis() - lastTxMillis > 500) && transmittingFlag;
+  bool noSerial = (millis() - lastByteMillis) > 3000;
+  if (txFrozen || noSerial)
   {
-    Serial.printf("Problem detected. Buffer size = %d.  Time since last serial message = %d ms.  Restarting radio...", cbuffer.size(), millis() - lastByteMillis);
+    Serial.printf("Problem detected. Time since last serial message = %d ms.  Restarting radio in 3 seconds...", millis() - lastByteMillis);
+    Serial.println();
+    delay(3000);
     radio.reset();
     delay(50);
     setup_radio();
   }
 
   // check if the transmission flag is set
-  if (!transmittingFlag && (cbuffer.size() > 0))
+  // check if there is data to transmit
+  // check if it's been at least LORA_TRANSMIT_RATE_MS since the beginning of the last transmission.
+  if (!transmittingFlag && (cbuffer.size() > 0) && (millis() - lastTxMillis > LORA_TRANSMIT_RATE_MS))
   {
     // reset flag
-    lastTxMillis = millis();
     transmittingFlag = true;
 
     if (transmissionState == RADIOLIB_ERR_NONE)
@@ -292,58 +231,22 @@ void loop()
       Serial.println();
     }
 
-    Serial.printf("[SX1276] Items waiting in queue: %d", cbuffer.size());
+    Serial.printf("Items waiting in queue: %d", cbuffer.size());
     Serial.println();
-
-#ifndef LORA_FIXED_FREQ
-    // The channel is automatically reset to 0 upon completion
-    Serial.print(F("[SX1276] Radio is on channel: "));
-    Serial.println(radio.getFHSSChannel());
-
-    // print the number of hops it took
-    Serial.print(F("[SX1276] Hops completed: "));
-    Serial.println(hopsCompleted);
-
-    // reset the counter
-    hopsCompleted = 0;
-
-    // return to home channel before the next transaction
-    radio.setFrequency(channels[radio.getFHSSChannel() % numberOfChannels]);
-#endif
 
     // increment the packet counter
     packetCounter++;
 
     // load packet
-    RadioMessage message = cbuffer.shift();
+    RadioMessage message = cbuffer.pop();
+    // delete, and do not send, old packets
+    cbuffer.clear();
 
     // send another packet
 
-    Serial.printf("[SX1276] Sending packet number %d of size %d...", packetCounter, message.length + LORA_HEADER_LENGTH);
+    Serial.printf("[%lu ms]\tSending packet number %d of size %d...", millis(), packetCounter, message.length + LORA_HEADER_LENGTH);
     Serial.println();
+    lastTxMillis = millis();
     transmissionState = radio.startTransmit(&message.header[0], message.length + LORA_HEADER_LENGTH);
   }
-
-#ifndef LORA_FIXED_FREQ
-  // check if we need to do another frequency hop
-  if (fhssChangeFlag == true)
-  {
-    // we do, change it now
-    int state = radio.setFrequency(channels[radio.getFHSSChannel() % numberOfChannels]);
-    if (state != RADIOLIB_ERR_NONE)
-    {
-      Serial.print(F("[SX1276] Failed to change frequency, code "));
-      Serial.println(state);
-    }
-
-    // increment the counter
-    hopsCompleted++;
-
-    // clear the FHSS interrupt
-    radio.clearFHSSInt();
-
-    // we're ready to do another hop, clear the flag
-    fhssChangeFlag = false;
-  }
-#endif
 }

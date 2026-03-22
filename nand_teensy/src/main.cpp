@@ -40,8 +40,6 @@
 
 #include <Adafruit_BNO08x.h>
 
-using status_led::Rgb;
-
 #define RFM69_CS 10
 #define RFM69_INT 36
 #define RFM69_RST 37
@@ -140,7 +138,24 @@ void setReports(void)
   */
 }
 
-#define STATUS_LED_PIN 35
+// From PaulStoffregen/OctoWS2811/examples/Teensy4_PinList:
+// These buffers need to be large enough for all the pixels.
+// The total number of pixels is "ledsPerStrip * numPins".
+// Each pixel needs 3 bytes, so multiply by 3.  An "int" is
+// 4 bytes, so divide by 4.  The array is created using "int"
+// so the compiler will align it to 32 bit memory.
+#define LEDS_PER_STRIP 30 // LEDs per strip
+#define NUM_LED_PINS 3    // number of LED strips
+#define BYTES_PER_LED 3   // change to 4 if using RGBW
+static DMAMEM int displayMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
+
+#define STATUS_LED_PIN1 34
+#define STATUS_LED_PIN2 35
+#define STATUS_LED_PIN3 40
+static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2, STATUS_LED_PIN3};
+
+static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
 
 void setup()
 {
@@ -152,12 +167,6 @@ void setup()
   // Serial.println("Encoder initalized");
   // Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
 
-  // Workaround to set the status LED pin as an output
-  pinMode(29, OUTPUT);
-  digitalWrite(29, LOW);
-
-  pinMode(STATUS_LED_PIN, OUTPUT);
-
   if (CrashReport)
   {
     Serial.print(CrashReport);
@@ -167,7 +176,10 @@ void setup()
   brake::init(BRAKE_RELAY_PIN);
   steering::init(STEERING_PULSE_PIN, STEERING_DIR_PIN, STEERING_ALARM_PIN, LIMIT_SWITCH_LEFT_PIN, LIMIT_SWITCH_RIGHT_PIN, STEPS_PER_DEGREE);
 
-  status_led::init(STATUS_LED_PIN);
+  pinMode(STATUS_LED_PIN1, OUTPUT);
+  pinMode(STATUS_LED_PIN2, OUTPUT);
+  pinMode(STATUS_LED_PIN3, OUTPUT);
+  status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
 
   encoder::init();
 
@@ -360,14 +372,6 @@ void loop()
   RateLimit debug_pkt_send_rate{50};
   RateLimit gps_pkt_send_rate{250};
 
-  Rgb dark_green = {0x00, 0xD0, 0x00};
-  Rgb light_green = {0x00, 0xFF, 0x20};
-
-  Rgb dark_red = {0xD0, 0x00, 0x00};
-  Rgb light_red = {0xFF, 0x20, 0x00};
-
-  Rgb black = {0x00, 0x00, 0x00};
-
   UKF filter(
       // Wheelbase (meters)
       1.2,
@@ -402,14 +406,14 @@ void loop()
     /* Handle RC/autonomous control of steering/braking */
     /* ================================================ */
     // Status LED
-    Rgb rgb;
+    status_led::Rgb rgb;
     if (kalman_init)
     {
-      rgb = ((millis() % 1000) > 500) ? dark_green : light_green;
+      rgb = ((millis() % 1000) > 500) ? status_led::dark_green : status_led::light_green;
     }
     else
     {
-      rgb = Rgb{0x80, 0x80, 0x00};
+      rgb = status_led::yellow;
     }
 
     rc::update();
@@ -439,7 +443,7 @@ void loop()
 
       if (rc::use_autonomous_steering())
       {
-        rgb = Rgb{0x00, 0x00, 0xFF};
+        rgb = status_led::blue;
       }
     }
     brake::set(brake_command);
@@ -580,10 +584,11 @@ void loop()
       raw_gps_packet.eastern = last_gps_data.x;
       raw_gps_packet.northern = last_gps_data.y;
       raw_gps_packet.accuracy = last_gps_data.accuracy;
-      raw_gps_packet.gps_time = last_gps_data.gps_time;
+      raw_gps_packet.gps_SIV = last_gps_data.gps_SIV;
       raw_gps_packet.gps_seq_num = gps_sequence_number;
       raw_gps_packet.timestamp = millis();
-      raw_gps_packet.fix_type = last_gps_data.fix; // gps_update() always sets to 0
+      raw_gps_packet.gps_fix = last_gps_data.gps_fix;
+      raw_gps_packet.rtk_fix = last_gps_data.rtk_fix;
       host_comms::nand_send_raw_gps(raw_gps_packet);
     }
 
@@ -611,7 +616,7 @@ void loop()
       fresh_gps_data = false;
       radio_tx_limit.reset();
       int radio_t1 = millis();
-      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.fix, (uint8_t)rc::use_autonomous_steering()))
+      if (!radio_send_gps(last_gps_data.x, last_gps_data.y, gps_sequence_number, last_gps_data.rtk_fix, (uint8_t)rc::use_autonomous_steering()))
       {
         int radio_tF = millis() - radio_t1;
         if (radio_tF > 5)
@@ -661,12 +666,12 @@ void loop()
 
     if (millis() - last_failed < 300)
     {
-      rgb = ((millis() % 500) > 250) ? dark_red : light_red;
+      rgb = ((millis() % 500) > 250) ? status_led::dark_red : status_led::light_red;
     }
 
     if (!rc::connected() || (steering::alarm_triggered() == steering::Status::alarm))
     {
-      rgb = ((millis() % 500) > 250) ? dark_red : black;
+      rgb = ((millis() % 500) > 250) ? status_led::dark_red : status_led::black;
     }
 
     if (radio_send_elapsed > 10)
@@ -686,17 +691,19 @@ void loop()
       ukf_packet.northern = filter.curr_state_est(1, 0);
       ukf_packet.heading = filter.curr_state_est(2, 0);
 
-      if (kalman_init) {
+      if (kalman_init)
+      {
         ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
         ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
         ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
         ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
-      } else {
+      }
+      else
+      {
         ukf_packet.eastern_cov = std::numeric_limits<double>::infinity();
         ukf_packet.northern_cov = std::numeric_limits<double>::infinity();
         ukf_packet.heading_cov = std::numeric_limits<double>::infinity();
         ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
-
       }
 
       ukf_packet.heading_rate = heading_rate;

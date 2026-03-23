@@ -176,7 +176,7 @@ void UKF::set_gps_noise(double accuracy)
   accuracy /= 1000.0;
   // Serial.printf("ACCURACY: %f\n", accuracy);
 
-  double sigma = (accuracy / (0.848867684498)) * (accuracy / (0.848867684498));
+  double sigma = (accuracy * (0.848867684498)) * (accuracy * (0.848867684498));
   this->gps_noise = measurement_cov_matrix_t{{sigma, 0}, {0, sigma}};
 }
 
@@ -185,30 +185,30 @@ void UKF::predict(input_vector_t input, double dt)
   // Serial.printf("dt: %f\n", dt);
   // if (abs(this->curr_state_est(3, 0)) > MOVING_THRESHOLD)
   // {
-    state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
-    double state_weights[2 * STATE_SPACE_DIM + 1];
-    this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
+  state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
+  double state_weights[2 * STATE_SPACE_DIM + 1];
+  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
 
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      state_sigmas[i] = rk4(state_sigmas[i], input, dt);
-      // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
-    }
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  {
+    state_sigmas[i] = rk4(state_sigmas[i], input, dt);
+    // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
+  }
 
-    this->curr_state_est.fill(0);
-    this->curr_state_cov.fill(0);
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      this->curr_state_est += state_sigmas[i] * state_weights[i];
-    }
+  this->curr_state_est.fill(0);
+  this->curr_state_cov.fill(0);
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  {
+    this->curr_state_est += state_sigmas[i] * state_weights[i];
+  }
 
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      state_vector_t m = state_sigmas[i] - this->curr_state_est;
-      this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
-    }
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  {
+    state_vector_t m = state_sigmas[i] - this->curr_state_est;
+    this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
+  }
 
-    this->curr_state_cov += this->process_noise * dt;
+  this->curr_state_cov += this->process_noise * dt;
   // }
 }
 

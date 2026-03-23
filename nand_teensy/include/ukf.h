@@ -8,10 +8,9 @@
  * First state variable represents x-location.
  * Second state variable represents y-location.
  * Third state variable represents heading in radians.
- * Fourth state variable represents buggy velocity in m/s.
  * 0 is positive along the x-axis, increasing CCW.
  */
-#define STATE_SPACE_DIM 4
+#define STATE_SPACE_DIM 3
 typedef Eigen::Matrix<double, STATE_SPACE_DIM, 1> state_vector_t;
 typedef Eigen::Matrix<double, STATE_SPACE_DIM, STATE_SPACE_DIM> state_cov_matrix_t;
 
@@ -37,6 +36,7 @@ class UKF
 private:
   double wheelbase;
   double zeroth_sigma_point_weight;
+  double speed;
 
   state_cov_matrix_t process_noise;
   measurement_cov_matrix_t gps_noise;
@@ -61,6 +61,8 @@ public:
    * @param accuracy Horizontal accuracy reading from the ZED-F9P, in millimeters.
    */
   void set_gps_noise(double accuracy);
+
+  void set_speed(double speed);
 
   /**
    * @brief TODO WRITE DESCRIPTOIN

@@ -72,6 +72,7 @@ state_cov_matrix_t square_root(state_cov_matrix_t matrix)
 {
   Eigen::EigenSolver<state_cov_matrix_t> solver(matrix);
 
+  // TODO: the covariance matrix is semi-definite, meaning its eigenvalues are non-negative.  Add a check that they are not zero.
   state_cov_matrix_t D;
   D.fill(0);
   for (int i = 0; i < STATE_SPACE_DIM; i++)
@@ -137,9 +138,9 @@ void UKF::generate_sigmas(state_vector_t mean, state_cov_matrix_t covariance, st
 state_vector_t UKF::dynamics(state_vector_t state, input_vector_t input)
 {
   state_vector_t x;
-  x(0, 0) = state(3, 0) * cos(state(2, 0));
-  x(1, 0) = state(3, 0) * sin(state(2, 0));
-  x(2, 0) = state(3, 0) * tan(input(0, 0)) / this->wheelbase;
+  x(0, 0) = this->speed * cos(state(2, 0));
+  x(1, 0) = this->speed * sin(state(2, 0));
+  x(2, 0) = this->speed * tan(input(0, 0)) / this->wheelbase;
   x(3, 0) = 0.0;
   return x;
 }
@@ -165,10 +166,10 @@ measurement_vector_t UKF::state_to_measurement(state_vector_t vector)
   return m;
 }
 
-// void UKF::set_speed(double speed)
-// {
-//   this->speed = speed;
-// }
+void UKF::set_speed(double speed)
+{
+  this->speed = speed;
+}
 
 void UKF::set_gps_noise(double accuracy)
 {

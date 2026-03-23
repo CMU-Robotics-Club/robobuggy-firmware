@@ -163,8 +163,8 @@ void setup()
   Serial.println("NAND Booting Up!");
 
   Serial.println("Encoder starting initalization");
-  // encoder::init();
-  // Serial.println("Encoder initalized");
+  encoder::init();
+  Serial.println("Encoder initalized");
   // Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
 
   if (CrashReport)
@@ -500,6 +500,7 @@ void loop()
       }
       if (encoder::front_speed(&front_speed))
       {
+        filter.set_speed(front_speed);
         // Serial.println(front_speed, 3);
       };
     }

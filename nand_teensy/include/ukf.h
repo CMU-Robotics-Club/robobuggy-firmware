@@ -78,11 +78,10 @@ public:
    * Initial estimations for state and covariance.
    * 
    */
-  state_vector_t curr_state_est{{0, 0, PI, 0}}; 
-  state_cov_matrix_t curr_state_cov{{1e-1, 0, 0, 0},
-                                    {0, 1e-1, 0, 0},
-                                    {0, 0, 1e-1, 0},
-                                    {0, 0, 0, 1e-1}};
+  state_vector_t curr_state_est{{0, 0, PI}}; 
+  state_cov_matrix_t curr_state_cov{{1e-1, 0, 0},
+                                    {0, 1e-1, 0},
+                                    {0, 0, 1e-1}};
 };
 
 state_vector_t get_col(state_cov_matrix_t A, int i);

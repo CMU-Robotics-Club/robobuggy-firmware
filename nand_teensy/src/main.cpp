@@ -144,16 +144,15 @@ void setReports(void)
 // Each pixel needs 3 bytes, so multiply by 3.  An "int" is
 // 4 bytes, so divide by 4.  The array is created using "int"
 // so the compiler will align it to 32 bit memory.
-#define LEDS_PER_STRIP 30 // LEDs per strip
-#define NUM_LED_PINS 3    // number of LED strips
+#define LEDS_PER_STRIP 20 // LEDs per strip
+#define NUM_LED_PINS 2    // number of LED strips
 #define BYTES_PER_LED 3   // change to 4 if using RGBW
 static DMAMEM int displayMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
 static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
 
-#define STATUS_LED_PIN1 34
-#define STATUS_LED_PIN2 35
-#define STATUS_LED_PIN3 40
-static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2, STATUS_LED_PIN3};
+#define STATUS_LED_PIN1 40
+#define STATUS_LED_PIN2 41
+static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2};
 
 static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
 
@@ -178,7 +177,6 @@ void setup()
 
   pinMode(STATUS_LED_PIN1, OUTPUT);
   pinMode(STATUS_LED_PIN2, OUTPUT);
-  pinMode(STATUS_LED_PIN3, OUTPUT);
   status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
 
   encoder::init();
@@ -397,13 +395,7 @@ void loop()
   while (1)
   {
     elapsed_loop_micros = 0;
-    // Serial.printf("Row rotation: %i\n",encoder::rawRot);
-    //    Serial.printf("State: %i\n",encoder::state());
-    //    Serial.printf("Gain: %i\n",encoder::gain());
-    //    Serial.printf("Position in radians: %d\n\n",encoder::rotRad());
-    /* ================================================ */
-    /* Handle RC/autonomous control of steering/braking */
-    /* ================================================ */
+
     // Status LED
     status_led::Rgb rgb;
     if (kalman_init)
@@ -500,7 +492,7 @@ void loop()
       if (encoder::front_speed(&front_speed))
       {
         filter.set_speed(front_speed);
-        // Serial.println(front_speed, 3);
+        Serial.println(front_speed, 3);
       };
     }
 

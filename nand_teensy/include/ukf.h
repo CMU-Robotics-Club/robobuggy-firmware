@@ -55,30 +55,33 @@ public:
   // void set_speed(double speed);
   /**
    * @brief Sets the UKF's internal gps measurement covariance matrix.
-   * 
+   *
    * Some math is involved to go from accuracy provided to covariance matrix.
-   * 
+   *
    * @param accuracy Horizontal accuracy reading from the ZED-F9P, in millimeters.
    */
   void set_gps_noise(double accuracy);
 
+  /**
+   * @brief Speed must be meters per second.  Sets the UKF's internal speed field.
+   */
   void set_speed(double speed);
 
   /**
    * @brief TODO WRITE DESCRIPTOIN
-   * 
-   * @param input 
+   *
+   * @param input
    * @param dt   seconds since last time predict was called
    */
   void predict(input_vector_t input, double dt);
 
   void update(measurement_vector_t measurement);
-  
+
   /**
    * Initial estimations for state and covariance.
-   * 
+   *
    */
-  state_vector_t curr_state_est{{0, 0, PI}}; 
+  state_vector_t curr_state_est{{0, 0, PI}};
   state_cov_matrix_t curr_state_cov{{1e-1, 0, 0},
                                     {0, 1e-1, 0},
                                     {0, 0, 1e-1}};

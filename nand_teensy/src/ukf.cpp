@@ -141,7 +141,6 @@ state_vector_t UKF::dynamics(state_vector_t state, input_vector_t input)
   x(0, 0) = this->speed * cos(state(2, 0));
   x(1, 0) = this->speed * sin(state(2, 0));
   x(2, 0) = this->speed * tan(input(0, 0)) / this->wheelbase;
-  x(3, 0) = 0.0;
   return x;
 }
 

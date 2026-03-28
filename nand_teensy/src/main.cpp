@@ -552,7 +552,6 @@ void loop()
         filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
 
-      serial_log(millis(), 0 /*encoder::rear_speed(steering::current_angle_degrees())*/, steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
       /*i2c_time = encoder::prev_time_millis();
       if(i2c_time>=5) {
         Serial.printf("Second encoder time :%d\n",i2c_time);
@@ -688,7 +687,7 @@ void loop()
         ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
         ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
         ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
-        ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
+        ukf_packet.speed_cov = front_speed;
       }
       else
       {

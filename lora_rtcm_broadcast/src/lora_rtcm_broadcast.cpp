@@ -239,9 +239,9 @@ void loop()
     }
 
     // get packet from buffer
-    RadioMessage message = cbuffer.pop();
+    RadioMessage message = cbuffer.shift();
     // delete, and do not send, old packets
-    cbuffer.clear();
+    // cbuffer.clear();
 
     // send packet
     Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), cbuffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);

@@ -512,7 +512,7 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.front_wheel_speed = speed_deg_per_sec;
+      debug_packet.front_wheel_speed = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
       host_comms::nand_send_debug(debug_packet);
     }
 
@@ -688,7 +688,7 @@ void loop()
         ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
         ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
         ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
-        ukf_packet.speed_cov = speed_deg_per_sec;
+        ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
       }
       else
       {
@@ -699,7 +699,7 @@ void loop()
       }
 
       ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = speed_deg_per_sec; // filter.curr_state_est(3, 0);
+      ukf_packet.front_speed = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
       ukf_packet.timestamp = (uint32_t)micros();
       host_comms::nand_send_ukf(ukf_packet);
     }
@@ -720,21 +720,7 @@ void loop()
 
     if (elapsed_loop_micros > 10000)
     {
-      // Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      Serial.printf("Cycle time (ms): %lu\n", (int64_t)(elapsed_loop_micros / 1000.0));
     }
   }
 }
-
-// This function gets called from the SparkFun Ublox Arduino Library
-// As each NMEA character comes in you can specify what to do with it
-// Useful for passing to other libraries like tinyGPS, MicroNMEA, or even
-// a buffer, radio, etc.
-
-/*
-void SFE_UBLOX_GPS::processNMEA(char incoming)
-{
-  // Take the incoming char from the Ublox I2C port and pass it on to the MicroNMEA lib
-  // for sentence cracking
-  nmea.process(incoming);
-}
-*/

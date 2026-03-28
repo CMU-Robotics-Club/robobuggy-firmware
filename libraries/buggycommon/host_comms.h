@@ -10,21 +10,21 @@ namespace host_comms
 	struct NANDDebugInfo
 	{
 		// 64 bits
-		double heading_rate;	  // positive when accelerating in CCW direction (done)
-		double front_wheel_speed; // speed of the front wheel in deg/sec
+		double heading_rate;	  // positive when accelerating in CCW direction
+		double front_wheel_speed; // speed of the front wheel in m/s
 		// 32 bits
-		int timestamp;			 // teensy timestamp (done)
-		float rc_steering_angle; // steering angle sent by TX12 (done)
-		float steering_angle;	 // steering angle commanded by software (done)
-		float true_stepper_pos;	 // actual stepper position (done)
+		int timestamp;			 // teensy timestamp
+		float rc_steering_angle; // steering angle sent by TX12
+		float steering_angle;	 // steering angle commanded by software
+		float true_stepper_pos;	 // actual stepper position
 		int rfm69_timeout_cnt;	 // # of times RFM69 has timeout
 		// 8 bits
-		bool operator_ready;			 // operator ready (done)
-		brake::Status brake_status;		 // brake status (char) (done)
-		bool use_auton_steering;		 // use auton steer (done)
-		bool tx12_connected;			 // TX12 connected (done)
-		steering::Status steering_alarm; // unsigned char (done)
-		uint8_t rc_uplink;				 // RC uplink quality (done)
+		bool operator_ready;			 // operator ready
+		brake::Status brake_status;		 // brake status
+		bool use_auton_steering;		 // use auton steer
+		bool tx12_connected;			 // TX12 connected
+		steering::Status steering_alarm; // unsigned char
+		uint8_t rc_uplink;				 // RC uplink quality
 		uint8_t padding[6];
 	};
 
@@ -39,7 +39,7 @@ namespace host_comms
 		double heading_cov;	 // covariance of the heading value
 		double speed_cov;	 // covariance of the speed value
 		double heading_rate; // positive when accelerating in CCW direction
-		double front_speed;	 // speed of the front wheel
+		double front_speed;	 // speed of the front wheel, in m/s
 		// 32 bits
 		uint32_t timestamp; // teensy timestamp, in MICROseconds!
 	};
@@ -47,9 +47,9 @@ namespace host_comms
 	struct NANDRawGPS
 	{
 		// 64 bits
-		double eastern;	   // position eastern
-		double northern;   // position northern
-		double accuracy;   // accuracy of gps position
+		double eastern;	 // position eastern
+		double northern; // position northern
+		double accuracy; // accuracy of gps position
 		// 32 bits
 		int gps_seq_num; // gps seqence number
 		int timestamp;	 // teensy timestamp

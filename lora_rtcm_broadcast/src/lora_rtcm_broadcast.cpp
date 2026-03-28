@@ -61,6 +61,9 @@ unsigned long lastByteMillis = 0;
 // timestamp of start of last transmission
 unsigned long lastTxMillis = 0;
 
+// the duration of the most recent transmit, in ms
+long transmit_duration_ms = -1;
+
 // declare reset function at address 0
 void (*resetFunc)(void) = 0;
 
@@ -73,6 +76,7 @@ void setTxFlag(void)
 {
   radio.finishTransmit();
   transmittingFlag = false;
+  transmit_duration_ms = millis() - lastTxMillis;
 }
 
 // this function is called when FhssChangeChannel interrupt occurs
@@ -224,7 +228,7 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.printf("Transmission finished!  Time to broadcast: %lu ms", millis() - lastTxMillis);
+      Serial.printf("Transmission finished!  It took %lu ms to transmit.", transmit_duration_ms);
       Serial.println();
     }
     else
@@ -240,7 +244,7 @@ void loop()
     cbuffer.clear();
 
     // send packet
-    Serial.printf("[%lu ms]\tSending packet number %d of size %d...", millis(), packetCounter, message.length + LORA_HEADER_LENGTH);
+    Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), cbuffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
     Serial.println();
     lastTxMillis = millis();
     // increment the packet counter

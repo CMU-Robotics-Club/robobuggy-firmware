@@ -13,7 +13,7 @@
 #define LORA_FIXED_FREQ 902.5 // MHz (902.5 to 927.5 valid in US)
 
 #define LORA_TRANSMIT_RATE_MS 250
-#define RTCM_BUFFER_SIZE 1
+#define RTCM_BUFFER_SIZE 8
 
 typedef struct
 {
@@ -224,7 +224,8 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.println(F("transmission finished!"));
+      Serial.printf("Transmission finished!  Time to broadcast: %lu ms", millis() - lastTxMillis);
+      Serial.println();
     }
     else
     {

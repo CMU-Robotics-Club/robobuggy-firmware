@@ -301,8 +301,6 @@ private:
  */
 void serial_log(double speed_deg_per_sec, double steering_deg, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
-  return;
-
   double heading = degrees(state_est(2, 0));
   heading += 360;
   fmod(heading, 360);
@@ -722,7 +720,7 @@ void loop()
 
     if (elapsed_loop_micros > 10000)
     {
-      Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      // Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
     }
   }
 }

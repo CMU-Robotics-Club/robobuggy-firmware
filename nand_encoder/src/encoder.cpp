@@ -91,10 +91,15 @@ namespace encoder
         uint16_t value = 0;
         Wire.beginTransmission(I2C_ADDRESS);
         Wire.write(FIX_REGISTER); // write register address
-        if (Wire.endTransmission() != 0)
+        uint8_t endTransmissionStatus = Wire.endTransmission();
+        if (endTransmissionStatus != 0) {
+            Serial.printf("I2C end transmission failed.  Status = %d\n", endTransmissionStatus);
             return false;
-        if (Wire.requestFrom(I2C_ADDRESS, QUANTITY, STOP) != QUANTITY) // Writes to buffer
+        }
+        if (Wire.requestFrom(I2C_ADDRESS, QUANTITY, STOP) != QUANTITY) { // Writes to buffer
+            Serial.println("I2C stop failed");
             return false;
+        }
         value |= (Wire.read() & 0x0F) << 8; // ANGLE[11:8]
         value |= Wire.read();               // ANGLE[7:0]
         *position_ptr = value;

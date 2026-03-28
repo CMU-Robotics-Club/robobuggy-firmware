@@ -23,6 +23,7 @@
 #include "encoder.h"
 #include "ratelimit.h"
 
+#define ENCODER_DIR_PIN 8
 #define ENCODER_READ_PERIOD_MS 1
 #define SERIAL_PRINT_PERIOD_MS 25
 #define FILTER_BUFFER_SIZE 128
@@ -70,6 +71,18 @@ void write_error_packet()
   COMM_SERIAL.write(error);
 }
 
+void restart_encoder() {
+  Wire.end();
+  delay(250);
+      while (!encoder::init())
+      {
+        error = Error::FailedInit;
+        write_error_packet();
+        Serial.println("ERROR: Failed init");
+      }
+
+}
+
 /**
  * @note Blocking if encoder fails to initialize purposes.
  * This should probably not be the case outside of testing.
@@ -77,6 +90,9 @@ void write_error_packet()
  */
 void setup()
 {
+  pinMode(ENCODER_DIR_PIN, OUTPUT);
+  digitalWrite(ENCODER_DIR_PIN, LOW);
+
   Serial.begin(115200);
   COMM_SERIAL.begin(COMM_BAUDRATE);
   error = Error::None;
@@ -134,6 +150,9 @@ void loop()
     {
       Serial.println("ERROR: Failed comm");
       write_error_packet();
+
+      // Attempt to reinitialize the I2C comm to encoder.
+      restart_encoder();
     }
   }
 }

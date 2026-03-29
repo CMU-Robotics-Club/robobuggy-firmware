@@ -376,18 +376,22 @@ void loop()
       1.0 / 3.0,
       // Process noise,
       state_cov_matrix_t{
-          {0.0001, 0.0, 0.0},
-          {0.0, 0.0001, 0.0},
-          {0.0, 0.0, 0.01}},
+          {0.0001, 0.0, 0.0, 0.0},
+          {0.0, 0.0001, 0.0, 0.0},
+          {0.0, 0.0, 0.01, 0.0},
+          {0.0, 0.0, 0.0, 1.0}},
       // GPS noise,
       measurement_cov_matrix_t{
           {0.01, 0.0},
-          {0.0, 0.01}});
+          {0.0, 0.01}},
+      0.01 // Speed noise/variance (m/s)^2, eye-balled from one bag based on 95% -> 2sigma principle, then squared
+  );
   bool kalman_init = false;
   uint32_t last_predict_timestamp; // the timestamp at which the UKF predict step was run most recently
 
-  double heading_rate = 0.0;
-  double speed_deg_per_sec = 0.0;
+  double heading_rate = 0;
+  double encoder_speed_m_per_sec = 0;
+  bool encoder_alive = false;
 
   elapsedMicros elapsed_loop_micros;
 
@@ -486,12 +490,16 @@ void loop()
       if (last_encoder_packet > 100)
       {
         Serial.printf("Have not received encoder packet in %lu ms!\n", last_encoder_packet);
-        speed_deg_per_sec = -1;
+        encoder_alive = false;
       }
+      else
+        encoder_alive = true;
+
+      double speed_deg_per_sec;
       if (encoder::front_speed(&speed_deg_per_sec))
       {
-        double speed_m_per_sec = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
-        filter.set_speed(speed_m_per_sec);
+        encoder_speed_m_per_sec = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
+        filter.update_speed(encoder_speed_m_per_sec);
       };
     }
 
@@ -510,17 +518,14 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.front_wheel_speed = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
+      debug_packet.encoder_front_wheel_speed = encoder_speed_m_per_sec;
+      debug_packet.encoder_alive = encoder_alive;
       host_comms::nand_send_debug(debug_packet);
     }
 
     uint32_t cur_time = micros(); // timing variable for UKF
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
-    // filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
-    // int i2c_time = encoder::prev_time_millis();
-    /*if(i2c_time>=5) {
-      Serial.printf("First encoder time: %d\n",i2c_time);
-    }*/
+
     if (kalman_init)
     {
       filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
@@ -536,6 +541,7 @@ void loop()
         filter.curr_state_est(0, 0) = gps_coord->x;
         filter.curr_state_est(1, 0) = gps_coord->y;
         filter.curr_state_est(2, 0) = -M_PI_2;
+        filter.curr_state_est(3, 0) = 0;
 
         kalman_init = true;
       }
@@ -548,17 +554,8 @@ void loop()
       if (kalman_init)
       {
         filter.set_gps_noise(gps_coord->accuracy);
-        filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
+        filter.update_gps(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
-
-      /*i2c_time = encoder::prev_time_millis();
-      if(i2c_time>=5) {
-        Serial.printf("Second encoder time :%d\n",i2c_time);
-      }*/
-      // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
-
-      // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
-      // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
     }
     else
     {
@@ -586,11 +583,6 @@ void loop()
     {
       // Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
     }
-
-    /*i2c_time = encoder::prev_time_millis();
-    if(i2c_time>=5) {
-      Serial.printf("Third encoder time: %d\n",i2c_time);
-    }*/
 
     // TODO cleanup
     /**
@@ -686,7 +678,7 @@ void loop()
         ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
         ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
         ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
-        ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
       }
       else
       {
@@ -697,7 +689,7 @@ void loop()
       }
 
       ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
+      ukf_packet.front_speed = filter.curr_state_est(3, 0);
       ukf_packet.timestamp = (uint32_t)micros();
       host_comms::nand_send_ukf(ukf_packet);
     }
@@ -713,7 +705,7 @@ void loop()
 
     if (print_limit.ready())
     {
-      serial_log(speed_deg_per_sec, steering::current_angle_degrees(), filter.curr_state_est, filter.curr_state_cov);
+      serial_log(encoder_speed_m_per_sec, steering::current_angle_degrees(), filter.curr_state_est, filter.curr_state_cov);
     }
 
     if (elapsed_loop_micros > 10000)

@@ -11,7 +11,7 @@ namespace host_comms
 	{
 		// 64 bits
 		double heading_rate;	  // positive when accelerating in CCW direction
-		double front_wheel_speed; // speed of the front wheel in m/s
+		double encoder_front_wheel_speed; // speed of the front wheel in m/s
 		// 32 bits
 		int timestamp;			 // teensy timestamp
 		float rc_steering_angle; // steering angle sent by TX12
@@ -23,9 +23,10 @@ namespace host_comms
 		brake::Status brake_status;		 // brake status
 		bool use_auton_steering;		 // use auton steer
 		bool tx12_connected;			 // TX12 connected
+		bool encoder_alive;			     // Have received encoder packets in last 100ms
 		steering::Status steering_alarm; // unsigned char
 		uint8_t rc_uplink;				 // RC uplink quality
-		uint8_t padding[6];
+		uint8_t padding[5];
 	};
 
 	struct NANDUKF

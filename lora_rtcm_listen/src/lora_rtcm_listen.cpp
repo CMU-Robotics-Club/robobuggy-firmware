@@ -27,27 +27,15 @@
 #define LORA_FIXED_FREQ 902.5
 
 #define USE_USBCON
-#define DATA_SERIAL Serial1
+#define GPS_SERIAL Serial1
 
 #include <Arduino.h>
 #include <RadioLib.h>
 
-#include <ros.h>
-#include <ros/time.h>
-#include <mavros_msgs/RTCM.h>
-#include <buggy/LoRaEvent.h>
-
-ros::NodeHandle nh;
-
-mavros_msgs::RTCM rtcm;
-ros::Publisher rtcm_pub("rtcm", &rtcm);
-
-buggy::LoRaEvent lora;
-ros::Publisher lora_pub("buggy/lora", &lora);
-
 char debug_chars[64];
 
-typedef struct {
+typedef struct
+{
   byte length;
   byte header[LORA_HEADER_LENGTH];
   byte data[LORA_PAYLOAD_LENGTH];
@@ -68,7 +56,7 @@ volatile bool fhssChangeFlag = false;
 
 // the channel frequencies can be generated randomly or hard coded
 // NOTE: The frequency list MUST be the same on both sides!
-float channels[] = {       902.3, 902.5, 902.7, 902.9, 
+float channels[] = {902.3, 902.5, 902.7, 902.9,
                     903.1, 903.3, 903.5, 903.7, 903.9,
                     904.1, 904.3, 904.5, 904.7, 904.9,
                     905.1, 905.3, 905.5, 905.7, 905.9,
@@ -80,7 +68,7 @@ float channels[] = {       902.3, 902.5, 902.7, 902.9,
                     911.1, 911.3, 911.5, 911.7, 911.9,
                     912.1, 912.3, 912.5, 912.7, 912.9,
                     913.1, 913.3, 913.5, 913.7, 913.9,
-                    914.1, 914.3, 914.5, 914.7, 914.9 };
+                    914.1, 914.3, 914.5, 914.7, 914.9};
 int numberOfChannels = sizeof(channels) / sizeof(float);
 uint8_t channel_indices[sizeof(channels) / sizeof(float)];
 
@@ -92,92 +80,103 @@ RadioMessage message;
 
 // this function is called when a complete packet
 // is received by the module
-void setRxFlag(void) {
+void setRxFlag(void)
+{
   receivedFlag = true;
   digitalWrite(LED_BUILTIN, HIGH);
 }
 
 // this function is called when FhssChangeChannel interrupt occurs
 // (at the beginning of each transmission)
-void setFHSSFlag(void) {
+void setFHSSFlag(void)
+{
   fhssChangeFlag = true;
 }
 
-void setup() {
-  // Set up ROS serial communication
-  nh.getHardware()->setBaud(115200);
-  nh.initNode();
-  nh.advertise(rtcm_pub);
-  nh.advertise(lora_pub);
+void setup()
+{
+  Serial.begin(115200);
 
   // Set up RS232 data
-  DATA_SERIAL.begin(115200);
+  GPS_SERIAL.begin(115200);
 
   // generate LFSR indexes (psuedorandom non-repeating [0, 63])
   memset(&channel_indices[0], 0, sizeof(channel_indices));
   channel_indices[1] = 29;
-  for (int i = 2; i < numberOfChannels; i++) {
-    bool mask = channel_indices[i-1] & 0x1;
-    channel_indices[i] = channel_indices[i-1] >> 1;
+  for (int i = 2; i < numberOfChannels; i++)
+  {
+    bool mask = channel_indices[i - 1] & 0x1;
+    channel_indices[i] = channel_indices[i - 1] >> 1;
     if (mask)
       channel_indices[i] ^= 0x30;
   }
 
   // begin radio on home channel
-  nh.logdebug("[SX1276] Initializing ... ");
-  #ifndef LORA_FIXED_FREQ
+  Serial.println("Initializing...");
+#ifndef LORA_FIXED_FREQ
   int state = radio.begin(channels[channel_indices[0]], 125.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
-  #else
+#else
   int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 8, RADIOLIB_SX127X_SYNC_WORD, 10, 8, 0);
-  #endif
-  if (state != RADIOLIB_ERR_NONE) {
+#endif
+  if (state != RADIOLIB_ERR_NONE)
+  {
     snprintf(&debug_chars[0], 64, "failed, code %d", state);
-    nh.logerror(debug_chars);
-    while (true);
+    Serial.printf("failed, code %d\n", state);
+    delay(1000);
+    while (true)
+      ;
   }
 
   // set the CRC to be used
   state = radio.setCRC(true);
-  if (state != RADIOLIB_ERR_NONE) {
+  if (state != RADIOLIB_ERR_NONE)
+  {
     snprintf(&debug_chars[0], 64, "failed, code %d", state);
-    nh.logerror(debug_chars);
-    while (true);
+    Serial.printf("failed, code %d\n", state);
+    delay(1000);
+    while (true)
+      ;
   }
 
-  // set hop period in symbols
-  // this will also enable FHSS
-  #ifndef LORA_FIXED_FREQ
+// set hop period in symbols
+// this will also enable FHSS
+#ifndef LORA_FIXED_FREQ
   state = radio.setFHSSHoppingPeriod(9);
-  if (state != RADIOLIB_ERR_NONE) {
+  if (state != RADIOLIB_ERR_NONE)
+  {
     snprintf(&debug_chars[0], 64, "failed, code %d", state);
     nh.logerror(debug_chars);
-    while (true);
+    while (true)
+      ;
   }
-  #endif
+#endif
 
   // set the function to call when reception is finished
   radio.setDio0Action(setRxFlag);
 
-  // set the function to call when we need to change frequency
-  #ifndef LORA_FIXED_FREQ
+// set the function to call when we need to change frequency
+#ifndef LORA_FIXED_FREQ
   radio.setDio1Action(setFHSSFlag);
-  #endif
+#endif
 
   // start listening for LoRa packets
-  nh.logdebug("[SX1276] Starting to listen ... ");
   state = radio.startReceive();
-  if (state != RADIOLIB_ERR_NONE) {
+  if (state != RADIOLIB_ERR_NONE)
+  {
     snprintf(&debug_chars[0], 64, "failed, code %d", state);
-    nh.logerror(debug_chars);
-    while (true);
+    Serial.println(debug_chars);
+    while (true)
+      ;
   }
 
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
-void loop() {
+void loop()
+{
   // check if the reception flag is set
-  if (receivedFlag == true) {
+  if (receivedFlag == true)
+  {
     // we're ready to receive more packets, clear the flag
     receivedFlag = false;
 
@@ -187,43 +186,33 @@ void loop() {
     message.length = length > LORA_HEADER_LENGTH ? length - LORA_HEADER_LENGTH : 0;
     float snr = radio.getSNR();
     float rssi = radio.getRSSI();
-    
+
+    Serial.printf("Packet length = %d\tSNR = %f\t RSSI = %f\n", length, snr, rssi);
+
     // put the module back to listen mode
     radio.startReceive();
 
-    if (state == RADIOLIB_ERR_NONE && message.length > 0) {
+    if (state == RADIOLIB_ERR_NONE && message.length > 0)
+    {
       // packet was successfully received
-      DATA_SERIAL.write(&message.data[0], message.length);
-      
-      // write to ROS publisher as well
-      rtcm.header.frame_id = "odom";
-      rtcm.header.stamp = nh.now();
-      rtcm.data = &message.data[0];
-      rtcm.data_length = message.length;
-      rtcm_pub.publish(&rtcm);
-
+      GPS_SERIAL.write(&message.data[0], message.length);
       digitalWrite(LED_BUILTIN, LOW);
     }
 
-    lora.snr = snr;
-    lora.rssi = rssi;
-    lora.hops = hopsCompleted; 
-    lora.code = state;
-    lora.crc = (state != RADIOLIB_ERR_CRC_MISMATCH);
-    lora_pub.publish(&lora);
-
-    #ifndef LORA_FIXED_FREQ
+#ifndef LORA_FIXED_FREQ
     // reset the counter
     hopsCompleted = 0;
-    #endif
+#endif
   }
 
-  #ifndef LORA_FIXED_FREQ
+#ifndef LORA_FIXED_FREQ
   // check if we need to do another frequency hop
-  if (fhssChangeFlag == true) {    
+  if (fhssChangeFlag == true)
+  {
     // we do, change it now
     int state = radio.setFrequency(channels[radio.getFHSSChannel() % numberOfChannels]);
-    if (state != RADIOLIB_ERR_NONE) {
+    if (state != RADIOLIB_ERR_NONE)
+    {
       snprintf(&debug_chars[0], 64, "[SX1276] Failed to change frequency, code %d", state);
       nh.logerror(debug_chars);
     }
@@ -237,7 +226,5 @@ void loop() {
     // we're ready to do another hop, clear the flag
     fhssChangeFlag = false;
   }
-  #endif
-
-  nh.spinOnce();
+#endif
 }

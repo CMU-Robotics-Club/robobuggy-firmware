@@ -12,8 +12,8 @@
 #define LORA_PAYLOAD_LENGTH (255 - LORA_HEADER_LENGTH)
 #define LORA_FIXED_FREQ 902.5 // MHz (902.5 to 927.5 valid in US)
 
-#define LORA_TRANSMIT_RATE_MS 250
-#define RTCM_BUFFER_SIZE 8
+#define LORA_TRANSMIT_RATE_MS 0
+#define RTCM_BUFFER_SIZE 16
 
 typedef struct
 {
@@ -63,6 +63,8 @@ unsigned long lastTxMillis = 0;
 
 // the duration of the most recent transmit, in ms
 long transmit_duration_ms = -1;
+// the size in bytes of the packet most recently transmitted
+uint8_t packt_size_bytes = 999;
 
 // declare reset function at address 0
 void (*resetFunc)(void) = 0;
@@ -228,7 +230,7 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.printf("Transmission finished!  It took %lu ms to transmit.", transmit_duration_ms);
+      Serial.printf("Transmission finished!  It took %lu ms to transmit.  % 2.3f ms per byte.", transmit_duration_ms, (float)((float)transmit_duration_ms / (float)packt_size_bytes));
       Serial.println();
     }
     else
@@ -250,5 +252,6 @@ void loop()
     // increment the packet counter
     packetCounter++;
     transmissionState = radio.startTransmit(&message.header[0], message.length + LORA_HEADER_LENGTH);
+    packt_size_bytes = message.length + LORA_HEADER_LENGTH;
   }
 }

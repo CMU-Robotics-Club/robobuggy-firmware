@@ -209,10 +209,30 @@ void loop()
   // check if the radio is malfunctioning
   bool txFrozen = (millis() - lastTxMillis > 500) && transmittingFlag;
   bool noSerial = (millis() - lastByteMillis) > 3000;
-  if (txFrozen || noSerial)
+  /**
+   * from observations, we found that the lora module sometimes ceases to broadcast data,
+   * yet still reports back to the microcontroller that transmit occured and completed.
+   * when this happens, the time it takes to transmit a packet increases, and
+   * so does the number of packets in the buffer.  this is how we're going to detect when the radio
+   * module dies, so we know we should reset the radio.
+   */
+  bool transmitSlow = (float)((float)transmit_duration_ms / (float)packt_size_bytes) > 2.0;
+  if (txFrozen || noSerial || transmitSlow)
   {
-    Serial.printf("Problem detected. Time since last serial message = %d ms.  Restarting radio in 3 seconds...", millis() - lastByteMillis);
-    Serial.println();
+    if (txFrozen)
+    {
+      Serial.printf("TX is frozen.  ", millis() - lastByteMillis);
+    }
+    if (noSerial)
+    {
+      Serial.printf("Time since last serial message = %d ms.  ", millis() - lastByteMillis);
+    }
+    if (transmitSlow)
+    {
+      Serial.printf("Problem detected: Transmit slow.  ");
+    }
+
+    Serial.println("Restarting radio in 3 seconds...");
     delay(3000);
     radio.reset();
     delay(50);

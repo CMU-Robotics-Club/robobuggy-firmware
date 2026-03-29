@@ -181,8 +181,6 @@ void setup()
   pinMode(STATUS_LED_PIN2, OUTPUT);
   status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
 
-  encoder::init();
-
   // Configuration for I2C bus
   Wire.begin();
   Wire.setClock(400000);

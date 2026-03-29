@@ -217,7 +217,7 @@ void loop()
    * module dies, so we know we should reset the radio.
    */
   bool transmitSlow = (float)((float)transmit_duration_ms / (float)packt_size_bytes) > 2.0;
-  if (txFrozen || noSerial || transmitSlow)
+  if (txFrozen || noSerial)
   {
     if (txFrozen)
     {
@@ -227,10 +227,10 @@ void loop()
     {
       Serial.printf("Time since last serial message = %d ms.  ", millis() - lastByteMillis);
     }
-    if (transmitSlow)
-    {
-      Serial.printf("Problem detected: Transmit slow.  ");
-    }
+    // if (transmitSlow)
+    // {
+    //   Serial.printf("Problem detected: Transmit time = %2.3f  ", (float)((float)transmit_duration_ms / (float)packt_size_bytes));
+    // }
 
     Serial.println("Restarting radio in 3 seconds...");
     delay(3000);
@@ -250,7 +250,7 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.printf("Transmission finished!  It took %lu ms to transmit.  % 2.3f ms per byte.", transmit_duration_ms, (float)((float)transmit_duration_ms / (float)packt_size_bytes));
+      Serial.printf("Transmission finished!  It took %lu ms to transmit.  %2.3f ms per byte.", transmit_duration_ms, (float)((float)transmit_duration_ms / (float)packt_size_bytes));
       Serial.println();
     }
     else

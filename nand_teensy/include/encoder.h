@@ -48,5 +48,13 @@ namespace encoder
      * @brief Used for making sure packets are being received 
      * @return How long ago the last packet was received in ms
      */
-    long lastPacket();
+    long last_packet();
+
+    /**
+     * @return Encoder error state
+     *   I  = failed init
+     *   C  = failed comm
+     *  \0  = none
+     */
+    char get_error();
 }

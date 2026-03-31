@@ -10,23 +10,24 @@ namespace host_comms
 	struct NANDDebugInfo
 	{
 		// 64 bits
-		double heading_rate;	  // positive when accelerating in CCW direction
-		double encoder_front_wheel_speed; // speed of the front wheel in m/s
+		double heading_rate;	  			// positive when accelerating in CCW direction
+		double encoder_front_wheel_speed; 	// speed of the front wheel in m/s
 		// 32 bits
-		int timestamp;			 // teensy timestamp
-		float rc_steering_angle; // steering angle sent by TX12
-		float steering_angle;	 // steering angle commanded by software
-		float true_stepper_pos;	 // actual stepper position
-		int rfm69_timeout_cnt;	 // # of times RFM69 has timeout
+		int timestamp;			 	// teensy timestamp
+		float rc_steering_angle; 	// steering angle sent by TX12
+		float steering_angle;	 	// steering angle commanded by software
+		float true_stepper_pos;	 	// actual stepper position
+		int rfm69_timeout_cnt;	 	// # of times RFM69 has timeout
+		long encoder_last_packet; 	// millis since last received encoder packet
 		// 8 bits
 		bool operator_ready;			 // operator ready
 		brake::Status brake_status;		 // brake status
 		bool use_auton_steering;		 // use auton steer
 		bool tx12_connected;			 // TX12 connected
-		bool encoder_alive;			     // Have received encoder packets in last 100ms
+		char encoder_error;				 // I = failed init, C = failed comm, \0 = none
 		steering::Status steering_alarm; // unsigned char
 		uint8_t rc_uplink;				 // RC uplink quality
-		uint8_t padding[5];
+		uint8_t padding[1];
 	};
 
 	struct NANDUKF

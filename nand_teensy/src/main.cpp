@@ -391,7 +391,7 @@ void loop()
 
   double heading_rate = 0;
   double encoder_speed_m_per_sec = 0;
-  bool encoder_alive = false;
+  long encoder_last_packet = 0;
 
   elapsedMicros elapsed_loop_micros;
 
@@ -486,14 +486,9 @@ void loop()
     if (encoder_poll_limit.ready())
     {
       encoder::poll();
-      long last_encoder_packet = encoder::lastPacket();
-      if (last_encoder_packet > 100)
-      {
-        Serial.printf("Have not received encoder packet in %lu ms!\n", last_encoder_packet);
-        encoder_alive = false;
-      }
-      else
-        encoder_alive = true;
+      encoder_last_packet = encoder::last_packet();
+      if (encoder_last_packet > 100)
+        Serial.printf("Have not received encoder packet in %lu ms!\n", encoder_last_packet);
 
       double speed_deg_per_sec;
       if (encoder::front_speed(&speed_deg_per_sec))
@@ -519,7 +514,8 @@ void loop()
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
       debug_packet.encoder_front_wheel_speed = encoder_speed_m_per_sec;
-      debug_packet.encoder_alive = encoder_alive;
+      debug_packet.encoder_last_packet = encoder_last_packet;
+      debug_packet.encoder_error = encoder::get_error();
       host_comms::nand_send_debug(debug_packet);
     }
 

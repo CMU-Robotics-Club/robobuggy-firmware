@@ -163,8 +163,14 @@ namespace encoder
     return false;
   }
   
-  long lastPacket()
+  long last_packet()
   {
     return lastPacketReceived;
   }
+
+  char get_error()
+  {
+    return error;
+  }
+
 }

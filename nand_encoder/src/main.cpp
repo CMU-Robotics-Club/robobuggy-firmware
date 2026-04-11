@@ -20,9 +20,12 @@
  */
 
 #include <Arduino.h>
+#include <Adafruit_SleepyDog.h>
 #include "encoder.h"
 #include "ratelimit.h"
 
+#define WATCHDOG_TIMEOUT_MS 500
+#define ENCODER_DIR_PIN 8
 #define ENCODER_READ_PERIOD_MS 1
 #define SERIAL_PRINT_PERIOD_MS 25
 #define FILTER_BUFFER_SIZE 128
@@ -70,6 +73,21 @@ void write_error_packet()
   COMM_SERIAL.write(error);
 }
 
+void restart_encoder()
+{
+  Wire.end();
+  Watchdog.disable();
+  delay(500);
+  Watchdog.enable(WATCHDOG_TIMEOUT_MS);
+
+  while (!encoder::init())
+  {
+    error = Error::FailedInit;
+    write_error_packet();
+    Serial.println("ERROR: Failed init");
+  }
+}
+
 /**
  * @note Blocking if encoder fails to initialize purposes.
  * This should probably not be the case outside of testing.
@@ -77,7 +95,12 @@ void write_error_packet()
  */
 void setup()
 {
+  Serial.println("Starting...");
   Serial.begin(115200);
+
+  pinMode(ENCODER_DIR_PIN, OUTPUT);
+  digitalWrite(ENCODER_DIR_PIN, LOW);
+
   COMM_SERIAL.begin(COMM_BAUDRATE);
   error = Error::None;
   Serial.println("Initializing encoder...");
@@ -90,6 +113,9 @@ void setup()
   Serial.println("Encoder initialized");
   filter_idx = 0;
   speed_filter_sum = 0;
+
+  int countdown = Watchdog.enable(WATCHDOG_TIMEOUT_MS);
+  Serial.printf("Watchdog enabled with period of %d ms.\n", countdown);
 }
 
 /**
@@ -108,6 +134,9 @@ void loop()
       speed_filter[filter_idx] = speed;
       filter_idx++;
       filter_idx %= FILTER_BUFFER_SIZE;
+
+      // only reset the watchdog when we successfully read from the encoder
+      Watchdog.reset();
     }
     else
     {
@@ -134,6 +163,9 @@ void loop()
     {
       Serial.println("ERROR: Failed comm");
       write_error_packet();
+
+      // Attempt to reinitialize the I2C comm to encoder.
+      restart_encoder();
     }
   }
 }

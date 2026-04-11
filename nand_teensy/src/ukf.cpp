@@ -2,13 +2,14 @@
 #include <math.h>
 #include <Arduino.h>
 
-UKF::UKF(double wheelbase, double zeroth_sigma_point_weight, state_cov_matrix_t process_noise, measurement_cov_matrix_t gps_noise)
+UKF::UKF(double wheelbase, double zeroth_sigma_point_weight, state_cov_matrix_t process_noise, measurement_cov_matrix_t gps_noise, speed_t speed_noise)
 {
   this->wheelbase = wheelbase;
   this->zeroth_sigma_point_weight = zeroth_sigma_point_weight;
-  // this->speed = 0;
+
   this->process_noise = process_noise;
   this->gps_noise = gps_noise;
+  this->speed_noise = speed_noise;
 }
 
 state_vector_t get_col(state_cov_matrix_t matrix, int col)
@@ -72,6 +73,7 @@ state_cov_matrix_t square_root(state_cov_matrix_t matrix)
 {
   Eigen::EigenSolver<state_cov_matrix_t> solver(matrix);
 
+  // TODO: the covariance matrix is semi-definite, meaning its eigenvalues are non-negative.  Add a check that they are not zero.
   state_cov_matrix_t D;
   D.fill(0);
   for (int i = 0; i < STATE_SPACE_DIM; i++)
@@ -137,10 +139,10 @@ void UKF::generate_sigmas(state_vector_t mean, state_cov_matrix_t covariance, st
 state_vector_t UKF::dynamics(state_vector_t state, input_vector_t input)
 {
   state_vector_t x;
-  x(0, 0) = state(3, 0) * cos(state(2, 0));
-  x(1, 0) = state(3, 0) * sin(state(2, 0));
-  x(2, 0) = state(3, 0) * tan(input(0, 0)) / this->wheelbase;
-  x(3, 0) = 0.0;
+  x(0, 0) = (state(3, 0)) * cos(state(2, 0));
+  x(1, 0) = (state(3, 0)) * sin(state(2, 0));
+  x(2, 0) = (state(3, 0)) * tan(input(0, 0)) / this->wheelbase;
+  x(3, 0) = 0;
   return x;
 }
 
@@ -157,62 +159,52 @@ state_vector_t UKF::rk4(state_vector_t state, input_vector_t input, double dt)
 /**
  * @brief Tranforms the given state space vector into measurement space.
  */
-measurement_vector_t UKF::state_to_measurement(state_vector_t vector)
+measurement_vector_t UKF::state_to_gps_measurement(state_vector_t state)
 {
   measurement_vector_t m;
-  m(0, 0) = vector(0, 0);
-  m(1, 0) = vector(1, 0);
+  m(0, 0) = state(0, 0);
+  m(1, 0) = state(1, 0);
   return m;
 }
 
-// void UKF::set_speed(double speed)
-// {
-//   this->speed = speed;
-// }
+speed_t UKF::state_to_speed_measurement(state_vector_t state)
+{
+  return state(3, 0);
+}
 
 void UKF::set_gps_noise(double accuracy)
 {
   // Convert mm to m
   accuracy /= 1000.0;
-  // Serial.printf("ACCURACY: %f\n", accuracy);
 
-  double sigma = (accuracy / (0.848867684498)) * (accuracy / (0.848867684498));
+  double sigma = (accuracy * (0.848867684498)) * (accuracy * (0.848867684498));
   this->gps_noise = measurement_cov_matrix_t{{sigma, 0}, {0, sigma}};
 }
 
 void UKF::predict(input_vector_t input, double dt)
 {
-  // Serial.printf("dt: %f\n", dt);
-  // if (abs(this->curr_state_est(3, 0)) > MOVING_THRESHOLD)
-  // {
-    state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
-    double state_weights[2 * STATE_SPACE_DIM + 1];
-    this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
+  state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
+  double state_weights[2 * STATE_SPACE_DIM + 1];
+  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, state_weights);
 
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      state_sigmas[i] = rk4(state_sigmas[i], input, dt);
-      // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
-    }
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    state_sigmas[i] = rk4(state_sigmas[i], input, dt);
 
-    this->curr_state_est.fill(0);
-    this->curr_state_cov.fill(0);
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      this->curr_state_est += state_sigmas[i] * state_weights[i];
-    }
+  this->curr_state_est.fill(0);
+  this->curr_state_cov.fill(0);
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    this->curr_state_est += state_sigmas[i] * state_weights[i];
 
-    for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-    {
-      state_vector_t m = state_sigmas[i] - this->curr_state_est;
-      this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
-    }
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  {
+    state_vector_t m = state_sigmas[i] - this->curr_state_est;
+    this->curr_state_cov += ((m * m.transpose()) * state_weights[i]);
+  }
 
-    this->curr_state_cov += this->process_noise * dt;
-  // }
+  this->curr_state_cov += this->process_noise * dt;
 }
 
-void UKF::update(measurement_vector_t measurement)
+void UKF::update_gps(measurement_vector_t gps_measurement)
 {
   state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
   double weights[2 * STATE_SPACE_DIM + 1];
@@ -220,21 +212,15 @@ void UKF::update(measurement_vector_t measurement)
 
   measurement_vector_t measurement_sigmas[2 * STATE_SPACE_DIM + 1];
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-  {
-    measurement_sigmas[i] = state_to_measurement(state_sigmas[i]);
-    // Serial.printf("State sigma %d: %f, %f, %f\n", i, state_sigmas[i](0, 0), state_sigmas[i](1, 0), state_sigmas[i](2, 0));
-    // Serial.printf("Measurement sigma %d: %f, %f\n", i, measurement_sigmas[i](0, 0), measurement_sigmas[i](1, 0));
-  }
+    measurement_sigmas[i] = state_to_gps_measurement(state_sigmas[i]);
 
   measurement_vector_t predicted_measurement;
   predicted_measurement.fill(0);
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
-  {
     predicted_measurement += measurement_sigmas[i] * weights[i];
-  }
 
   measurement_cov_matrix_t innovation_cov;
-  Eigen::Matrix<double, STATE_SPACE_DIM, MEASUREMENT_SPACE_DIM> cross_cov;
+  Eigen::Matrix<double, STATE_SPACE_DIM, GPS_MEASUREMENT_SPACE_DIM> cross_cov;
   innovation_cov.fill(0);
   cross_cov.fill(0);
   for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
@@ -245,11 +231,39 @@ void UKF::update(measurement_vector_t measurement)
   }
   innovation_cov += this->gps_noise;
 
-  Eigen::Matrix<double, STATE_SPACE_DIM, MEASUREMENT_SPACE_DIM> kalman_gain = cross_cov * innovation_cov.inverse();
+  Eigen::Matrix<double, STATE_SPACE_DIM, GPS_MEASUREMENT_SPACE_DIM> kalman_gain = cross_cov * innovation_cov.inverse();
 
-  // Serial.printf("Measurement: %f, %f\n", measurement(0, 0), measurement(1, 0));
-  // Serial.printf("Predicted measurement: %f, %f\n", predicted_measurement(0, 0), predicted_measurement(1, 0));
-  // Serial.printf("Kalman gain:\n%f,%f\n%f,%f\n%f,%f\n", kalman_gain(0, 0), kalman_gain(0, 1), kalman_gain(1, 0), kalman_gain(1, 1), kalman_gain(2, 0), kalman_gain(2, 1));
-  this->curr_state_est += (kalman_gain * (measurement - predicted_measurement));
+  this->curr_state_est += (kalman_gain * (gps_measurement - predicted_measurement));
+  this->curr_state_cov -= (kalman_gain * (innovation_cov * kalman_gain.transpose()));
+}
+
+void UKF::update_speed(double speed_measurement)
+{
+  state_vector_t state_sigmas[2 * STATE_SPACE_DIM + 1];
+  double weights[2 * STATE_SPACE_DIM + 1];
+  this->generate_sigmas(this->curr_state_est, this->curr_state_cov, state_sigmas, weights);
+
+  speed_t measurement_sigmas[2 * STATE_SPACE_DIM + 1];
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    measurement_sigmas[i] = state_to_speed_measurement(state_sigmas[i]);
+
+  speed_t predicted_speed = 0;
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+    predicted_speed += measurement_sigmas[i] * weights[i];
+
+  speed_t innovation_cov = 0;
+  Eigen::Matrix<double, STATE_SPACE_DIM, SPEED_MEASUREMENT_SPACE_DIM> cross_cov;
+  cross_cov.fill(0);
+  for (int i = 0; i < 2 * STATE_SPACE_DIM + 1; i++)
+  {
+    speed_t m = measurement_sigmas[i] - predicted_speed;
+    innovation_cov += m * m * weights[i];
+    cross_cov += ((state_sigmas[i] - this->curr_state_est) * m) * weights[i];
+  }
+  innovation_cov += this->speed_noise;
+
+  Eigen::Matrix<double, STATE_SPACE_DIM, SPEED_MEASUREMENT_SPACE_DIM> kalman_gain = cross_cov / innovation_cov;
+
+  this->curr_state_est += (kalman_gain * (speed_measurement - predicted_speed));
   this->curr_state_cov -= (kalman_gain * (innovation_cov * kalman_gain.transpose()));
 }

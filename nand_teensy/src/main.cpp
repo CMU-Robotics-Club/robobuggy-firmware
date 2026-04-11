@@ -47,6 +47,8 @@
 #define RC_SERIAL Serial2
 #define BRAKE_RELAY_PIN 22
 
+#define WHEEL_RADIUS_METERS 0.09
+
 #define STEERING_PULSE_PIN 23 // pin for stepper pulse
 #define STEERING_DIR_PIN 38   // pin for stepper direction
 #define STEERING_ALARM_PIN 21
@@ -144,16 +146,15 @@ void setReports(void)
 // Each pixel needs 3 bytes, so multiply by 3.  An "int" is
 // 4 bytes, so divide by 4.  The array is created using "int"
 // so the compiler will align it to 32 bit memory.
-#define LEDS_PER_STRIP 30 // LEDs per strip
-#define NUM_LED_PINS 3    // number of LED strips
+#define LEDS_PER_STRIP 20 // LEDs per strip
+#define NUM_LED_PINS 2    // number of LED strips
 #define BYTES_PER_LED 3   // change to 4 if using RGBW
 static DMAMEM int displayMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
 static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
 
-#define STATUS_LED_PIN1 34
-#define STATUS_LED_PIN2 35
-#define STATUS_LED_PIN3 40
-static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2, STATUS_LED_PIN3};
+#define STATUS_LED_PIN1 40
+#define STATUS_LED_PIN2 41
+static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN1, STATUS_LED_PIN2};
 
 static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
 
@@ -163,8 +164,8 @@ void setup()
   Serial.println("NAND Booting Up!");
 
   Serial.println("Encoder starting initalization");
-  // encoder::init();
-  // Serial.println("Encoder initalized");
+  encoder::init();
+  Serial.println("Encoder initalized");
   // Serial.printf("Diagnostic: %i\n",encoder::get_diagnostics());
 
   if (CrashReport)
@@ -178,10 +179,7 @@ void setup()
 
   pinMode(STATUS_LED_PIN1, OUTPUT);
   pinMode(STATUS_LED_PIN2, OUTPUT);
-  pinMode(STATUS_LED_PIN3, OUTPUT);
   status_led::init(&leds, LEDS_PER_STRIP, NUM_LED_PINS);
-
-  encoder::init();
 
   // Configuration for I2C bus
   Wire.begin();
@@ -299,21 +297,19 @@ private:
 /**
  * @brief Helper function for printing UKF data
  */
-void serial_log(int time_ms, double speed_mps, double steering_rad, state_vector_t state_est, state_cov_matrix_t state_cov)
+void serial_log(double speed_deg_per_sec, double steering_deg, state_vector_t state_est, state_cov_matrix_t state_cov)
 {
-  return;
-
   double heading = degrees(state_est(2, 0));
   heading += 360;
   fmod(heading, 360);
   heading += 360;
 
-  Serial.printf("time: %9.3f ", time_ms / 1000.0);
-  // Serial.printf("speed: % 6.3f ", speed_mps);
-  Serial.printf("steering: % 6.3f ", degrees(steering_rad));
+  Serial.printf("time: %9.3f sec ", millis() / 1000.0);
+  Serial.printf("speed: % 6.3f ", speed_deg_per_sec);
+  Serial.printf("steering: % 6.3f deg ", steering_deg);
   Serial.printf("x: % 12.3f ", state_est(0, 0));
   Serial.printf("y: % 12.3f ", state_est(1, 0));
-  Serial.printf("heading: % 7.3f ", degrees(state_est(2, 0)));
+  Serial.printf("heading: % 7.3f deg ", degrees(state_est(2, 0)));
   Serial.printf("%6.3e ", state_cov(0, 0));
   Serial.printf("%6.3e ", state_cov(1, 1));
   Serial.printf("%6.3e ", state_cov(2, 2));
@@ -365,6 +361,7 @@ void loop()
   History<uint32_t, 10> imu_update_history{};
   History<uint32_t, 10> radio_send_history{};
 
+  RateLimit print_limit{100};
   RateLimit imu_poll_limit{5};
   RateLimit encoder_poll_limit{20};
   RateLimit timing_pkt_send_rate{100};
@@ -386,25 +383,22 @@ void loop()
       // GPS noise,
       measurement_cov_matrix_t{
           {0.01, 0.0},
-          {0.0, 0.01}});
+          {0.0, 0.01}},
+      0.01 // Speed noise/variance (m/s)^2, eye-balled from one bag based on 95% -> 2sigma principle, then squared
+  );
   bool kalman_init = false;
   uint32_t last_predict_timestamp; // the timestamp at which the UKF predict step was run most recently
 
-  double heading_rate = 0.0;
-  double front_speed = 0.0;
+  double heading_rate = 0;
+  double encoder_speed_m_per_sec = 0;
+  long encoder_last_packet = 0;
 
   elapsedMicros elapsed_loop_micros;
 
   while (1)
   {
     elapsed_loop_micros = 0;
-    // Serial.printf("Row rotation: %i\n",encoder::rawRot);
-    //    Serial.printf("State: %i\n",encoder::state());
-    //    Serial.printf("Gain: %i\n",encoder::gain());
-    //    Serial.printf("Position in radians: %d\n\n",encoder::rotRad());
-    /* ================================================ */
-    /* Handle RC/autonomous control of steering/braking */
-    /* ================================================ */
+
     // Status LED
     status_led::Rgb rgb;
     if (kalman_init)
@@ -492,15 +486,15 @@ void loop()
     if (encoder_poll_limit.ready())
     {
       encoder::poll();
-      long last_encoder_packet = encoder::lastPacket();
-      if (last_encoder_packet > 100)
+      encoder_last_packet = encoder::last_packet();
+      if (encoder_last_packet > 100)
+        Serial.printf("Have not received encoder packet in %lu ms!\n", encoder_last_packet);
+
+      double speed_deg_per_sec;
+      if (encoder::front_speed(&speed_deg_per_sec))
       {
-        Serial.printf("Have not received encoder packet in %l ms!\n", last_encoder_packet);
-        front_speed = -1;
-      }
-      if (encoder::front_speed(&front_speed))
-      {
-        // Serial.println(front_speed, 3);
+        encoder_speed_m_per_sec = radians(speed_deg_per_sec) * WHEEL_RADIUS_METERS;
+        filter.update_speed(encoder_speed_m_per_sec);
       };
     }
 
@@ -519,17 +513,15 @@ void loop()
       debug_packet.timestamp = millis();
       debug_packet.heading_rate = heading_rate;
       debug_packet.rfm69_timeout_cnt = rfm69_timeout;
-      debug_packet.front_wheel_speed = front_speed;
+      debug_packet.encoder_front_wheel_speed = encoder_speed_m_per_sec;
+      debug_packet.encoder_last_packet = encoder_last_packet;
+      debug_packet.encoder_error = encoder::get_error();
       host_comms::nand_send_debug(debug_packet);
     }
 
     uint32_t cur_time = micros(); // timing variable for UKF
     double dt = ((double)(cur_time - last_predict_timestamp)) / 1e6;
-    // filter.set_speed(encoder::rear_speed(steering::current_angle_degrees()));
-    // int i2c_time = encoder::prev_time_millis();
-    /*if(i2c_time>=5) {
-      Serial.printf("First encoder time: %d\n",i2c_time);
-    }*/
+
     if (kalman_init)
     {
       filter.predict(input_vector_t{steering::current_angle_rads()}, dt);
@@ -545,6 +537,7 @@ void loop()
         filter.curr_state_est(0, 0) = gps_coord->x;
         filter.curr_state_est(1, 0) = gps_coord->y;
         filter.curr_state_est(2, 0) = -M_PI_2;
+        filter.curr_state_est(3, 0) = 0;
 
         kalman_init = true;
       }
@@ -557,18 +550,8 @@ void loop()
       if (kalman_init)
       {
         filter.set_gps_noise(gps_coord->accuracy);
-        filter.update(measurement_vector_t{gps_coord->x, gps_coord->y});
+        filter.update_gps(measurement_vector_t{gps_coord->x, gps_coord->y});
       }
-
-      serial_log(millis(), 0 /*encoder::rear_speed(steering::current_angle_degrees())*/, steering::current_angle_rads(), filter.curr_state_est, filter.curr_state_cov);
-      /*i2c_time = encoder::prev_time_millis();
-      if(i2c_time>=5) {
-        Serial.printf("Second encoder time :%d\n",i2c_time);
-      }*/
-      // serial_log(millis(), encoder::front_speed(), encoder::e_raw_angle(), filter.curr_state_est, filter.curr_state_cov);
-
-      // Serial.printf("Maximum GPS update time: %d\n", gps_time_history.max());
-      // Serial.printf("Average GPS update time: %f\n", gps_time_history.avg());
     }
     else
     {
@@ -596,11 +579,6 @@ void loop()
     {
       // Serial.printf("GPS read and send:\t%lu\n", (uint64_t)gps_update_elapsed);
     }
-
-    /*i2c_time = encoder::prev_time_millis();
-    if(i2c_time>=5) {
-      Serial.printf("Third encoder time: %d\n",i2c_time);
-    }*/
 
     // TODO cleanup
     /**
@@ -707,7 +685,7 @@ void loop()
       }
 
       ukf_packet.heading_rate = heading_rate;
-      ukf_packet.front_speed = front_speed; // filter.curr_state_est(3, 0);
+      ukf_packet.front_speed = filter.curr_state_est(3, 0);
       ukf_packet.timestamp = (uint32_t)micros();
       host_comms::nand_send_ukf(ukf_packet);
     }
@@ -721,23 +699,14 @@ void loop()
       host_comms::send_timestamp(rt_packet);
     }
 
+    if (print_limit.ready())
+    {
+      serial_log(encoder_speed_m_per_sec, steering::current_angle_degrees(), filter.curr_state_est, filter.curr_state_cov);
+    }
+
     if (elapsed_loop_micros > 10000)
     {
-      Serial.printf("Cycle time (microseconds): %lu\n", (int64_t)elapsed_loop_micros);
+      Serial.printf("Cycle time (ms): %lu\n", (int64_t)(elapsed_loop_micros / 1000.0));
     }
   }
 }
-
-// This function gets called from the SparkFun Ublox Arduino Library
-// As each NMEA character comes in you can specify what to do with it
-// Useful for passing to other libraries like tinyGPS, MicroNMEA, or even
-// a buffer, radio, etc.
-
-/*
-void SFE_UBLOX_GPS::processNMEA(char incoming)
-{
-  // Take the incoming char from the Ublox I2C port and pass it on to the MicroNMEA lib
-  // for sentence cracking
-  nmea.process(incoming);
-}
-*/

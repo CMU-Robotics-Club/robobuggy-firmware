@@ -10,15 +10,15 @@ namespace host_comms
 	struct NANDDebugInfo
 	{
 		// 64 bits
-		double heading_rate;	  			// positive when accelerating in CCW direction
-		double encoder_front_wheel_speed; 	// speed of the front wheel in m/s
+		double heading_rate;			  // positive when accelerating in CCW direction
+		double encoder_front_wheel_speed; // speed of the front wheel in m/s
 		// 32 bits
-		int timestamp;			 	// teensy timestamp
-		float rc_steering_angle; 	// steering angle sent by TX12
-		float steering_angle;	 	// steering angle commanded by software
-		float true_stepper_pos;	 	// actual stepper position
-		int rfm69_timeout_cnt;	 	// # of times RFM69 has timeout
-		long encoder_last_packet; 	// millis since last received encoder packet
+		int timestamp;			  // teensy timestamp
+		float rc_steering_angle;  // steering angle sent by TX12
+		float steering_angle;	  // steering angle commanded by software
+		float true_stepper_pos;	  // actual stepper position
+		int rfm69_timeout_cnt;	  // # of times RFM69 has timeout
+		long encoder_last_packet; // millis since last received encoder packet
 		// 8 bits
 		bool operator_ready;			 // operator ready
 		brake::Status brake_status;		 // brake status
@@ -102,10 +102,11 @@ namespace host_comms
 		double nand_north;
 		// 32 bits
 		uint32_t gps_seq;
+		// 16 bits
+		uint16_t rx_rssi; // the rssi of the most recently-received packet
 		// 8 bits
 		uint8_t nand_fix;
 		uint8_t nand_auton;
-		uint8_t padding[2];
 	};
 
 	struct Roundtrip

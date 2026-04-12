@@ -14,6 +14,7 @@
 
 #define LORA_TRANSMIT_RATE_MS 0
 #define RTCM_BUFFER_SIZE 16
+#define MAX_BYTE_TX_RATE 1.9 // maximum ms/byte speed before we try to reset the radio
 
 typedef struct
 {
@@ -41,7 +42,7 @@ typedef struct
 SX1276 radio = new Module(10, 26, 25, 27);
 
 // Create circular buffer to dispatch data
-CircularBuffer<RadioMessage, RTCM_BUFFER_SIZE> cbuffer;
+CircularBuffer<RadioMessage, RTCM_BUFFER_SIZE> msg_buffer;
 
 // RTCM Stream Splitter
 RTCMStreamSplitter splitter;
@@ -62,9 +63,9 @@ unsigned long lastByteMillis = 0;
 unsigned long lastTxMillis = 0;
 
 // the duration of the most recent transmit, in ms
-long transmit_duration_ms = -1;
+long transmit_duration_ms = 0;
 // the size in bytes of the packet most recently transmitted
-uint8_t packt_size_bytes = 999;
+uint8_t packt_size_bytes = 0xFF;
 
 // declare reset function at address 0
 void (*resetFunc)(void) = 0;
@@ -97,9 +98,6 @@ void setup_radio()
 {
 
   // begin radio on home channel
-  cbuffer.clear();
-  packetCounter = 0;
-  lastByteMillis = millis(); // reset the timer here
   Serial.print("[SX1276] Initializing ... ");
 
 #ifndef LORA_FIXED_FREQ
@@ -159,6 +157,17 @@ void setup_radio()
   radio.setRfSwitchPins(8, 9);
 
   transmittingFlag = false;
+
+  transmit_duration_ms = 0;
+  packt_size_bytes = 0xFF;
+
+  // clear the uart buffer and the buffer so that when it starts up again, it doesn't have a backlog of stale data
+  msg_buffer.clear();
+  while(Serial.available() > 0) {
+    Serial.read();
+  }
+  packetCounter = 0;
+  lastByteMillis = millis(); // reset the timer here
 }
 
 void setup()
@@ -187,7 +196,7 @@ void parse_rtcm(byte nextByte)
     };
     memcpy(&message.header, (uint8_t *)LORA_HEADER, LORA_HEADER_LENGTH);
     memcpy(&message.data, &splitter.outputStream, length);
-    cbuffer.push(message);
+    msg_buffer.push(message);
   }
 }
 
@@ -216,24 +225,25 @@ void loop()
    * so does the number of packets in the buffer.  this is how we're going to detect when the radio
    * module dies, so we know we should reset the radio.
    */
-  bool transmitSlow = (float)((float)transmit_duration_ms / (float)packt_size_bytes) > 2.0;
-  if (txFrozen || noSerial)
+  bool transmitSlow = (!transmittingFlag) && ((float)((float)transmit_duration_ms / (float)packt_size_bytes) > MAX_BYTE_TX_RATE);
+
+  if (txFrozen || noSerial || transmitSlow)
   {
     if (txFrozen)
     {
-      Serial.printf("TX is frozen.  ", millis() - lastByteMillis);
+      Serial.printf("Time since last TX = %d ms.  ", millis() - lastTxMillis);
     }
     if (noSerial)
     {
       Serial.printf("Time since last serial message = %d ms.  ", millis() - lastByteMillis);
     }
-    // if (transmitSlow)
-    // {
-    //   Serial.printf("Problem detected: Transmit time = %2.3f  ", (float)((float)transmit_duration_ms / (float)packt_size_bytes));
-    // }
+    if (transmitSlow)
+    {
+      Serial.printf("Problem detected: Transmit time = %2.3f ms/byte.  ", (float)((float)transmit_duration_ms / (float)packt_size_bytes));
+    }
 
-    Serial.println("Restarting radio in 3 seconds...");
-    delay(3000);
+    Serial.println("Restarting radio in 2 seconds...");
+    delay(2000);
     radio.reset();
     delay(50);
     setup_radio();
@@ -242,7 +252,7 @@ void loop()
   // check if the transmission flag is set
   // check if there is data to transmit
   // check if it's been at least LORA_TRANSMIT_RATE_MS since the beginning of the last transmission.
-  if (!transmittingFlag && (cbuffer.size() > 0) && (millis() - lastTxMillis > LORA_TRANSMIT_RATE_MS))
+  if (!transmittingFlag && (msg_buffer.size() > 0) && (millis() - lastTxMillis > LORA_TRANSMIT_RATE_MS))
   {
     // reset flag
     transmittingFlag = true;
@@ -261,12 +271,12 @@ void loop()
     }
 
     // get packet from buffer
-    RadioMessage message = cbuffer.shift();
+    RadioMessage message = msg_buffer.shift();
     // delete, and do not send, old packets
-    // cbuffer.clear();
+    // msg_buffer.clear();
 
     // send packet
-    Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), cbuffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
+    Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), msg_buffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
     Serial.println();
     lastTxMillis = millis();
     // increment the packet counter

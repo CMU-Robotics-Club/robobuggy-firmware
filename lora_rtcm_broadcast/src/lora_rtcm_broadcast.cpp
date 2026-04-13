@@ -265,17 +265,9 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.printf("%2.3f ms/byte (%d bytes in %lu ms) %d packets in buffer %d packets sent.",
+      Serial.printf("%2.3f ms/byte (%d bytes in %lu ms) ",
                     (float)((float)transmit_duration_ms / (float)packt_size_bytes), packt_size_bytes,
-                    transmit_duration_ms, msg_buffer.size(), packetCounter);
-      Serial.println();
-      unsigned long ms_since_reset = millis() - last_radio_reset_ms;
-      unsigned long hours_since_reset = ms_since_reset / 3600000;
-      float min_since_reset = (float)(ms_since_reset % 3600000) / 60000.0;
-
-      Serial.printf("last radio reset was %3.2f hrs, %2.3f min ago.",
-                    hours_since_reset, min_since_reset);
-      Serial.println();
+                    transmit_duration_ms);
     }
     else
     {
@@ -286,12 +278,20 @@ void loop()
 
     // get packet from buffer
     RadioMessage message = msg_buffer.shift();
-    // delete, and do not send, old packets
-    // msg_buffer.clear();
+
+    Serial.printf("%d packets in buffer %d packets sent.",
+                  msg_buffer.size(), packetCounter);
+    Serial.println();
+
+    unsigned long hrs_since_reset = (millis() - last_radio_reset_ms) / 3600000;
+    uint8_t min_since_reset = ((millis() - last_radio_reset_ms) % 3600000) / 60000;
+    uint8_t sec_since_reset = ((millis() - last_radio_reset_ms) % 60000) / 1000;
+
+    Serial.printf("last radio reset was %d hrs, %d min, %d sec ago.",
+                  hrs_since_reset, min_since_reset, sec_since_reset);
+    Serial.println();
 
     // send packet
-    // Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), msg_buffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
-    // Serial.println();
     lastTxMillis = millis();
     // increment the packet counter
     packetCounter++;

@@ -14,7 +14,7 @@
 
 #define LORA_TRANSMIT_RATE_MS 0
 #define RTCM_BUFFER_SIZE 16
-#define MAX_BYTE_TX_RATE 1.9 // maximum ms/byte speed before we try to reset the radio
+#define MAX_BYTE_TX_RATE 1.85 // maximum ms/byte speed before we try to reset the radio
 
 typedef struct
 {
@@ -66,6 +66,8 @@ unsigned long lastTxMillis = 0;
 long transmit_duration_ms = 0;
 // the size in bytes of the packet most recently transmitted
 uint8_t packt_size_bytes = 0xFF;
+
+unsigned long last_radio_reset_ms = 0; // the timestamp at which the radio was most recently reset.
 
 // declare reset function at address 0
 void (*resetFunc)(void) = 0;
@@ -158,12 +160,15 @@ void setup_radio()
 
   transmittingFlag = false;
 
+  last_radio_reset_ms = millis();
+
   transmit_duration_ms = 0;
   packt_size_bytes = 0xFF;
 
   // clear the uart buffer and the buffer so that when it starts up again, it doesn't have a backlog of stale data
   msg_buffer.clear();
-  while(Serial.available() > 0) {
+  while (Serial.available() > 0)
+  {
     Serial.read();
   }
   packetCounter = 0;
@@ -260,7 +265,16 @@ void loop()
     if (transmissionState == RADIOLIB_ERR_NONE)
     {
       // packet was successfully sent
-      Serial.printf("Transmission finished!  It took %lu ms to transmit.  %2.3f ms per byte.", transmit_duration_ms, (float)((float)transmit_duration_ms / (float)packt_size_bytes));
+      Serial.printf("%2.3f ms/byte (%d bytes in %lu ms) %d packets in buffer %d packets sent.",
+                    (float)((float)transmit_duration_ms / (float)packt_size_bytes), packt_size_bytes,
+                    transmit_duration_ms, msg_buffer.size(), packetCounter);
+      Serial.println();
+      unsigned long ms_since_reset = millis() - last_radio_reset_ms;
+      unsigned long hours_since_reset = ms_since_reset / 3600000;
+      float min_since_reset = (float)(ms_since_reset % 3600000) / 60000.0;
+
+      Serial.printf("last radio reset was %3.2f hrs, %2.3f min ago.",
+                    hours_since_reset, min_since_reset);
       Serial.println();
     }
     else
@@ -276,8 +290,8 @@ void loop()
     // msg_buffer.clear();
 
     // send packet
-    Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), msg_buffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
-    Serial.println();
+    // Serial.printf("[%lu ms]\t %d packets in buffer.  Sending packet number %d of size %d...", millis(), msg_buffer.size(), packetCounter, message.length + LORA_HEADER_LENGTH);
+    // Serial.println();
     lastTxMillis = millis();
     // increment the packet counter
     packetCounter++;

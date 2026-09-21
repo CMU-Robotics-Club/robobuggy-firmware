@@ -387,7 +387,7 @@ void setup()
 #ifndef LORA_FIXED_FREQ
   int state = radio.begin(channels[channel_indices[0]], 125.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
 #else
-  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 8, RADIOLIB_SX127X_SYNC_WORD, 10, 8, 0);
+  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 10, 16, 0);
 #endif
   if (state != RADIOLIB_ERR_NONE)
   {

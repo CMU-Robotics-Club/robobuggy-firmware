@@ -17,9 +17,9 @@ void setup() {
 
 void loop() {
   int voltage_input = analogRead(VOLTAGE_READ_PIN);
-  float voltage_total = voltage_input / 1023 * 40 * 100; /* Division by 1023 and multiplication by 40 to convert teensy reading to actual voltage,
-                                                                  Multiply by 100 and cast to int to "round" voltage to 2 decimal places */ 
-  for (int i = 0; i < 4; i++) {
+  float voltage_total = voltage_input / 1023 * 40 * 100; // Division by 1023 and multiplication by 40 to convert teensy reading to actual voltage
+  for (int i = 0; i < 4; i++)                            // Multiplication by 100 to "round" voltage value for later processing
+  { 
     byte byte_to_send = getByte(voltage_total, i);
     sendByte(byte_to_send);
   }
@@ -27,29 +27,31 @@ void loop() {
 
 byte getByte(float voltage, int i) {
   int digit = (int)(voltage / pow(10, 3 - i)) % (int)(pow(10, i));
-  switch (digit) {
+  
+  // Creates a byte reflecting the output of the display
+  switch (digit) { // Assumes segment is displayed when the bit is low
     case 0:
-      return 0x03;
+      return 0x02;
     case 1:
-      return 0x9F;
+      return 0x9E;
     case 2:
-      return 0x25;
+      return 0x24;
     case 3:
-      return 0x0D;
+      return 0x0C;
     case 4:
-      return 0x99;
+      return 0x98;
     case 5:
-      return 0x49;
+      return 0x48;
     case 6:
-      return 0x41;
+      return 0x40;
     case 7:
-      return 0x1F;
+      return 0x1E;
     case 8:
-      return 0x01;
+      return 0x00;
     case 9:
-      return 0x09;
+      return 0x08;
     default:
-      return 0x61; // Returns the letter E for Error
+      return 0x60; // Returns the letter E for Error
   }
 }
 
@@ -61,8 +63,8 @@ void sendByte(byte byte_to_send) {
   digitalWrite(CLOCK, 0);
   digitalWrite(DATA, 0);
 
-  // Sends each bit individually to SIPO (does not send bit in 0th position since the bit in 0th position is not used)
-  for (int i = 7; i > 0; i--) {
+  // Sends each bit individually to SIPO (sends fromm left to right due to shifting)
+  for (int i = 0; i < 8; i++) {
     bool bit = byte_to_send & (1 << i);
     prev = current;
     while(current - prev < 10) {

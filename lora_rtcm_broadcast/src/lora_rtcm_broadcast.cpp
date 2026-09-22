@@ -14,7 +14,9 @@
 
 #define LORA_TRANSMIT_RATE_MS 0
 #define RTCM_BUFFER_SIZE 16
-#define MAX_BYTE_TX_RATE 1.85 // maximum ms/byte speed before we try to reset the radio
+// maximum ms/byte speed before we try to reset the radio
+// use 1.85 for SF7, 2.75 for SF8
+#define MAX_BYTE_TX_RATE 2.75 
 
 typedef struct
 {
@@ -105,7 +107,7 @@ void setup_radio()
 #ifndef LORA_FIXED_FREQ
   int state = radio.begin(channels[channel_indices[0]], 125.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 8, 0);
 #else
-  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 7, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 16, 0);
+  int state = radio.begin(LORA_FIXED_FREQ, 250.0, 8, 5, RADIOLIB_SX127X_SYNC_WORD, 17, 16, 0);
 #endif
 
   if (state == RADIOLIB_ERR_NONE)

@@ -24,6 +24,8 @@ enum MessageType : uint16_t {
     SC_DebugInfo = PACK_MSG_TYPE('S','D'),
     SC_Sensors = PACK_MSG_TYPE('S','S'),
     SC_Nand_Pos = PACK_MSG_TYPE('S','R'),
+    SC_UFKPacket = PACK_MSG_TYPE('S','U'),
+    SC_RawGPS = PACK_MSG_TYPE('S','G'),
     Timestamp = PACK_MSG_TYPE('R','T'),
     Soft_Angle = PACK_MSG_TYPE('S','T'),
     Soft_Alarm = PACK_MSG_TYPE('A','L'),
@@ -206,6 +208,8 @@ void poll() {
             int64_t *st = (int64_t *)&parser.msg_buf[0];
             SOFT_TIME = *st;
             LAST_MESSAGE = millis();
+        } else if (parser.msg_type==MessageType::SC_RawGPS){
+            
         } else {
             Serial.println("Received an unknown packet");
         }
@@ -231,6 +235,8 @@ AlarmStatus alarm_status() {
 int64_t software_time() {
     return SOFT_TIME;
 }
+
+
 
 // TODO: consider changing all the "send packet" functions from pass by value into pass by reference for optimization.
 void nand_send_debug(NANDDebugInfo info) {
@@ -258,6 +264,26 @@ void nand_send_raw_gps(NANDRawGPS info) {
 
     COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
     write_and_checksum(MessageType::NAND_RawGPS, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_ukf(SCUKF info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::SC_UKFPacket, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_raw_gps(SCRawGPS info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::SC_RawGPS, checksum);
     write_and_checksum((uint16_t)sizeof(info), checksum);
     write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
     COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));

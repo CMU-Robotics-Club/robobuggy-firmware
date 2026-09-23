@@ -99,6 +99,9 @@ namespace host_comms
 	void nand_send_debug(NANDDebugInfo info);
 	void nand_send_ukf(NANDUKF info);
 	void nand_send_raw_gps(NANDRawGPS info);
+	// add here sc functions
+	void sc_send_ukf(SCUKF info);
+	void sc_send_raw_gps(SCRawGPS info);
 
 	struct SCDebugInfo
 	{

@@ -44,9 +44,43 @@ namespace host_comms
 		double front_speed;	 // speed of the front wheel, in m/s
 		// 32 bits
 		uint32_t timestamp; // teensy timestamp, in MICROseconds!
+		uint8_t padding[4];
 	};
 
 	struct NANDRawGPS
+	{
+		// 64 bits
+		double eastern;	 // position eastern
+		double northern; // position northern
+		double accuracy; // accuracy of gps position
+		// 32 bits
+		int gps_seq_num; // gps seqence number
+		int timestamp;	 // teensy timestamp
+		// 8 bits
+		uint8_t gps_SIV; // Number of satellites used in fix
+		uint8_t gps_fix; // 0=no fix, 1=dead reckoning, 2=2D, 3=3D, 4=GNSS, 5=Time fix
+		uint8_t rtk_fix; // 0, 1 or 2 for no RTK, float RTK, or fixed RTK solution, respectively
+		uint8_t padding[5];
+	};
+
+	struct SCUKF
+	{
+		// 64 bits
+		double eastern;		 // position eastern
+		double northern;	 // position northern
+		double heading;		 // current heading, radians, value of 0 pointing east, increasing counterclockwise
+		double eastern_cov;	 // covariance of eastern value
+		double northern_cov; // covariance of northern value
+		double heading_cov;	 // covariance of the heading value
+		double speed_cov;	 // covariance of the speed value
+		double heading_rate; // positive when accelerating in CCW direction
+		double front_speed;	 // speed of the front wheel, in m/s
+		// 32 bits
+		uint32_t timestamp; // teensy timestamp, in MICROseconds!
+		uint8_t padding[4];
+	};
+
+	struct SCRawGPS
 	{
 		// 64 bits
 		double eastern;	 // position eastern

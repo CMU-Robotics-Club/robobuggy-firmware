@@ -185,6 +185,8 @@ namespace host_comms
 
 	AlarmStatus alarm_status();
 
+	std::optional<SCRawGPS> sc_gps();
+
 	void send_timestamp(Roundtrip time);
 
 	void sc_send_sensors(SCSensors s);

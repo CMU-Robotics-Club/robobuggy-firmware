@@ -188,6 +188,7 @@ static int64_t SOFT_TIME = 0;
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
 static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, NULLPTR};
+static bool SC_GPS_READ = false;
 
 void poll() {
     static Parser parser = {};
@@ -214,6 +215,8 @@ void poll() {
             int64_t *gps = (SCRawGPS*)&parser.msg_buf[0];
             SC_RAW_GPS = *gps;
             LAST_MESSAGE = millis();
+            SC_GPS_READ = false;
+
         } else {
             Serial.println("Received an unknown packet");
         }
@@ -228,7 +231,6 @@ double steering_angle() {
     return STEERING_MESSAGE.steering_angle;
 }
 
-
 uint32_t ukf_steering_timestamp() {
     return STEERING_MESSAGE.ukf_steering_timestamp;
 }
@@ -241,6 +243,14 @@ int64_t software_time() {
     return SOFT_TIME;
 }
 
+// Since data is only sent from software when the INS gives an update, packets can be stale on firmware's end
+std::optional<SCRawGPS> sc_gps() {
+    if (!SC_GPS_READ)
+        SC_GPS_READ = true;
+        return { SC_RAW_GPS };
+    else
+        return std::nullopt;
+}
 
 
 // TODO: consider changing all the "send packet" functions from pass by value into pass by reference for optimization.

@@ -204,6 +204,8 @@ RateLimit color_print_rate{100};
 elapsedMicros elapsed_loop_micros;
 void loop()
 {
+  elapsed_loop_micros = 0;
+
   /* ================== */
   /* UKF Initialization */
   /* ================== */
@@ -242,58 +244,26 @@ void loop()
     }
     last_predict_timestamp = cur_time;
 
-    elapsedMicros gps_update_elapsed = 0; // timer for timing how long reading from the GPS takes
-    if (auto gps_coord = gps_update())
+    if (std::optional<SCRawGPS> gps_coord = host_comms::sc_gps())
     {
       if (!kalman_init && gps_coord->accuracy < 50.0)
       {
         Serial.println("GPS accuracy OK, initializing filter");
-        filter.curr_state_est(0, 0) = gps_coord->x;
-        filter.curr_state_est(1, 0) = gps_coord->y;
+        filter.curr_state_est(0, 0) = gps_coord->eastern;
+        filter.curr_state_est(1, 0) = gps_coord->northern;
         filter.curr_state_est(2, 0) = -M_PI_2;
         filter.curr_state_est(3, 0) = 0;
 
         kalman_init = true;
       }
 
-      last_gps_data = *gps_coord;
-      fresh_gps_data = true;
-      ++gps_sequence_number;
-
-      gps_time_history.push(gps_update_elapsed);
       if (kalman_init)
       {
         filter.set_gps_noise(gps_coord->accuracy);
-        filter.update_gps(measurement_vector_t{gps_coord->x, gps_coord->y});
-      }
-    }
-    else
-    {
-      int gps_tF = gps_update_elapsed;
-      if (gps_tF >= 5000)
-      {
-        Serial.printf("GPS not resolved: %dms\n", gps_tF);
+        filter.update_gps(measurement_vector_t{gps_coord->eastern, gps_coord->northern});
       }
     }
 
-    // if (gps_pkt_send_rate.ready())
-    // {
-    //   host_comms::NANDRawGPS raw_gps_packet;
-    //   raw_gps_packet.eastern = last_gps_data.x;
-    //   raw_gps_packet.northern = last_gps_data.y;
-    //   raw_gps_packet.accuracy = last_gps_data.accuracy;
-    //   raw_gps_packet.gps_SIV = last_gps_data.gps_SIV;
-    //   raw_gps_packet.gps_seq_num = gps_sequence_number;
-    //   raw_gps_packet.timestamp = millis();
-    //   raw_gps_packet.gps_fix = last_gps_data.gps_fix;
-    //   raw_gps_packet.rtk_fix = last_gps_data.rtk_fix;
-    //   host_comms::nand_send_raw_gps(raw_gps_packet);
-    // }
-
-
-
-
-  elapsed_loop_micros = 0;
 
   /* ================================================ */
   /* Handle RC/autonomous control of steering/braking */
@@ -369,7 +339,7 @@ void loop()
       }
     }
   }
-  // Serial.printf("alarm: %i, connect: %i | ",steering::alarm_triggered(),!rc::connected());
+  
   if ((steering::alarm_triggered() == steering::Status::alarm) || !rc::connected())
   {
     // Blink red really fast, we have lost steering
@@ -377,11 +347,8 @@ void loop()
   }
 
   status_led::set_color(status_color);
-  /*if (color_print_rate.ready())
-  Serial.printf("Red: %x Green %x Blue %x\n",status_color.r, status_color.g, status_color.b);*/
 
   brake::Status brake_command = brake::Status::Stopped;
-  // Serial.printf("operator: %i, alarm: %i\n",rc::operator_ready(),!steering::alarm_triggered());
   if (rc::operator_ready() && !(steering::alarm_triggered() == steering::Status::alarm))
   {
     // Only roll if:

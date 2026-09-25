@@ -24,7 +24,7 @@ enum MessageType : uint16_t {
     SC_DebugInfo = PACK_MSG_TYPE('S','D'),
     SC_Sensors = PACK_MSG_TYPE('S','S'),
     SC_Nand_Pos = PACK_MSG_TYPE('S','R'),
-    SC_UFKPacket = PACK_MSG_TYPE('S','U'),
+    SC_UKFPacket = PACK_MSG_TYPE('S','U'),
     SC_RawGPS = PACK_MSG_TYPE('S','G'),
     Timestamp = PACK_MSG_TYPE('R','T'),
     Soft_Angle = PACK_MSG_TYPE('S','T'),
@@ -187,7 +187,7 @@ static int64_t SOFT_TIME = 0;
 
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
-static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, NULLPTR};
+static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 static bool SC_GPS_READ = false;
 
 void poll() {
@@ -212,8 +212,7 @@ void poll() {
             SOFT_TIME = *st;
             LAST_MESSAGE = millis();
         } else if (parser.msg_type==MessageType::SC_RawGPS){
-            int64_t *gps = (SCRawGPS*)&parser.msg_buf[0];
-            SC_RAW_GPS = *gps;
+            SC_RAW_GPS = *(SCRawGPS*)&parser.msg_buf[0];;
             LAST_MESSAGE = millis();
             SC_GPS_READ = false;
 
@@ -245,10 +244,10 @@ int64_t software_time() {
 
 // Since data is only sent from software when the INS gives an update, packets can be stale on firmware's end
 std::optional<SCRawGPS> sc_gps() {
-    if (!SC_GPS_READ)
+    if (!SC_GPS_READ) {
         SC_GPS_READ = true;
         return { SC_RAW_GPS };
-    else
+    } else
         return std::nullopt;
 }
 

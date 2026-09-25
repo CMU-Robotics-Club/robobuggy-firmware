@@ -1,3 +1,4 @@
+#include <optional>
 #include <Arduino.h>
 
 #define RFM69_CS 10
@@ -11,6 +12,7 @@
 #include "brake.h"
 #include "host_comms.h"
 #include "status_led.h"
+#include "ukf.h"
 
 /* ============= */
 /* Board Config  */
@@ -224,7 +226,7 @@ void loop()
     measurement_cov_matrix_t{
         {0.01, 0.0},
         {0.0, 0.01}},
-    0.01 // Speed noise/variance (m/s)^2, eye-balled from one bag based on 95% -> 2sigma principle, then squared
+    0.00 // value not used since SC does not have an encoder
   );
 
   static bool kalman_init = false;
@@ -244,7 +246,7 @@ void loop()
     }
     last_predict_timestamp = cur_time;
 
-    if (std::optional<SCRawGPS> gps_coord = host_comms::sc_gps())
+    if (std::optional<host_comms::SCRawGPS> gps_coord = host_comms::sc_gps())
     {
       if (!kalman_init && gps_coord->accuracy < 50.0)
       {

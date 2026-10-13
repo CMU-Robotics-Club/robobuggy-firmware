@@ -1,0 +1,133 @@
+semver: 2.8.0
+board: tx12mk2
+calib: 
+   Rud:
+      mid: 1042
+      spanNeg: 598
+      spanPos: 646
+   Ele:
+      mid: 1048
+      spanNeg: 555
+      spanPos: 534
+   Thr:
+      mid: 1007
+      spanNeg: 558
+      spanPos: 710
+   Ail:
+      mid: 1011
+      spanNeg: 698
+      spanPos: 659
+   POT1:
+      mid: 1051
+      spanNeg: 291
+      spanPos: 228
+   POT2:
+      mid: 1038
+      spanNeg: 252
+      spanPos: 272
+currModel: 0
+contrast: 20
+vBatWarn: 66
+txVoltageCalibration: 0
+backlightMode: backlight_mode_all
+antennaMode: MODE_PER_MODEL
+disableRtcWarning: 1
+keysBacklight: 0
+rotEncDirection: 0
+internalModule: TYPE_MULTIMODULE
+trainer: 
+   mix: 
+      0:
+         srcChn: 3
+         mode: REPL
+         studWeight: 100
+      1:
+         srcChn: 1
+         mode: REPL
+         studWeight: 100
+      2:
+         srcChn: 2
+         mode: REPL
+         studWeight: 100
+      3:
+         srcChn: 0
+         mode: REPL
+         studWeight: 100
+view: 2
+fai: 0
+beepMode: mode_all
+alarmsFlash: 0
+disableMemoryWarning: 0
+disableAlarmWarning: 0
+stickMode: 1
+timezone: 0
+adjustRTC: 0
+inactivityTimer: 10
+internalModuleBaudrate: 0
+splashMode: 2
+hapticMode: mode_nokeys
+switchesDelay: 0
+lightAutoOff: 36
+templateSetup: 21
+PPM_Multiplier: 0
+hapticLength: 2
+beepLength: 2
+hapticStrength: 2
+gpsFormat: 0
+speakerPitch: 0
+speakerVolume: 23
+vBatMin: 64
+vBatMax: 84
+backlightBright: 0
+globalTimer: 0
+bluetoothBaudrate: 0
+bluetoothMode: OFF
+countryCode: 0
+pwrOnSpeed: 0
+pwrOffSpeed: 0
+noJitterFilter: 0
+imperial: 0
+disableRssiPoweroffAlarm: 0
+USBMode: 0
+jackMode: 0
+ttsLanguage: "en"
+beepVolume: 2
+wavVolume: 4
+varioVolume: 2
+backgroundVolume: 3
+varioPitch: 0
+varioRange: 0
+varioRepeat: 0
+serialPort: 
+   VCP:
+      mode: CLI
+potsConfig: 
+   POT1:
+      type: with_detent
+      name: ""
+   POT2:
+      type: with_detent
+      name: ""
+backlightColor: 0
+switchConfig: 
+   SA:
+      type: toggle
+      name: ""
+   SB:
+      type: 3pos
+      name: ""
+   SC:
+      type: 3pos
+      name: ""
+   SD:
+      type: toggle
+      name: ""
+   SE:
+      type: 3pos
+      name: ""
+   SF:
+      type: 3pos
+      name: ""
+bluetoothName: ""
+ownerRegistrationID: " 150S3P-"
+uartSampleMode: 0

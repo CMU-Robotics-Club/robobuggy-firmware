@@ -1,0 +1,101 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "C:/Users/delay/Documents/vscode-workspace/robobuggy-firmware/nand_encoder/include",
+                "C:/Users/delay/Documents/vscode-workspace/robobuggy-firmware/nand_encoder/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Wire",
+                "C:/Users/delay/.platformio/packages/framework-cmsis/CMSIS/Core/Include",
+                "C:/Users/delay/.platformio/packages/framework-cmsis-atmel/CMSIS/Device/ATMEL",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB/Adafruit_TinyUSB_ArduinoCore",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB/Adafruit_TinyUSB_ArduinoCore/tinyusb/src",
+                "C:/Users/delay/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/variants/XIAO_m0",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_TinyUSB_Arduino/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_ZeroDMA",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_ZeroDMA/utility",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/EnergySaving/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/FlashStorage/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/HID",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/I2S/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/LoRaWan",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/SPI",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Seeed_Arduino_FreeRTOS/src",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Seeed_Arduino_LCD",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/SoftwareSerial",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/TimerTC3",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/TimerTCC0",
+                "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/USBHost/src",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "C:/Users/delay/Documents/vscode-workspace/robobuggy-firmware/nand_encoder/include",
+                    "C:/Users/delay/Documents/vscode-workspace/robobuggy-firmware/nand_encoder/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Wire",
+                    "C:/Users/delay/.platformio/packages/framework-cmsis/CMSIS/Core/Include",
+                    "C:/Users/delay/.platformio/packages/framework-cmsis-atmel/CMSIS/Device/ATMEL",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB/Adafruit_TinyUSB_ArduinoCore",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/cores/arduino/TinyUSB/Adafruit_TinyUSB_ArduinoCore/tinyusb/src",
+                    "C:/Users/delay/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/variants/XIAO_m0",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_TinyUSB_Arduino/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_ZeroDMA",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Adafruit_ZeroDMA/utility",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/EnergySaving/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/FlashStorage/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/HID",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/I2S/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/LoRaWan",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/SPI",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Seeed_Arduino_FreeRTOS/src",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/Seeed_Arduino_LCD",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/SoftwareSerial",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/TimerTC3",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/TimerTCC0",
+                    "C:/Users/delay/.platformio/packages/framework-arduino-samd-seeed/libraries/USBHost/src",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=60119",
+                "ARDUINO_SAMD_ZERO",
+                "__SAMD21__",
+                "__SAMD21G18A__",
+                "ARM_MATH_CM0PLUS",
+                "SEEED_XIAO_M0",
+                "ARDUINO_SEEED_XIAO_M0",
+                "ARDUINO=10805",
+                "F_CPU=48000000L",
+                "USBCON",
+                "USB_VID=0x2886",
+                "USB_PID=0x802F",
+                "USB_PRODUCT=\"Seeeduino XIAO\"",
+                "USB_MANUFACTURER=\"Seeed\"",
+                "ARDUINO_ARCH_SAMD",
+                "USB_CONFIG_POWER=100",
+                ""
+            ],
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "compilerPath": "C:/Users/delay/.platformio/packages/toolchain-gccarmnoneeabi@1.70201.0/bin/arm-none-eabi-gcc.exe",
+            "compilerArgs": [
+                "-mcpu=cortex-m0plus",
+                "-mthumb",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}

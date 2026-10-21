@@ -203,6 +203,8 @@ RateLimit timing_packet_send_rate{100};
 
 RateLimit color_print_rate{100};
 
+RateLimit ukf_pkt_send_rate{10};
+
 elapsedMicros elapsed_loop_micros;
 void loop()
 {
@@ -265,6 +267,36 @@ void loop()
         filter.update_gps(measurement_vector_t{gps_coord->eastern, gps_coord->northern});
       }
     }
+
+    // send packet with UKF info
+    if (ukf_pkt_send_rate.ready())
+    {
+      host_comms::SCUKF ukf_packet;
+      ukf_packet.eastern = filter.curr_state_est(0, 0);
+      ukf_packet.northern = filter.curr_state_est(1, 0);
+      ukf_packet.heading = filter.curr_state_est(2, 0);
+
+      if (kalman_init)
+      {
+        ukf_packet.eastern_cov = filter.curr_state_cov(0, 0);
+        ukf_packet.northern_cov = filter.curr_state_cov(1, 1);
+        ukf_packet.heading_cov = filter.curr_state_cov(2, 2);
+        ukf_packet.speed_cov = filter.curr_state_cov(3, 3);
+      }
+      else
+      {
+        ukf_packet.eastern_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.northern_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.heading_cov = std::numeric_limits<double>::infinity();
+        ukf_packet.speed_cov = std::numeric_limits<double>::infinity();
+      }
+
+      ukf_packet.heading_rate = heading_rate;
+      ukf_packet.front_speed = filter.curr_state_est(3, 0);
+      ukf_packet.timestamp = (uint32_t)micros();
+      host_comms::sc_send_ukf(ukf_packet);
+    }
+
 
 
   /* ================================================ */

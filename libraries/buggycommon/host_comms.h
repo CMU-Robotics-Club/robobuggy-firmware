@@ -147,6 +147,23 @@ namespace host_comms
 		uint8_t nand_auton;
 	};
 
+	// SW -> FW for stanley
+	struct Point {
+  		double x;  // UTM coordinates
+  		double y;
+  		double heading_tangent;  // radians, 0 = tangent is facing east
+  		double curvature;
+	};
+
+	// SW -> FW
+	// using this for stanley
+	struct PathMsg {
+  		uint64_t num_pts;
+  		uint64_t start_idx; // index of pts[0]
+  		double dist; // arc length distance between points
+  		Point pts[];  // VLA, size = num_pts
+	};
+
 	struct Roundtrip
 	{
 		// 64 bits

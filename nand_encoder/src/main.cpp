@@ -36,7 +36,8 @@
 enum EncoderMessageHeader : uint8_t
 {
   ErrorInfo = 'E',
-  SpeedInfo = 'S'
+  SpeedInfo = 'S',
+  PositionInfo = 'P'
 } header;
 enum Error : uint8_t
 {
@@ -71,6 +72,13 @@ void write_error_packet()
   COMM_SERIAL.write(SYNC_WORD, SYNC_LEN);
   COMM_SERIAL.write(EncoderMessageHeader::ErrorInfo);
   COMM_SERIAL.write(error);
+}
+
+void write_position_packet()
+{
+  COMM_SERIAL.write(SYNC_WORD, SYNC_LEN);
+  COMM_SERIAL.write(EncoderMessageHeader::PositionInfo);
+  COMM_SERIAL.write((byte *)&position, sizeof(position));
 }
 
 void restart_encoder()

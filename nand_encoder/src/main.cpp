@@ -166,6 +166,7 @@ void loop()
 
       Serial.println(filtered_speed);
       write_speed_packet();
+      write_position_packet();
     }
     else
     {

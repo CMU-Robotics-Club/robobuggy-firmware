@@ -45,6 +45,13 @@ namespace encoder
     bool rear_speed(double *s, double steering_angle);
 
     /**
+     * @brief Gets the front wheel position in degrees
+     * @param[in,out] p: The double pointer for the position
+     * @return If the operation was successful
+     */
+    bool position(double *p);
+
+    /**
      * @brief Used for making sure packets are being received 
      * @return How long ago the last packet was received in ms
      */

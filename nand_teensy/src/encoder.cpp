@@ -37,6 +37,7 @@ namespace encoder
   // Filtered speed in degrees/sec
   // Float instead of double since XIAO SAMD doesn't have double precision
   float speed = 0;
+  float position = 0;
   char error = '\0';
 
   /**
@@ -61,6 +62,8 @@ namespace encoder
    * - Payload:
    *     - Speed packet: read 4 bytes into a payload array and then memcpy into
    *       the speed float for a speed packet.
+   *     - Position packet: read 4 bytes into a payload array and then memcpy into
+   *       the position float for a position packet.
    *     - Error packet: check that the error is 'I' for if the XIAO could not
    *       connect to the AS5600 over I2C at all (init error), or 'C' if the
    *       I2C failed after initialization (comm error).
@@ -98,7 +101,7 @@ namespace encoder
         break;
       case State::Header:
         header = (char)byte;
-        if (header == 'S' || header == 'E') // Valid header
+        if (header == 'S' || header == 'E' || header == 'P') // Valid header
           state = State::Payload;
         else // Invalid header, restart state machine
         {
@@ -116,6 +119,18 @@ namespace encoder
             error = '\0';
             header = '\0';
             memcpy(&speed, payload, sizeof(speed));
+            state = State::SyncWord;
+          }
+        }
+        elseif (header == 'P') // Position packet
+        {
+          payload[payload_index++] = byte;
+          if (payload_index == 4) // Payload received, reset state machine
+          {
+            payload_index = 0;
+            error = '\0';
+            header = '\0';
+            memcpy(&position, payload, sizeof(position));
             state = State::SyncWord;
           }
         }
@@ -161,6 +176,14 @@ namespace encoder
       return true;
     }
     return false;
+  }
+
+  bool position(double *p)
+  {
+    if (!(p && error == '\0'))
+      return false;
+    *p = (double)position;
+    return true;
   }
   
   long last_packet()

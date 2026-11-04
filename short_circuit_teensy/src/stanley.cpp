@@ -49,6 +49,9 @@ bool Trajectory::add_point(Point p)
 
 bool add_segment(PathMsg p) 
 {
+  for (int i = 0; i < num_pts; i++){
+    add_point(pts[i]);
+  }
   /*
   struct PathMsg {
   uint64_t num_pts;

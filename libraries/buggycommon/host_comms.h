@@ -164,6 +164,16 @@ namespace host_comms
   		Point pts[];  // VLA, size = num_pts
 	};
 
+	struct StanleyDebug {
+		double error_pose_x;
+		double error_pose_y;
+		double reference_navsat_easting;
+		double reference_navsat_northing;
+		double error_dist;
+		double error_heading;
+		double yaw_rate_error;
+	};
+
 	struct Roundtrip
 	{
 		// 64 bits
@@ -212,4 +222,6 @@ namespace host_comms
 	void sc_send_debug_info(SCDebugInfo info);
 
 	void sc_send_nand_pos(SCRadioRx nand);
+
+	void sc_send_stanley_debug(StanleyDebug debug);
 }

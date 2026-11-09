@@ -229,12 +229,15 @@ void loop()
         {0.01, 0.0},
         {0.0, 0.01}},
     0.00 // value not used since SC does not have an encoder
+    // this is the speed value, where encoder data can be put
+    // can also get from state_to_speed_measurement with input state vector
   );
 
   static bool kalman_init = false;
   static uint32_t last_predict_timestamp; // the timestamp at which the UKF predict step was run most recently
 
   static double heading_rate = 0;
+  // would need to update these for encoder
   static double encoder_speed_m_per_sec = 0;
   static long encoder_last_packet = 0;
   /* ================ */

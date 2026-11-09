@@ -31,6 +31,7 @@ enum MessageType : uint16_t {
     Soft_Alarm = PACK_MSG_TYPE('A','L'),
     Soft_Timestamp = PACK_MSG_TYPE('T','M'),
     Soft_Brake = PACK_MSG_TYPE('B','R')
+    Stanley_Debug = PACK_MSG_TYPE('S','B')
 };
 
 void write_and_checksum(const std::uint8_t *data, std::size_t size, Crc16 &crc) {
@@ -190,6 +191,8 @@ static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 static bool SC_GPS_READ = false;
 
+static PathMsg SC_PATH_MSG = {0, 0, 0, {}};
+
 void poll() {
     static Parser parser = {};
 
@@ -212,10 +215,13 @@ void poll() {
             SOFT_TIME = *st;
             LAST_MESSAGE = millis();
         } else if (parser.msg_type==MessageType::SC_RawGPS){
-            SC_RAW_GPS = *(SCRawGPS*)&parser.msg_buf[0];;
+            SC_RAW_GPS = *(SCRawGPS*)&parser.msg_buf[0];
             LAST_MESSAGE = millis();
             SC_GPS_READ = false;
 
+        } else if (parser.msg_type==MessageType::PathMsg){
+            SC_PATH_MSG = *(PathMsg*)&parser.msg_buf[0];
+            LAST_MESSAGE = millis();
         } else {
             Serial.println("Received an unknown packet");
         }
@@ -240,6 +246,10 @@ AlarmStatus alarm_status() {
 
 int64_t software_time() {
     return SOFT_TIME;
+}
+
+PathMsg path_msg() {
+    return SC_PATH_MSG;
 }
 
 // Since data is only sent from software when the INS gives an update, packets can be stale on firmware's end
@@ -340,6 +350,16 @@ void sc_send_nand_pos(SCRadioRx nand) {
     write_and_checksum(MessageType::SC_Nand_Pos, checksum);
     write_and_checksum((uint16_t)sizeof(nand), checksum);
     write_and_checksum(reinterpret_cast<uint8_t *>(&nand), sizeof(nand), checksum);
+    COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
+}
+
+void sc_send_stanley_debug(StanleyDebug info) {
+    Crc16 checksum = {};
+
+    COMM_SERIAL.write(SYNC_WORD.data(), SYNC_WORD.size());
+    write_and_checksum(MessageType::Stanley_Debug, checksum);
+    write_and_checksum((uint16_t)sizeof(info), checksum);
+    write_and_checksum(reinterpret_cast<uint8_t *>(&info), sizeof(info), checksum);
     COMM_SERIAL.write(reinterpret_cast<uint8_t *>(&checksum.accum), sizeof(checksum.accum));
 }
 }

@@ -315,6 +315,7 @@ void loop()
 
   float rc_ang = rc::steering_angle();
 
+  // set steering in degrees
   float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
   steering::set_goal_angle(steering_command);
 

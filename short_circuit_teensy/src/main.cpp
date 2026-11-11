@@ -13,6 +13,7 @@
 #include "host_comms.h"
 #include "status_led.h"
 #include "ukf.h"
+#include "stanley.h"
 
 /* ============= */
 /* Board Config  */
@@ -47,6 +48,14 @@ static int drawingMemory[LEDS_PER_STRIP * NUM_LED_PINS * BYTES_PER_LED / 4];
 static byte pinList[NUM_LED_PINS] = {STATUS_LED_PIN};
 
 static OctoWS2811 leds = OctoWS2811(LEDS_PER_STRIP, displayMemory, drawingMemory, WS2811_GRB | WS2811_800kHz, NUM_LED_PINS, pinList);
+
+// == STANLEY STUFF ==
+// Short circuit wheelbase, start index 0, don't use yaw rate error
+StanleyController stanley = StanleyController(StanleyController::SC_WHEELBASE, 0, false);
+Trajectory path = Trajectory();
+Pose stanley_pose;
+double steering_command;
+double stanley_steering;
 
 /**
  * @brief The number of stepper steps in one degree.
@@ -315,9 +324,26 @@ void loop()
 
   float rc_ang = rc::steering_angle();
 
+  if (const PathMsg *path_msg = host_comms::path_msg()) {
+    path.add_segment(*path_msg);
+  }
+
   // set steering in degrees
-  float steering_command = rc::use_autonomous_steering() ? host_comms::steering_angle() : rc_ang;
-  steering::set_goal_angle(steering_command);
+  if (rc::use_autonomous_steering()) {
+    stanley_pose.x = filter.curr_state_est(0, 0);
+    stanley_pose.y = filter.curr_state_est(1, 0);
+    stanley_pose.v = filter.curr_state_est(3, 0);
+    stanley_pose.heading = filter.curr_state_est(2, 0);
+    if (auto stanley_out = stanley.compute_control(stanley_pose, path)) {
+      stanley_steering = *stanley_out;
+    } else {
+      Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
+    }
+    steering_command = host_comms::steering_angle(); // or FW stanley_steering
+  } else {
+    steering_command = rc_ang;
+  } 
+  steering::set_goal_angle((float)steering_command);
 
   if (rc::offset_button() && rc::offset_switch())
     steering::update_offset();
@@ -465,6 +491,7 @@ void loop()
     debug_pkt.missed_packets = num_radio_pkts_missed;
     debug_pkt.timestamp = millis();
     host_comms::sc_send_debug_info(debug_pkt);
+    host_comms::sc_send_stanley_debug(stanley.debug());
   }
 
   if (sensor_pkt_send_rate.ready())

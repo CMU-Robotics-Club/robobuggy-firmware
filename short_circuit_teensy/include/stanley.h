@@ -1,7 +1,7 @@
 #pragma once
-
 #include "host_comms.h" // needed for Point and PathMsg
 #include <Arduino.h>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <optional>
@@ -47,9 +47,10 @@ public:
    * @brief Compute the distance to all indexes in the range
    * and get the closest one
    */
-  uint64_t get_closest_index_on_path(double front_x, double front_y,
-                                     uint64_t start_idx,
-                                     uint64_t end_idx);
+  std::optional<double> get_closest_index_on_path(double front_x,
+                                                  double front_y,
+                                                  uint64_t start_idx,
+                                                  uint64_t end_idx);
 
   /**
    * @brief Return the idxth point in the path if it is in range, otherwise
@@ -64,6 +65,11 @@ public:
    */
   size_t add_segment(const PathMsg &p);
 
+  /**
+   * @brief Interpolate point at fractional index (currently LERP)
+   */
+  std::optional<Point> interpolate(double index);
+
 private:
   struct Slot {
     host_comms::Point p;
@@ -71,10 +77,11 @@ private:
     bool valid;
   };
   uint64_t start_idx = 0; // inclusive
-  uint64_t end_idx = 0; // exclusive
+  uint64_t end_idx = 0;   // exclusive
   double spacing = 0;
   static constexpr size_t capacity = 128;
-  std::array<Slot, capacity> buffer = {};
+  static constexpr int REFINE_ITERS = 16;
+  std::array<Slot, capacity> buffer;
 };
 
 /**
@@ -92,9 +99,10 @@ public:
   static constexpr double SC_WHEELBASE = 1.104; // Units meters
   static constexpr double NAND_WHEELBASE = 1.3; // Units meters
 
-  explicit StanleyController(double wheelbase = SC_WHEELBASE,
-                             double start_index = 0,
-                             bool use_heading_rate_error = false);
+  explicit StanleyController(double wheelbase, double start_index,
+                             bool use_heading_rate_error)
+      : wheelbase(wheelbase), use_heading_rate_error(use_heading_rate_error),
+        current_traj_index(start_index) {}
 
   // Returns the steering angle in degrees or std::nullopt if we've run out of
   // path (if this happens, we should just kill ourselves)

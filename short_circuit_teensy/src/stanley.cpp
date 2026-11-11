@@ -4,45 +4,6 @@
 
 #include "stanley.h"
 
-namespace {
-// Canonical to doing (e + pi) % (2pi) - pi in python
-inline double wrap_angle(double a) { return std::remainder(a, 2.0 * M_PI); }
-
-/**
- * @brief Returns reference point at a fractional index, linearly interpolated
- * between the two neighbouring points
- */
-Point interpolate(Trajectory &path, double index) {
-  const int last = path.get_num_points() - 1;
-  int i0 = static_cast<int>(std::floor(index));
-  if (i0 > last - 1)
-    i0 = last - 1;
-  const double a = constrain(index - i0, 0.0, 1.0);
-
-  const Point *p0_ptr = path.get_by_index(i0);
-  const Point *p1_ptr = path.get_by_index(i0 + 1);
-  if (!(p0_ptr && p1_ptr)) {
-    DEBUG_PRINT(
-        "[STANLEY interpolate] ERROR: requested points not on the path");
-    return {};
-  }
-  const Point p0 = *p0_ptr;
-  const Point p1 = *p1_ptr;
-  return {
-      p0.x + a * (p1.x - p0.x),
-      p0.y + a * (p1.y - p0.y),
-      wrap_angle(p0.heading_tangent +
-                 a * wrap_angle(p1.heading_tangent - p0.heading_tangent)),
-      p0.curvature + a * (p1.curvature - p0.curvature),
-  };
-}
-} // namespace
-
-StanleyController::StanleyController(double wheelbase, double start_index,
-                                     bool use_heading_rate_error)
-    : wheelbase(wheelbase), use_heading_rate_error(use_heading_rate_error),
-      current_traj_index(start_index) {}
-
 std::optional<double>
 StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   dbg = {};
@@ -74,35 +35,40 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
 
   // Coarse search, finding nearest buffered point near where we were
   const int cur = static_cast<int>(std::floor(current_traj_index));
-  const size_t nearest = path.get_closest_index_on_path(
+  const auto nearest_opt = path.get_closest_index_on_path(
       front_x, front_y, cur - SEARCH_BEHIND, cur + SEARCH_AHEAD);
+  if (!nearest_opt) return std::nullopt;
 
   // Fine search, project the front axle onto the tangent at the nearest point
-  double traj_index = nearest;
-  const double spacing = path.get_spacing();
+  double traj_index = constrain(*nearest_opt, (double)first, (double)last);
+
+  // interpolation stuff is now done in interpolate fn
+  /*const double spacing = path.get_spacing();
   if (spacing > 0.0) {
     const Point *n_ptr = path.get_by_index(nearest);
     if (!n_ptr) {
       DEBUG_PRINT(
           "[STANLEY compute_control] ERROR: requested a point not on the path");
       return 0;
-    }
+    } 
     const Point n = *n_ptr;
     const double along = (front_x - n.x) * std::cos(n.heading_tangent) +
                          (front_y - n.y) * std::sin(n.heading_tangent);
     traj_index = constrain(nearest + along / spacing, nearest - 1.0, nearest + 1.0);
     traj_index = constrain(traj_index, first, last);
-  }
+  }*/
 
   // Don't go backwards
   if (traj_index > current_traj_index) {
     current_traj_index = traj_index;
   }
 
-  const Point ref = interpolate(path, current_traj_index);
+  const auto ref_opt = path.interpolate(current_traj_index);
+  if (!ref_opt) return std::nullopt;
+  const Point ref = *ref_opt;
 
   // Heading error, using the path heading at the reference index
-  const double error_heading = wrap_angle(ref.heading_tangent - heading);
+  const double error_heading = remainder(ref.heading_tangent - heading, TWO_PI);
 
   // Signed cross-track error, distance from the front axle to the path's
   // tangent line at ref.
@@ -134,7 +100,11 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   const double local_x = dx * cos_h + dy * sin_h;
   const double local_y = -dx * sin_h + dy * cos_h;
 
+  // convert to degrees
+  steering_cmd *= RAD_TO_DEG;
+
   // Fill debug packet
+  dbg.steering_command = steering_cmd;
   dbg.error_pose_x = local_x - wheelbase;
   dbg.error_pose_y = local_y;
   dbg.reference_navsat_easting = ref.x;
@@ -143,6 +113,5 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   dbg.error_heading = error_heading;
   dbg.yaw_rate_error = yaw_rate_error;
 
-  // convert to degrees
-  return steering_cmd * (180.0 / M_PI);
+  return steering_cmd;
 }

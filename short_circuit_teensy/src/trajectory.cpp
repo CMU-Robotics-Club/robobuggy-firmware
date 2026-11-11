@@ -9,41 +9,64 @@
 
 uint64_t Trajectory::get_first_index() { return start_idx; }
 
-size_t Trajectory::get_num_points() { return (end_idx - start_idx) % capacity; }
+size_t Trajectory::get_num_points() { return end_idx - start_idx; }
 
 double Trajectory::get_spacing() { return spacing; }
 
-uint64_t Trajectory::get_closest_index_on_path(double front_x, double front_y,
-                                               uint64_t start_index,
-                                               uint64_t end_index) {
+std::optional<double> Trajectory::get_closest_index_on_path(double fx,
+                                                            double fy,
+                                                            uint64_t lo,
+                                                            uint64_t hi) {
 
-  if (!(start_index <= end_index)) {
+  if (!(lo <= hi)) {
     DEBUG_PRINT("[TRAJECTORY get_closest_index_on_path] ERROR: specified start "
                 "index > end index");
     return 0;
   }
 
-  // loop thru the buffer from start to end
-  // find the point with the min distance
-  // there's probably a nicer way to do this but i have written
-  // it explicitly
-  size_t min_idx;
-  double min_dist = SIZE_MAX;
-  for (size_t i = start_index; i <= end_index; i++) {
-    // find the distance
-    Slot s = buffer[i % capacity];
-    Point p = s.p;
-    if (!(i == s.idx && s.valid)) // skip invalid points
+  if (end_idx == start_idx)
+    return std::nullopt;
+  lo = max(lo, start_idx);
+  hi = min(hi, end_idx - 1);
+
+  // Coarse: find min distance
+  double best_d2 = INFINITY;
+  std::optional<uint64_t> best_vertex;
+  for (uint64_t i = lo; i <= hi; i++) {
+    const Point *p = get_by_index(i);
+    if (!p)
       continue;
-    double distance = sqrt(pow(p.x - front_x, 2) + pow(p.y - front_y, 2));
-    if (distance < min_dist) {
-      min_dist = distance;
-      min_idx = i;
+    const double dx = p->x - fx, dy = p->y - fy;
+    const double d2 = dx * dx + dy * dy;
+    if (d2 < best_d2) {
+      best_d2 = d2;
+      best_vertex = i;
     }
   }
+  if (!best_vertex)
+    return std::nullopt;
+  const uint64_t b = *best_vertex;
 
-  // interpolate between points min_idx-1 and +1 for higher accuracy
-  return min_idx;
+  // Fine: interpolate between b-1 and b+1 for better result
+  auto dist2 = [&](double idx) {
+    const auto p = interpolate(idx);
+    if (!p)
+      return (double)INFINITY;
+    const double dx = p->x - fx, dy = p->y - fy;
+    return dx * dx + dy * dy;
+  };
+
+  double a = (b > 0 && get_by_index(b - 1)) ? (double)(b - 1) : (double)b;
+  double c = get_by_index(b + 1) ? (double)(b + 1) : (double)b;
+  for (int it = 0; it < REFINE_ITERS; it++) {
+    const double m1 = a + (c - a) / 3.0;
+    const double m2 = c - (c - a) / 3.0;
+    if (dist2(m1) < dist2(m2))
+      c = m2;
+    else
+      a = m1;
+  }
+  return 0.5 * (a + c);
 }
 
 const Point *Trajectory::get_by_index(uint64_t idx) {
@@ -57,7 +80,7 @@ const Point *Trajectory::get_by_index(uint64_t idx) {
     DEBUG_PRINT("[TRAJECTORY get_by_index]: ERROR: index in gap");
     return nullptr;
   }
-  return &p;
+  return &s.p;
 }
 
 /**
@@ -77,6 +100,10 @@ size_t Trajectory::add_segment(const PathMsg &p) {
   if (p.num_pts == 0)
     return 0;
 
+  if (end_idx == start_idx) { // empty buffer means reset to beginning
+    start_idx = end_idx = p.start_idx;
+  }
+
   if (p.start_idx < start_idx) {
     DEBUG_PRINT("[TRAJECTORY add_segment] ERROR: Trying to write segment where "
                 "start is before "
@@ -89,21 +116,50 @@ size_t Trajectory::add_segment(const PathMsg &p) {
   // set spacing
   spacing = p.dist;
 
-  // invalidate any gap
-  for (size_t i = end_idx % capacity; i < p.start_idx % capacity; i++) {
-    Slot *s = &buffer[i];
-    s->valid = false;
-  }
-
   // write/overwrite points
+  size_t num_points_written = 0;
   for (size_t i = p.start_idx; i < segment_end; i++) {
-    Slot *s = &buffer[i % capacity];
-    s->p = p.pts[i - p.start_idx];
-    s->valid = true;
-    s->idx = i;
+    Slot &s = buffer[i % capacity];
+    s.p = p.pts[i - p.start_idx];
+    s.valid = true;
+    s.idx = i;
+    num_points_written++;
   }
 
   // update start and end indices
-  end_idx = max(end_idx, segment_end) % capacity; // exclusive
-  start_idx = max(start_idx, end_idx - capacity) % capacity; // inclusive
+  end_idx = max(end_idx, segment_end); // exclusive
+  if (end_idx > capacity)
+    start_idx = max(start_idx, end_idx - capacity); // inclusive
+
+  return num_points_written;
+}
+
+// currently lerp
+std::optional<Point> Trajectory::interpolate(double index) {
+  if (end_idx == start_idx)
+    return std::nullopt;
+  index = constrain(index, (double)start_idx, (double)(end_idx - 1));
+
+  const uint64_t i0 = (uint64_t)std::floor(index);
+  const double a = index - (double)i0;
+
+  const Point *p0 = get_by_index(i0);
+  if (a == 0.0) { // exactly on a vertex: no neighbor needed
+    if (!p0)
+      return std::nullopt;
+    return *p0;
+  }
+  const Point *p1 = get_by_index(i0 + 1);
+  if (!p0 || !p1)
+    return std::nullopt; // gap
+
+  Point pf;
+  pf.x = p0->x + a * (p1->x - p0->x);
+  pf.y = p0->y + a * (p1->y - p0->y);
+  pf.heading_tangent = remainder(
+      p0->heading_tangent +
+          a * remainder(p1->heading_tangent - p0->heading_tangent, 2.0 * M_PI),
+      2.0 * M_PI);
+  pf.curvature = p0->curvature + a * (p1->curvature - p0->curvature);
+  return pf;
 }

@@ -11,23 +11,20 @@ uint64_t Trajectory::get_first_index() { return start_idx; }
 
 size_t Trajectory::get_num_points() { return end_idx - start_idx; }
 
-double Trajectory::get_spacing() { return spacing; }
-
 std::optional<double> Trajectory::get_closest_index_on_path(double fx,
                                                             double fy,
                                                             uint64_t lo,
                                                             uint64_t hi) {
 
-  if (!(lo <= hi)) {
-    DEBUG_PRINT("[TRAJECTORY get_closest_index_on_path] ERROR: specified start "
-                "index > end index");
-    return 0;
-  }
-
   if (end_idx == start_idx)
     return std::nullopt;
   lo = max(lo, start_idx);
   hi = min(hi, end_idx - 1);
+  if (lo > hi) {
+    DEBUG_PRINT("[TRAJECTORY get_closest_index_on_path] ERROR: specified start "
+                "index > end index");
+    return std::nullopt;
+  }
 
   // Coarse: find min distance
   double best_d2 = INFINITY;
@@ -70,16 +67,11 @@ std::optional<double> Trajectory::get_closest_index_on_path(double fx,
 }
 
 const Point *Trajectory::get_by_index(uint64_t idx) {
-  Slot s = buffer[idx % capacity];
-  Point p = s.p;
-  if (!(start_idx <= idx && idx < end_idx)) {
-    DEBUG_PRINT("[TRAJECTORY get_by_index]: ERROR: index not in range");
+  if (idx < start_idx || idx >= end_idx)
     return nullptr;
-  }
-  if (!(idx == s.idx && s.valid)) {
-    DEBUG_PRINT("[TRAJECTORY get_by_index]: ERROR: index in gap");
+  const Slot &s = buffer[idx % capacity];
+  if (!s.valid || s.idx != idx)
     return nullptr;
-  }
   return &s.p;
 }
 
@@ -112,13 +104,10 @@ size_t Trajectory::add_segment(const PathMsg &p) {
   }
 
   uint64_t segment_end = p.start_idx + p.num_pts; // exclusive
-
-  // set spacing
-  spacing = p.dist;
-
+  
   // write/overwrite points
   size_t num_points_written = 0;
-  for (size_t i = p.start_idx; i < segment_end; i++) {
+  for (uint64_t i = p.start_idx; i < segment_end; i++) {
     Slot &s = buffer[i % capacity];
     s.p = p.pts[i - p.start_idx];
     s.valid = true;

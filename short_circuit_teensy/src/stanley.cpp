@@ -20,7 +20,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
     current_traj_index = first;
   }
 
-  const double speed = current_pose.v;
+  const double speed = max(current_pose.v, 0.0); // enforce positive
   const double heading = current_pose.heading;
   const double yaw_rate = 0;       // current_pose.heading_rate;
   const double x = current_pose.x; // Easting
@@ -33,38 +33,25 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   const double front_x = x + wheelbase * cos_h;
   const double front_y = y + wheelbase * sin_h;
 
-  // Coarse search, finding nearest buffered point near where we were
+  // Finding nearest buffered point near where we were
   const int cur = static_cast<int>(std::floor(current_traj_index));
-  const auto nearest_opt = path.get_closest_index_on_path(
-      front_x, front_y, cur - SEARCH_BEHIND, cur + SEARCH_AHEAD);
-  if (!nearest_opt) return std::nullopt;
+  const int lo = max(first, cur - SEARCH_BEHIND);
+  const int hi = min(last, cur + SEARCH_AHEAD);
+  const auto nearest_opt =
+      path.get_closest_index_on_path(front_x, front_y, lo, hi);
+  if (!nearest_opt)
+    return std::nullopt;
 
-  // Fine search, project the front axle onto the tangent at the nearest point
   double traj_index = constrain(*nearest_opt, (double)first, (double)last);
-
-  // interpolation stuff is now done in interpolate fn
-  /*const double spacing = path.get_spacing();
-  if (spacing > 0.0) {
-    const Point *n_ptr = path.get_by_index(nearest);
-    if (!n_ptr) {
-      DEBUG_PRINT(
-          "[STANLEY compute_control] ERROR: requested a point not on the path");
-      return 0;
-    } 
-    const Point n = *n_ptr;
-    const double along = (front_x - n.x) * std::cos(n.heading_tangent) +
-                         (front_y - n.y) * std::sin(n.heading_tangent);
-    traj_index = constrain(nearest + along / spacing, nearest - 1.0, nearest + 1.0);
-    traj_index = constrain(traj_index, first, last);
-  }*/
 
   // Don't go backwards
   if (traj_index > current_traj_index) {
     current_traj_index = traj_index;
   }
-
+  
   const auto ref_opt = path.interpolate(current_traj_index);
-  if (!ref_opt) return std::nullopt;
+  if (!ref_opt)
+    return std::nullopt;
   const Point ref = *ref_opt;
 
   // Heading error, using the path heading at the reference index

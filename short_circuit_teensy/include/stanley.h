@@ -39,11 +39,6 @@ public:
   size_t get_num_points();
 
   /**
-   * @brief Get the latest spacing between points
-   */
-  double get_spacing();
-
-  /**
    * @brief Compute the distance to all indexes in the range
    * and get the closest one
    */
@@ -78,7 +73,6 @@ private:
   };
   uint64_t start_idx = 0; // inclusive
   uint64_t end_idx = 0;   // exclusive
-  double spacing = 0;
   static constexpr size_t capacity = 128;
   static constexpr int REFINE_ITERS = 16;
   std::array<Slot, capacity> buffer;

@@ -56,6 +56,7 @@ Trajectory path = Trajectory();
 Pose stanley_pose;
 double steering_command;
 double stanley_steering;
+host_comms::SCRawGPS raw_gps;
 
 /**
  * @brief The number of stepper steps in one degree.
@@ -262,6 +263,10 @@ void loop()
 
     if (std::optional<host_comms::SCRawGPS> gps_coord = host_comms::sc_gps())
     {
+      raw_gps = *gps_coord;
+      /*Serial.print(gps_coord->eastern);
+      Serial.print(" ");
+      Serial.println(gps_coord->northern);*/
       if (!kalman_init && gps_coord->accuracy < 50.0)
       {
         Serial.println("GPS accuracy OK, initializing filter");
@@ -325,19 +330,31 @@ void loop()
   float rc_ang = rc::steering_angle();
 
   if (const PathMsg *path_msg = host_comms::path_msg()) {
+    Serial.print("[MAIN loop] Running add_segment on a path with ");
+    Serial.print(path_msg->num_pts);
+    Serial.println(" points");
     path.add_segment(*path_msg);
+  } else {
   }
 
   // set steering in degrees
   if (rc::use_autonomous_steering()) {
-    stanley_pose.x = filter.curr_state_est(0, 0);
-    stanley_pose.y = filter.curr_state_est(1, 0);
-    stanley_pose.v = filter.curr_state_est(3, 0);
-    stanley_pose.heading = filter.curr_state_est(2, 0);
+    // ukf isn't working so use ins gps instead of our ukf
+    stanley_pose.x = raw_gps.eastern;
+    stanley_pose.y = raw_gps.northern;
+    stanley_pose.v = raw_gps.velocity;
+    stanley_pose.heading = raw_gps.heading;
+    /*Serial.print(stanley_pose.x);
+    Serial.print(" ");
+    Serial.print(stanley_pose.y);
+    Serial.print(" ");
+    Serial.print(stanley_pose.v);
+    Serial.print(" ");
+    Serial.println(stanley_pose.heading);*/
     if (auto stanley_out = stanley.compute_control(stanley_pose, path)) {
       stanley_steering = *stanley_out;
     } else {
-      Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
+      //Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
     }
     steering_command = host_comms::steering_angle(); // or FW stanley_steering
   } else {

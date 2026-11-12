@@ -13,6 +13,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
 
   // Out of path, you should shoot Rishi if this happens
   if (current_traj_index >= last || last - first < 1) {
+    //Serial.println("ERROR: Out of path");
     return std::nullopt;
   }
   // Path buffer rolled past us, avoid using no
@@ -32,6 +33,11 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   // Front axle position
   const double front_x = x + wheelbase * cos_h;
   const double front_y = y + wheelbase * sin_h;
+  Serial.print(x);
+  Serial.print(" ");
+  Serial.print(wheelbase);
+  Serial.print(" ");
+  Serial.println(cos_h);
 
   // Finding nearest buffered point near where we were
   const int cur = static_cast<int>(std::floor(current_traj_index));
@@ -39,8 +45,16 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   const int hi = min(last, cur + SEARCH_AHEAD);
   const auto nearest_opt =
       path.get_closest_index_on_path(front_x, front_y, lo, hi);
-  if (!nearest_opt)
+  if (!nearest_opt) {
+    /*Serial.print("ERROR: couldn't find closest index. lo=");
+    Serial.print(lo);
+    Serial.print(" hi=");
+    Serial.print(hi);
+    Serial.print(" fx,fy=");
+    Serial.print(front_x);
+    Serial.println(front_y);*/
     return std::nullopt;
+  }
 
   double traj_index = constrain(*nearest_opt, (double)first, (double)last);
 
@@ -50,8 +64,10 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   }
   
   const auto ref_opt = path.interpolate(current_traj_index);
-  if (!ref_opt)
+  if (!ref_opt) {
+    Serial.println("Error: couldn't interpolate");
     return std::nullopt;
+  }
   const Point ref = *ref_opt;
 
   // Heading error, using the path heading at the reference index

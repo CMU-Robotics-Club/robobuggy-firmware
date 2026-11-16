@@ -1,7 +1,9 @@
-#include "host_comms.h"
-#include "crc.h"
 #include <Arduino.h>
 
+#include "host_comms.h"
+#include "crc.h"
+
+#include <cstring>
 #include <array>
 
 #define SYNC_LEN 4
@@ -9,7 +11,7 @@
 #define COMM_SERIAL Serial1
 #define COMM_BAUDRATE 1000000
 
-#define MAX_PAYLOAD_SIZE 100
+#define MAX_PAYLOAD_SIZE 16384
 
 namespace {
 
@@ -30,7 +32,8 @@ enum MessageType : uint16_t {
     Soft_Angle = PACK_MSG_TYPE('S','T'),
     Soft_Alarm = PACK_MSG_TYPE('A','L'),
     Soft_Timestamp = PACK_MSG_TYPE('T','M'),
-    Soft_Brake = PACK_MSG_TYPE('B','R')
+    Soft_Brake = PACK_MSG_TYPE('B','R'),
+    PathMsg = PACK_MSG_TYPE('P', 'M'),
     Stanley_Debug = PACK_MSG_TYPE('S','B')
 };
 
@@ -172,7 +175,7 @@ public:
 
 namespace host_comms {
 
-static uint8_t rxbuf[1024];
+static uint8_t rxbuf[16384];
 
 void init() {
     COMM_SERIAL.begin(COMM_BAUDRATE);
@@ -191,7 +194,10 @@ static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 static bool SC_GPS_READ = false;
 
-static PathMsg SC_PATH_MSG = {0, 0, 0, {}};
+static bool SC_PATH_READ = false;
+static constexpr size_t MAX_PATH_PTS = 50;
+static constexpr size_t PATH_HDR = sizeof(PathMsg);
+alignas(PathMsg) static uint8_t path_rx_buf[PATH_HDR + MAX_PATH_PTS * sizeof(Point)];
 
 void poll() {
     static Parser parser = {};
@@ -218,10 +224,25 @@ void poll() {
             SC_RAW_GPS = *(SCRawGPS*)&parser.msg_buf[0];
             LAST_MESSAGE = millis();
             SC_GPS_READ = false;
-
         } else if (parser.msg_type==MessageType::PathMsg){
-            SC_PATH_MSG = *(PathMsg*)&parser.msg_buf[0];
-            LAST_MESSAGE = millis();
+            Serial.println("Starting PathMsg parsing ");
+            const uint8_t *src = &parser.msg_buf[0];
+            const size_t len = parser.msg_len;
+            if (len >= PATH_HDR) {
+                uint64_t num_pts;
+                memcpy(&num_pts, src + offsetof(PathMsg, num_pts), sizeof(num_pts));
+                if (num_pts <= MAX_PATH_PTS &&
+                    len >= PATH_HDR + num_pts * sizeof(Point)) {
+                    Serial.print("Received PathMsg with ");
+                    Serial.print(num_pts);
+                    Serial.println(" points");
+                    memcpy(path_rx_buf, src, PATH_HDR + num_pts * sizeof(Point));
+                    LAST_MESSAGE = millis();
+                    SC_PATH_READ = false;
+                } else {
+                    Serial.println("[HOST COMMS poll] ERROR: received malformed PathMsg packet");
+                }
+            }
         } else {
             Serial.println("Received an unknown packet");
         }
@@ -248,8 +269,10 @@ int64_t software_time() {
     return SOFT_TIME;
 }
 
-PathMsg path_msg() {
-    return SC_PATH_MSG;
+const PathMsg *path_msg() {
+    if (SC_PATH_READ) return nullptr;
+    SC_PATH_READ = true;
+    return reinterpret_cast<const PathMsg *>(path_rx_buf);
 }
 
 // Since data is only sent from software when the INS gives an update, packets can be stale on firmware's end

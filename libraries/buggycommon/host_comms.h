@@ -87,6 +87,9 @@ namespace host_comms
 		double eastern;	 // position eastern
 		double northern; // position northern
 		double accuracy; // accuracy of gps position
+		double velocity;  // vx, m/s
+		double heading;   // 0 is east, rad
+		double heading_rate; // rad/sec
 		// 32 bits
 		int gps_seq_num; // gps seqence number
 		int timestamp;	 // teensy timestamp
@@ -164,7 +167,9 @@ namespace host_comms
   		Point pts[];  // VLA, size = num_pts
 	};
 
+	// FW -> SW
 	struct StanleyDebug {
+		double steering_command;
 		double error_pose_x;
 		double error_pose_y;
 		double reference_navsat_easting;
@@ -214,6 +219,8 @@ namespace host_comms
 	AlarmStatus alarm_status();
 
 	std::optional<SCRawGPS> sc_gps();
+
+	const PathMsg *path_msg();
 
 	void send_timestamp(Roundtrip time);
 

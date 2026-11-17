@@ -55,6 +55,7 @@ std::optional<double> Trajectory::get_closest_index_on_path(double fx,
     return dx * dx + dy * dy;
   };
 
+  // Close the search window
   double a = (b > 0 && get_by_index(b - 1)) ? (double)(b - 1) : (double)b;
   double c = get_by_index(b + 1) ? (double)(b + 1) : (double)b;
   for (int it = 0; it < REFINE_ITERS; it++) {

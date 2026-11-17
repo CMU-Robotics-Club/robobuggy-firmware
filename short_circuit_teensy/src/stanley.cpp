@@ -13,7 +13,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
 
   // Out of path, you should shoot Rishi if this happens
   if (current_traj_index >= last || last - first < 1) {
-    //Serial.println("ERROR: Out of path");
+    DEBUG_PRINT("[stanley.cpp] ERROR: Out of path");
     return std::nullopt;
   }
   // Path buffer rolled past us, avoid using no
@@ -33,11 +33,6 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   // Front axle position
   const double front_x = x + wheelbase * cos_h;
   const double front_y = y + wheelbase * sin_h;
-  /*Serial.print(x);
-  Serial.print(" ");
-  Serial.print(wheelbase);
-  Serial.print(" ");
-  Serial.println(cos_h);*/
 
   // Finding nearest buffered point near where we were
   const int cur = static_cast<int>(std::floor(current_traj_index));
@@ -45,18 +40,13 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   const int hi = min(last, cur + SEARCH_AHEAD);
   const auto nearest_opt =
       path.get_closest_index_on_path(front_x, front_y, lo, hi);
-  /*Serial.print(lo);
-    Serial.print(" hi=");
-    Serial.print(hi);
-    Serial.print(" fx,fy=");
-    Serial.print(front_x);
-    Serial.println(front_y);*/
+
   if (!nearest_opt) {
-    Serial.print("ERROR: couldn't find closest index. lo=");
+    DEBUG_PRINT("[stanley.cpp] ERROR: couldn't find closest index.");
     return std::nullopt;
   }
 
-  double traj_index = *nearest_opt;//constrain(*nearest_opt, (double)first, (double)last);
+  double traj_index = *nearest_opt;
 
   // Don't go backwards
   if (traj_index > current_traj_index) {
@@ -65,7 +55,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   
   const auto ref_opt = path.interpolate(current_traj_index);
   if (!ref_opt) {
-    Serial.println("Error: couldn't interpolate");
+    DEBUG_PRINT("[stanley.cpp] ERROR: couldn't interpolate");
     return std::nullopt;
   }
   const Point ref = *ref_opt;
@@ -94,7 +84,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   if (use_heading_rate_error) {
     steering_cmd += yaw_correction;
   }
-  //steering_cmd = constrain(steering_cmd, -MAX_STEER, MAX_STEER); // radians
+  steering_cmd = constrain(steering_cmd, -MAX_STEER, MAX_STEER); // radians
 
   // error_pose: ref point in the buggy frame (x along heading, y = lateral),
   // then shifted back to the rear wheel
@@ -116,6 +106,5 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   dbg.error_heading = error_heading;
   dbg.yaw_rate_error = yaw_rate_error;
 
-  Serial.printf("buffer from %d to %d, traj=%f, index=%f, steering = %f\n", first, last, traj_index, current_traj_index, steering_cmd);
   return steering_cmd;
 }

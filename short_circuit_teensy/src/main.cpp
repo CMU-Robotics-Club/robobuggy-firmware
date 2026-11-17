@@ -264,9 +264,6 @@ void loop()
     if (std::optional<host_comms::SCRawGPS> gps_coord = host_comms::sc_gps())
     {
       raw_gps = *gps_coord;
-      /*Serial.print(gps_coord->eastern);
-      Serial.print(" ");
-      Serial.println(gps_coord->northern);*/
       if (!kalman_init && gps_coord->accuracy < 50.0)
       {
         Serial.println("GPS accuracy OK, initializing filter");
@@ -329,37 +326,28 @@ void loop()
 
   float rc_ang = rc::steering_angle();
 
+  // == NEW CONTROL STACK 2026 (FIRMWARE STANLEY) ==
+
   if (const PathMsg *path_msg = host_comms::path_msg()) {
-    Serial.print("[MAIN loop] Running add_segment on a path with ");
-    Serial.print(path_msg->num_pts);
-    Serial.println(" points");
+    // Serial.printf("[MAIN loop] Running add_segment on a PathMsg with %d points\n", path_msg->num_pts);
     path.add_segment(*path_msg);
   }
 
+  // ukf isn't working so use ins gps instead of our ukf
   stanley_pose.x = raw_gps.eastern;
   stanley_pose.y = raw_gps.northern;
   stanley_pose.v = raw_gps.velocity;
   stanley_pose.heading = raw_gps.heading;
-  /*Serial.print(stanley_pose.x);
-  Serial.print(" ");
-  Serial.print(stanley_pose.y);
-  Serial.print(" ");
-  Serial.print(stanley_pose.v);
-  Serial.print(" ");
-  Serial.println(stanley_pose.heading);*/
+
   if (auto stanley_out = stanley.compute_control(stanley_pose, path)) {
     stanley_steering = *stanley_out;
   } else {
-    //Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
+    // Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
   }
 
   // set steering in degrees
-  if (rc::use_autonomous_steering()) {
-    // ukf isn't working so use ins gps instead of our ukf
-    steering_command = constrain(stanley_steering, -20, 20);//host_comms::steering_angle(); // or FW stanley_steering
-  } else {
-    steering_command = rc_ang;
-  } 
+  steering_command = rc::use_autonomous_steering() ? stanley_steering : rc_ang;
+  // or host_comms::steering_angle();
   steering::set_goal_angle((float)steering_command);
 
   if (rc::offset_button() && rc::offset_switch())

@@ -334,29 +334,29 @@ void loop()
     Serial.print(path_msg->num_pts);
     Serial.println(" points");
     path.add_segment(*path_msg);
+  }
+
+  stanley_pose.x = raw_gps.eastern;
+  stanley_pose.y = raw_gps.northern;
+  stanley_pose.v = raw_gps.velocity;
+  stanley_pose.heading = raw_gps.heading;
+  /*Serial.print(stanley_pose.x);
+  Serial.print(" ");
+  Serial.print(stanley_pose.y);
+  Serial.print(" ");
+  Serial.print(stanley_pose.v);
+  Serial.print(" ");
+  Serial.println(stanley_pose.heading);*/
+  if (auto stanley_out = stanley.compute_control(stanley_pose, path)) {
+    stanley_steering = *stanley_out;
   } else {
+    //Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
   }
 
   // set steering in degrees
   if (rc::use_autonomous_steering()) {
     // ukf isn't working so use ins gps instead of our ukf
-    stanley_pose.x = raw_gps.eastern;
-    stanley_pose.y = raw_gps.northern;
-    stanley_pose.v = raw_gps.velocity;
-    stanley_pose.heading = raw_gps.heading;
-    /*Serial.print(stanley_pose.x);
-    Serial.print(" ");
-    Serial.print(stanley_pose.y);
-    Serial.print(" ");
-    Serial.print(stanley_pose.v);
-    Serial.print(" ");
-    Serial.println(stanley_pose.heading);*/
-    if (auto stanley_out = stanley.compute_control(stanley_pose, path)) {
-      stanley_steering = *stanley_out;
-    } else {
-      //Serial.println("[MAIN loop] ERROR: stanley_out is nullopt");
-    }
-    steering_command = host_comms::steering_angle(); // or FW stanley_steering
+    steering_command = constrain(stanley_steering, -20, 20);//host_comms::steering_angle(); // or FW stanley_steering
   } else {
     steering_command = rc_ang;
   } 

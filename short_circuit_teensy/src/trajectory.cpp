@@ -40,8 +40,10 @@ std::optional<double> Trajectory::get_closest_index_on_path(double fx,
       best_vertex = i;
     }
   }
-  if (!best_vertex)
+  if (!best_vertex) {
+    DEBUG_PRINT("[TRAJECTORY get_closest_index_on_path] couldn't find a best vertex");
     return std::nullopt;
+  }
   const uint64_t b = *best_vertex;
 
   // Fine: interpolate between b-1 and b+1 for better result

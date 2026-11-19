@@ -59,7 +59,7 @@ public:
    *
    * Some math is involved to go from "accuracy" provided (circular error probable) to covariance matrix.
    *
-   * @param accuracy Horizontal accuracy reading from the ZED-F9P, in millimeters.
+   * @param accuracy Horizontal accuracy from the NUC's SCRawGPS packet, in meters.
    */
   void set_gps_noise(double accuracy);
 

@@ -174,9 +174,6 @@ speed_t UKF::state_to_speed_measurement(state_vector_t state)
 
 void UKF::set_gps_noise(double accuracy)
 {
-  // Convert mm to m
-  accuracy /= 1000.0;
-
   double sigma = (accuracy * (0.848867684498)) * (accuracy * (0.848867684498));
   this->gps_noise = measurement_cov_matrix_t{{sigma, 0}, {0, sigma}};
 }

@@ -265,13 +265,18 @@ void loop()
     {
       raw_gps = *gps_coord;
       const bool gps_noise_valid = gps_coord->accuracy > 0.0;
-      if (!kalman_init && gps_noise_valid && gps_coord->accuracy < 50.0)
+      // accuracy is in meters (NUC sends the INS horizontal accuracy)
+      constexpr double UKF_INIT_MAX_ACCURACY_M = 1.0;
+      // Start from the INS heading and speed: from a fixed guess more than ~90 deg off,
+      // the filter settles on the mirrored solution (heading + pi, negative speed).
+      if (!kalman_init && gps_noise_valid && gps_coord->accuracy < UKF_INIT_MAX_ACCURACY_M &&
+          std::isfinite(gps_coord->heading) && std::isfinite(gps_coord->velocity))
       {
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->eastern;
         filter.curr_state_est(1, 0) = gps_coord->northern;
-        filter.curr_state_est(2, 0) = -M_PI_2;
-        filter.curr_state_est(3, 0) = 0;
+        filter.curr_state_est(2, 0) = gps_coord->heading;
+        filter.curr_state_est(3, 0) = gps_coord->velocity;
 
         kalman_init = true;
       }

@@ -264,7 +264,8 @@ void loop()
     if (std::optional<host_comms::SCRawGPS> gps_coord = host_comms::sc_gps())
     {
       raw_gps = *gps_coord;
-      if (!kalman_init && gps_coord->accuracy < 50.0)
+      const bool gps_noise_valid = gps_coord->accuracy > 0.0;
+      if (!kalman_init && gps_noise_valid && gps_coord->accuracy < 50.0)
       {
         Serial.println("GPS accuracy OK, initializing filter");
         filter.curr_state_est(0, 0) = gps_coord->eastern;
@@ -275,7 +276,7 @@ void loop()
         kalman_init = true;
       }
 
-      if (kalman_init)
+      if (kalman_init && gps_noise_valid)
       {
         filter.set_gps_noise(gps_coord->accuracy);
         filter.update_gps(measurement_vector_t{gps_coord->eastern, gps_coord->northern});

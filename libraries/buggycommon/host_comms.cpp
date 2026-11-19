@@ -192,7 +192,8 @@ static int64_t SOFT_TIME = 0;
 static AlarmStatus ALARM_STATUS = AlarmStatus::Ok;
 
 static SCRawGPS SC_RAW_GPS = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-static bool SC_GPS_READ = false;
+
+static bool SC_GPS_READ = true;
 
 static bool SC_PATH_READ = false;
 static constexpr size_t MAX_PATH_PTS = 50;
@@ -221,9 +222,16 @@ void poll() {
             SOFT_TIME = *st;
             LAST_MESSAGE = millis();
         } else if (parser.msg_type==MessageType::SC_RawGPS){
-            SC_RAW_GPS = *(SCRawGPS*)&parser.msg_buf[0];
-            LAST_MESSAGE = millis();
-            SC_GPS_READ = false;
+            // A size mismatch means software and firmware disagree on the struct layout;
+            // decoding it anyway silently reads garbage into heading/velocity.
+            if (parser.msg_len == sizeof(SCRawGPS)) {
+                memcpy(&SC_RAW_GPS, &parser.msg_buf[0], sizeof(SCRawGPS));
+                LAST_MESSAGE = millis();
+                SC_GPS_READ = false;
+            } else {
+                Serial.printf("[HOST COMMS poll] ERROR: SCRawGPS is %u bytes, expected %u\n",
+                              (unsigned)parser.msg_len, (unsigned)sizeof(SCRawGPS));
+            }
         } else if (parser.msg_type==MessageType::PathMsg){
             Serial.println("Starting PathMsg parsing ");
             const uint8_t *src = &parser.msg_buf[0];

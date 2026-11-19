@@ -126,32 +126,62 @@ size_t Trajectory::add_segment(const PathMsg &p) {
   return num_points_written;
 }
 
-// currently lerp
-std::optional<Point> Trajectory::interpolate(double index) {
+std::optional<PathSample> Trajectory::interpolate(double index) {
   if (end_idx == start_idx)
     return std::nullopt;
   index = constrain(index, (double)start_idx, (double)(end_idx - 1));
 
-  const uint64_t i0 = (uint64_t)std::floor(index);
-  const double a = index - (double)i0;
+  uint64_t i0 = (uint64_t)std::floor(index);
+  double t = index - (double)i0;
+  // On the last point there is no segment after it, use the one before, at t = 1
+  if (t == 0.0 && i0 > start_idx && !get_by_index(i0 + 1)) {
+    i0 -= 1;
+    t = 1.0;
+  }
 
   const Point *p0 = get_by_index(i0);
-  if (a == 0.0) { // exactly on a vertex: no neighbor needed
-    if (!p0)
-      return std::nullopt;
-    return *p0;
-  }
   const Point *p1 = get_by_index(i0 + 1);
   if (!p0 || !p1)
-    return std::nullopt; // gap
+    return std::nullopt; // gap, or a single point
 
-  Point pf;
-  pf.x = p0->x + a * (p1->x - p0->x);
-  pf.y = p0->y + a * (p1->y - p0->y);
-  pf.heading_tangent = remainder(
-      p0->heading_tangent +
-          a * remainder(p1->heading_tangent - p0->heading_tangent, 2.0 * M_PI),
-      2.0 * M_PI);
-  pf.curvature = p0->curvature + a * (p1->curvature - p0->curvature);
-  return pf;
+  // Relative to p0
+  const double dx = p1->x - p0->x;
+  const double dy = p1->y - p0->y;
+  const double chord = std::hypot(dx, dy);
+  auto tangent = [&](const Point &p, double &mx, double &my) {
+    const double n = std::hypot(p.vx, p.vy);
+    if (n > 0.0) {
+      mx = p.vx / n * chord;
+      my = p.vy / n * chord;
+    } else {
+      mx = dx;
+      my = dy;
+    }
+  };
+  double m0x, m0y, m1x, m1y;
+  tangent(*p0, m0x, m0y);
+  tangent(*p1, m1x, m1y);
+
+  const double t2 = t * t, t3 = t2 * t;
+  const double h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+  const double d10 = 3 * t2 - 4 * t + 1, d01 = -6 * t2 + 6 * t, d11 = 3 * t2 - 2 * t;
+  const double dd10 = 6 * t - 4, dd01 = -12 * t + 6, dd11 = 6 * t - 2;
+
+  const double xp = d10 * m0x + d01 * dx + d11 * m1x;
+  const double yp = d10 * m0y + d01 * dy + d11 * m1y;
+  const double xpp = dd10 * m0x + dd01 * dx + dd11 * m1x;
+  const double ypp = dd10 * m0y + dd01 * dy + dd11 * m1y;
+  const double speed2 = xp * xp + yp * yp;
+
+  PathSample s;
+  s.x = p0->x + h10 * m0x + h01 * dx + h11 * m1x;
+  s.y = p0->y + h10 * m0y + h01 * dy + h11 * m1y;
+  if (speed2 > 0.0) {
+    s.heading = std::atan2(yp, xp);
+    s.curvature = (xp * ypp - yp * xpp) / (speed2 * std::sqrt(speed2));
+  } else {
+    s.heading = std::atan2(p0->vy, p0->vx);
+    s.curvature = 0.0;
+  }
+  return s;
 }

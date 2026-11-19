@@ -58,15 +58,15 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
     DEBUG_PRINT("[stanley.cpp] ERROR: couldn't interpolate");
     return std::nullopt;
   }
-  const Point ref = *ref_opt;
+  const PathSample ref = *ref_opt;
 
   // Heading error, using the path heading at the reference index
-  const double error_heading = remainder(ref.heading_tangent - heading, TWO_PI);
+  const double error_heading = remainder(ref.heading - heading, TWO_PI);
 
   // Signed cross-track error, distance from the front axle to the path's
   // tangent line at ref.
-  const double tan_x = std::cos(ref.heading_tangent);
-  const double tan_y = std::sin(ref.heading_tangent);
+  const double tan_x = std::cos(ref.heading);
+  const double tan_y = std::sin(ref.heading);
   const double error_dist =
       (front_x - ref.x) * tan_y - (front_y - ref.y) * tan_x;
 
@@ -79,7 +79,7 @@ StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   const double yaw_rate_error = r_traj - yaw_rate;
   const double yaw_correction = K_D_YAW * yaw_rate_error;
 
-  // Steering command
+  // Steering commandid t
   double steering_cmd = error_heading + cross_track_component;
   if (use_heading_rate_error) {
     steering_cmd += yaw_correction;

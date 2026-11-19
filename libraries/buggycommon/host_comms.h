@@ -86,7 +86,7 @@ namespace host_comms
 		// 64 bits
 		double eastern;	 // position eastern
 		double northern; // position northern
-		double accuracy; // accuracy of gps position
+		double accuracy; // horizontal accuracy of gps position, meters
 		double velocity;  // vx, m/s
 		double heading;   // 0 is east, rad
 		double heading_rate; // rad/sec
@@ -154,8 +154,8 @@ namespace host_comms
 	struct Point {
   		double x;  // UTM coordinates
   		double y;
-  		double heading_tangent;  // radians, 0 = tangent is facing east
-  		double curvature;
+  		double vx;
+  		double vy;
 	};
 
 	// SW -> FW

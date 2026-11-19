@@ -23,6 +23,14 @@ struct Pose {
                   // 0 = tangent line is facing east.
 };
 
+// Point on the path evaluated between buffered points
+struct PathSample {
+  double x;         // UTM easting
+  double y;         // UTM northing
+  double heading;   // tangent direction, radians, 0 = east, CCW positive
+  double curvature; // 1/m, positive turning left (CCW)
+};
+
 /**
  * @brief Trajectory class handles path buffer for Stanley
  */
@@ -61,9 +69,10 @@ public:
   size_t add_segment(const PathMsg &p);
 
   /**
-   * @brief Interpolate point at fractional index (currently LERP)
+   * @brief Evaluate the path at a fractional index with a cubic Hermite spline
+   * through the buffered points and their tangents (vx, vy)
    */
-  std::optional<Point> interpolate(double index);
+  std::optional<PathSample> interpolate(double index);
 
 private:
   struct Slot {

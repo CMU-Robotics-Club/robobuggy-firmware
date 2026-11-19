@@ -95,7 +95,13 @@ size_t Trajectory::add_segment(const PathMsg &p) {
   if (p.num_pts == 0)
     return 0;
 
-  if (end_idx == start_idx) { // empty buffer means reset to beginning
+  // Software has blessed us with a new path
+  if (p.path_id != path_id) {
+    for (Slot &s : buffer)
+      s.valid = false;
+    path_id = p.path_id;
+    start_idx = end_idx = p.start_idx;
+  } else if (end_idx == start_idx) { // empty buffer means reset to beginning
     start_idx = end_idx = p.start_idx;
   }
 

@@ -152,7 +152,6 @@ namespace host_comms
 
 	// SW -> FW for stanley
 	struct Point {
-		uint64_t path_id; //unique path id per run
   		double x;  // UTM coordinates
   		double y;
   		double vx;
@@ -162,6 +161,7 @@ namespace host_comms
 	// SW -> FW
 	// using this for stanley
 	struct PathMsg {
+  		uint64_t path_id; // changes when software starts a new path
   		uint64_t num_pts;
   		uint64_t start_idx; // index of pts[0]
   		double dist; // arc length distance between points

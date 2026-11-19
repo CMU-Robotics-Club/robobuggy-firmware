@@ -8,6 +8,12 @@ std::optional<double>
 StanleyController::compute_control(const Pose &current_pose, Trajectory &path) {
   dbg = {};
 
+  // New path. reset stanley
+  if (path.get_path_id() != path_id) {
+    path_id = path.get_path_id();
+    current_traj_index = path.get_first_index();
+  }
+
   const int first = path.get_first_index();
   const int last = first + path.get_num_points() - 1;
 

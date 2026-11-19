@@ -62,11 +62,17 @@ public:
   const Point *get_by_index(uint64_t idx);
 
   /**
-   * @brief Write (or overwrite) a path segment in the buffer
+   * @brief Write (or overwrite) a path segment in the buffer. A segment with a
+   * different path_id than the buffered path discards the buffer first.
    * Returns the number of points written,
    * which is <= the number of points in the PathMsg
    */
   size_t add_segment(const PathMsg &p);
+
+  /**
+   * @brief Id of the buffered path, nullopt before the first segment
+   */
+  std::optional<uint64_t> get_path_id() const { return path_id; }
 
   /**
    * @brief Evaluate the path at a fractional index with a cubic Hermite spline
@@ -82,6 +88,7 @@ private:
   };
   uint64_t start_idx = 0; // inclusive
   uint64_t end_idx = 0;   // exclusive
+  std::optional<uint64_t> path_id;
   static constexpr size_t capacity = 128;
   static constexpr int REFINE_ITERS = 16;
   std::array<Slot, capacity> buffer;
@@ -129,5 +136,6 @@ private:
   const double wheelbase;
   const bool use_heading_rate_error;
   double current_traj_index; // fractional absolute index
+  std::optional<uint64_t> path_id; // path current_traj_index refers to
   StanleyDebug dbg{};
 };

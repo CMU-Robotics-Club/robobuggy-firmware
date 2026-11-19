@@ -152,6 +152,7 @@ namespace host_comms
 
 	// SW -> FW for stanley
 	struct Point {
+		uint64_t path_id; //unique path id per run
   		double x;  // UTM coordinates
   		double y;
   		double vx;
